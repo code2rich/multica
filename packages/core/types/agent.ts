@@ -390,6 +390,12 @@ export interface Agent {
    * (MUL-2339).
    */
   thinking_level?: string;
+  /**
+   * Agent persona / profile HTML (from an agentwaker role import or a manual
+   * upload). Rendered in a sandboxed iframe on the agent detail page.
+   * `null` / `undefined` = no profile configured.
+   */
+  profile_html?: string | null;
   owner_id: string | null;
   skills: AgentSkillSummary[];
   created_at: string;
@@ -443,6 +449,8 @@ export interface CreateAgentRequest {
   model?: string;
   /** Optional runtime-native reasoning/effort token. See `Agent.thinking_level`. */
   thinking_level?: string;
+  /** Agent persona HTML — see `Agent.profile_html`. */
+  profile_html?: string;
   /** Optional template slug used by the onboarding agent picker. Surfaced
    *  as the `template` property on the `agent_created` PostHog event. */
   template?: string;
@@ -589,6 +597,13 @@ export interface UpdateAgentRequest {
    *     runtime's provider enum, rejected with 400 if not recognised
    */
   thinking_level?: string;
+  /**
+   * Agent persona HTML. Tri-state, same pattern as `mcp_config`:
+   *   - field omitted → no change
+   *   - `null` → clear the column
+   *   - string → replace the stored HTML
+   */
+  profile_html?: string | null;
 }
 
 /**

@@ -213,6 +213,7 @@
     "composio_mcp": "MCP 应用",
     "integrations": "集成",
     "runtime_config": "路由",
+    "profile": "画像",
     "discard_dialog_title": "放弃未保存的修改？",
     "discard_dialog_description": "当前 tab 有未保存的修改，离开会丢弃这些修改。",
     "discard_keep": "继续编辑",
@@ -398,6 +399,19 @@
       "tls_hint": "用 https:// 代替 http:// 连接",
       "saved_toast": "路由配置已保存",
       "save_failed_toast": "保存路由配置失败"
+    },
+    "profile": {
+      "intro": "智能体画像卡片，由 HTML 渲染。从 agentwaker 角色目录导入或手动上传。预览在沙盒 iframe 中运行。",
+      "upload_button": "上传 HTML",
+      "clear_action": "清除",
+      "preview_mode": "预览",
+      "edit_mode": "编辑",
+      "placeholder": "粘贴或上传 HTML…",
+      "empty_hint": "暂无画像 HTML。上传一个 HTML 文件或在编辑模式下粘贴内容。",
+      "preview_aria": "智能体画像预览",
+      "saved_toast": "画像已保存",
+      "save_failed_toast": "保存画像失败",
+      "upload_failed_toast": "读取 HTML 文件失败"
     },
     "skills": {
       "intro": "分配给该智能体的工作区 skill。本地运行时 skill 会自动可用。",

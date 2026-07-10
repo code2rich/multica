@@ -21,13 +21,14 @@ INSERT INTO agent (
     workspace_id, name, description, avatar_url, runtime_mode,
     runtime_config, runtime_id, visibility, max_concurrent_tasks, owner_id,
     instructions, custom_env, custom_args, mcp_config, model, thinking_level,
-    composio_toolkit_allowlist, permission_mode
+    composio_toolkit_allowlist, permission_mode, profile_html
 ) VALUES (
     $1, $2, $3, $4, $5,
     $6, $7, $8, $9, $10,
     $11, $12, $13, $14, $15, $16,
     sqlc.narg('composio_toolkit_allowlist')::text[],
-    COALESCE(sqlc.narg('permission_mode'), 'private')
+    COALESCE(sqlc.narg('permission_mode'), 'private'),
+    sqlc.narg('profile_html')
 )
 RETURNING *;
 
@@ -56,6 +57,7 @@ UPDATE agent SET
     model = COALESCE(sqlc.narg('model'), model),
     thinking_level = COALESCE(sqlc.narg('thinking_level'), thinking_level),
     composio_toolkit_allowlist = COALESCE(sqlc.narg('composio_toolkit_allowlist')::text[], composio_toolkit_allowlist),
+    profile_html = COALESCE(sqlc.narg('profile_html'), profile_html),
     updated_at = now()
 WHERE id = $1
 RETURNING *;
@@ -81,6 +83,14 @@ RETURNING *;
 
 -- name: ClearAgentMcpConfig :one
 UPDATE agent SET mcp_config = NULL, updated_at = now()
+WHERE id = $1
+RETURNING *;
+
+-- name: ClearAgentProfileHTML :one
+-- Explicit NULL-clear for profile_html. COALESCE-based UpdateAgent cannot
+-- set the column back to NULL, so the API layer routes "user cleared the
+-- profile" through this dedicated query.
+UPDATE agent SET profile_html = NULL, updated_at = now()
 WHERE id = $1
 RETURNING *;
 

@@ -683,6 +683,7 @@ function ImportAgentForm({
           runtime_id: selectedRuntime.id,
           model: model.trim() || undefined,
           mcp_config: importData.mcpConfig ?? null,
+          profile_html: importData.profileHtml || null,
         };
         agent = await api.updateAgent(existingAgent.id, updateData);
         if (hasEnv) {
@@ -715,6 +716,7 @@ function ImportAgentForm({
             model: model.trim() || undefined,
             custom_env: hasEnv ? importData.customEnv : undefined,
             mcp_config: importData.mcpConfig ?? undefined,
+            profile_html: importData.profileHtml || undefined,
             visibility: "workspace",
           });
           agent = created as Agent;
@@ -740,6 +742,7 @@ function ImportAgentForm({
               runtime_id: selectedRuntime.id,
               model: model.trim() || undefined,
               mcp_config: importData.mcpConfig ?? null,
+              profile_html: importData.profileHtml || null,
             });
             if (hasEnv) {
               try {

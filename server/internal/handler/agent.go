@@ -71,6 +71,10 @@ type AgentResponse struct {
 	// for this agent (empty = use runtime default). The picker is per-runtime
 	// per-model; the API never normalizes across providers. See MUL-2339.
 	ThinkingLevel string `json:"thinking_level"`
+	// ProfileHTML is the agent-persona.html content (from an agentwaker role
+	// import or a manual upload). Rendered in a sandboxed iframe on the agent
+	// detail page. NULL/empty = no profile configured.
+	ProfileHTML *string `json:"profile_html"`
 	// ComposioToolkitAllowlist is the subset of Composio toolkit slugs this
 	// agent is allowed to mount as MCP at task dispatch — for ANY run that
 	// passes the agent's invocation permission, using the agent OWNER's
@@ -170,6 +174,7 @@ func agentToResponse(a db.Agent) AgentResponse {
 		MaxConcurrentTasks:       a.MaxConcurrentTasks,
 		Model:                    a.Model.String,
 		ThinkingLevel:            a.ThinkingLevel.String,
+		ProfileHTML:              textToPtr(a.ProfileHtml),
 		ComposioToolkitAllowlist: composioAllowlist,
 		OwnerID:                  uuidToPtr(a.OwnerID),
 		Skills:                   []AgentSkillSummary{},
@@ -787,6 +792,9 @@ type CreateAgentRequest struct {
 	MaxConcurrentTasks int32                      `json:"max_concurrent_tasks"`
 	Model              string                     `json:"model"`
 	ThinkingLevel      string                     `json:"thinking_level"`
+	// ProfileHTML is the agent-persona.html content from an agentwaker role
+	// import. Empty = leave column NULL.
+	ProfileHTML string `json:"profile_html"`
 	// ComposioToolkitAllowlist seeds the per-task overlay gate (MUL-3869). On
 	// create only the calling user can be the owner, so we accept the field
 	// unconditionally here; the cross-owner permission gate lives on PUT.
@@ -967,6 +975,7 @@ func (h *Handler) CreateAgent(w http.ResponseWriter, r *http.Request) {
 		McpConfig:                mc,
 		Model:                    pgtype.Text{String: req.Model, Valid: req.Model != ""},
 		ThinkingLevel:            pgtype.Text{String: req.ThinkingLevel, Valid: req.ThinkingLevel != ""},
+		ProfileHtml:              pgtype.Text{String: req.ProfileHTML, Valid: req.ProfileHTML != ""},
 		ComposioToolkitAllowlist: allowlist,
 	})
 	if err != nil {
@@ -1090,6 +1099,11 @@ type UpdateAgentRequest struct {
 	// Distinguishing those modes is why this is a pointer; the raw-fields
 	// map captured at decode time tells us whether the key was sent.
 	ThinkingLevel *string `json:"thinking_level"`
+	// ProfileHTML is a tri-state, same pattern as thinking_level:
+	//   - field omitted → no change (column preserved as-is)
+	//   - field present with null → explicit clear (ClearAgentProfileHTML)
+	//   - field present with string → store the HTML
+	ProfileHTML *string `json:"profile_html"`
 	// ComposioToolkitAllowlist is a tri-state, same pattern as
 	// thinking_level, mcp_config:
 	//   - field omitted → no change (column preserved as-is)
@@ -1534,6 +1548,20 @@ func (h *Handler) UpdateAgent(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	// profile_html handling. Tri-state semantics, same pattern as
+	// thinking_level / mcp_config:
+	//   - field omitted  → no change (COALESCE narg)
+	//   - field null     → explicit clear (ClearAgentProfileHTML post-update)
+	//   - field string   → replace the stored HTML
+	shouldClearProfileHTML := false
+	if rawProfile, hasProfile := rawFields["profile_html"]; hasProfile {
+		if bytes.Equal(bytes.TrimSpace(rawProfile), []byte("null")) {
+			shouldClearProfileHTML = true
+		} else if req.ProfileHTML != nil {
+			params.ProfileHtml = pgtype.Text{String: *req.ProfileHTML, Valid: true}
+		}
+	}
+
 	updated, err := h.Queries.UpdateAgent(r.Context(), params)
 	if err != nil {
 		slog.Warn("update agent failed", append(logger.RequestAttrs(r), "error", err, "agent_id", id)...)
@@ -1565,6 +1593,14 @@ func (h *Handler) UpdateAgent(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			slog.Warn("clear agent composio_toolkit_allowlist failed", append(logger.RequestAttrs(r), "error", err, "agent_id", id)...)
 			writeError(w, http.StatusInternalServerError, "failed to clear composio_toolkit_allowlist: "+err.Error())
+			return
+		}
+	}
+	if shouldClearProfileHTML {
+		updated, err = h.Queries.ClearAgentProfileHTML(r.Context(), updated.ID)
+		if err != nil {
+			slog.Warn("clear agent profile_html failed", append(logger.RequestAttrs(r), "error", err, "agent_id", id)...)
+			writeError(w, http.StatusInternalServerError, "failed to clear profile_html: "+err.Error())
 			return
 		}
 	}

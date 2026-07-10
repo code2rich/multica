@@ -6,6 +6,7 @@ import {
   Blocks,
   BookOpenText,
   FileText,
+  IdCard,
   KeyRound,
   ListTodo,
   Plug,
@@ -40,6 +41,7 @@ import { McpConfigTab } from "./tabs/mcp-config-tab";
 import { AgentMcpTab } from "./tabs/agent-mcp-tab";
 import { IntegrationsTab } from "./tabs/integrations-tab";
 import { RuntimeConfigTab } from "./tabs/runtime-config-tab";
+import { ProfileTab } from "./tabs/profile-tab";
 import { ActorIssuesPanel } from "../../common/actor-issues-panel";
 import { useT } from "../../i18n";
 
@@ -53,9 +55,10 @@ export type DetailTab =
   | "mcp_config"
   | "composio_mcp"
   | "integrations"
-  | "runtime_config";
+  | "runtime_config"
+  | "profile";
 
-const TAB_LABEL_KEY: Record<DetailTab, "activity" | "tasks" | "instructions" | "skills" | "environment" | "custom_args" | "mcp_config" | "composio_mcp" | "integrations" | "runtime_config"> = {
+const TAB_LABEL_KEY: Record<DetailTab, "activity" | "tasks" | "instructions" | "skills" | "environment" | "custom_args" | "mcp_config" | "composio_mcp" | "integrations" | "runtime_config" | "profile"> = {
   activity: "activity",
   tasks: "tasks",
   instructions: "instructions",
@@ -66,6 +69,7 @@ const TAB_LABEL_KEY: Record<DetailTab, "activity" | "tasks" | "instructions" | "
   composio_mcp: "composio_mcp",
   integrations: "integrations",
   runtime_config: "runtime_config",
+  profile: "profile",
 };
 
 const detailTabs: {
@@ -82,6 +86,7 @@ const detailTabs: {
   { id: "composio_mcp", icon: Blocks },
   { id: "integrations", icon: Webhook },
   { id: "runtime_config", icon: Router },
+  { id: "profile", icon: IdCard },
 ];
 
 interface AgentOverviewPaneProps {
@@ -326,6 +331,15 @@ export function AgentOverviewPane({
         {effectiveTab === "runtime_config" && (
           <TabContent>
             <RuntimeConfigTab
+              agent={agent}
+              onSave={(updates) => onUpdate(agent.id, updates)}
+              onDirtyChange={setActiveDirty}
+            />
+          </TabContent>
+        )}
+        {effectiveTab === "profile" && (
+          <TabContent>
+            <ProfileTab
               agent={agent}
               onSave={(updates) => onUpdate(agent.id, updates)}
               onDirtyChange={setActiveDirty}

@@ -1,4 +1,4 @@
-import { parseYamlDocument } from "@multica/core/skills";
+import { parseFrontmatter, parseYamlDocument } from "@multica/core/skills";
 import {
   readSkillDirectory,
   type DirectorySkillImportResult,
@@ -56,6 +56,8 @@ export interface AgentDirectoryImportResult {
   customEnv: Record<string, string>;
   /** Parsed mcp.json, or null when the file is absent / empty / invalid. */
   mcpConfig: unknown | null;
+  /** Agent persona HTML (agent-persona.html), or empty string when absent. */
+  profileHtml: string;
   /** One entry per importable sub-skill under the skills package directory. */
   skills: DirectorySkillImportResult[];
   /** Paths that were skipped (excluded dirs, the meta SKILL.md, etc). */
@@ -201,8 +203,10 @@ function findMcpJson(files: File[], root: string): File | null {
 /**
  * Groups files by their immediate sub-directory under the skills package root,
  * so each group can be handed to `readSkillDirectory` independently. The meta
- * `SKILL.md` that sits directly under the package root is excluded — it is a
- * routing manifest, not an importable skill.
+ * `SKILL.md` that sits directly under the package root (the "role shell" —
+ * the skill-package entry point that routes between sub-skills) is collected
+ * as its own group with `subDir = ""` so it is imported as a standalone skill
+ * alongside the sub-skills.
  */
 function groupSkillFiles(
   files: File[],
@@ -213,8 +217,15 @@ function groupSkillFiles(
     const parts = partsUnder(relativePath(file), skillsRoot);
     if (!parts || parts.length === 0) continue;
     if (shouldSkipPath(parts)) continue;
-    // `SKILL.md` at the package root (parts.length === 1) is the meta entrypoint.
-    if (parts.length === 1) continue;
+    if (parts.length === 1) {
+      // Only the meta SKILL.md at the package root is collected here; other
+      // stray root-level files (rare) are ignored.
+      if (parts[0]!.toLowerCase() === "skill.md") {
+        if (!groups.has("")) groups.set("", []);
+        groups.get("")!.push(file);
+      }
+      continue;
+    }
     const subDir = parts[0]!;
     if (!groups.has(subDir)) groups.set(subDir, []);
     groups.get(subDir)!.push(file);
@@ -265,6 +276,7 @@ export async function readAgentDirectory(
     instructions: "",
     customEnv: {},
     mcpConfig: null,
+    profileHtml: "",
     skills: [],
     skipped: [],
     errors: [],
@@ -358,6 +370,16 @@ export async function readAgentDirectory(
     }
   }
 
+  // --- 4b. Parse agent-persona.html (the visual persona card) ---
+  const personaFile = findFileRoot(files, "agent-persona.html");
+  if (personaFile) {
+    try {
+      result.profileHtml = await readFileAsText(personaFile.file);
+    } catch {
+      // Non-fatal: persona is optional.
+    }
+  }
+
   // --- 5. Discover and parse skills ---
   const skillsRoot = findSkillsRoot(files, root, profile);
   if (!skillsRoot) {
@@ -368,20 +390,41 @@ export async function readAgentDirectory(
   const groups = groupSkillFiles(files, skillsRoot);
   for (const { subDir, files: skillFiles } of groups) {
     try {
-      const skillResult = await readSkillDirectory(skillFiles);
-      if (skillResult.errors.length > 0) {
-        result.skipped.push(`${subDir}/ (${skillResult.errors.join("; ")})`);
-        continue;
+      if (subDir === "") {
+        // Meta SKILL.md (the "role shell"): it sits at the skills-package
+        // root and is a self-contained manifest, so we parse it directly
+        // instead of handing it to readSkillDirectory (which would treat the
+        // entire package as one skill and pull in every sub-skill's files).
+        const metaFile = skillFiles.find(
+          (f) => relativePath(f).split("/").pop()?.toLowerCase() === "skill.md",
+        );
+        if (!metaFile) continue;
+        const content = await readFileAsText(metaFile);
+        const { frontmatter } = parseFrontmatter(content);
+        result.skills.push({
+          name: frontmatter?.name?.trim() || "role-skills",
+          description: frontmatter?.description?.trim(),
+          content,
+          files: [],
+          skipped: [],
+          errors: [],
+        });
+      } else {
+        const skillResult = await readSkillDirectory(skillFiles);
+        if (skillResult.errors.length > 0) {
+          result.skipped.push(`${subDir}/ (${skillResult.errors.join("; ")})`);
+          continue;
+        }
+        // readSkillDirectory derives `name` from frontmatter or the directory slug.
+        // Ensure we never import a skill with an empty name.
+        if (!skillResult.name.trim()) {
+          skillResult.name = subDir;
+        }
+        result.skills.push(skillResult);
       }
-      // readSkillDirectory derives `name` from frontmatter or the directory slug.
-      // Ensure we never import a skill with an empty name.
-      if (!skillResult.name.trim()) {
-        skillResult.name = subDir;
-      }
-      result.skills.push(skillResult);
     } catch (err) {
       result.skipped.push(
-        `${subDir}/ (failed: ${err instanceof Error ? err.message : "unknown error"})`,
+        `${subDir || "SKILL.md"} (failed: ${err instanceof Error ? err.message : "unknown error"})`,
       );
     }
   }

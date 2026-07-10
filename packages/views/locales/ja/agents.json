@@ -205,6 +205,7 @@
     "composio_mcp": "MCP アプリ",
     "integrations": "連携",
     "runtime_config": "ルーティング",
+    "profile": "プロフィール",
     "discard_dialog_title": "保存していない変更を破棄しますか？",
     "discard_dialog_description": "このタブに保存していない変更があります。今移動すると変更は破棄されます。",
     "discard_keep": "編集を続ける",
@@ -390,6 +391,19 @@
       "tls_hint": "http:// の代わりに https:// でダイヤル",
       "saved_toast": "ルーティング設定を保存しました",
       "save_failed_toast": "ルーティング設定の保存に失敗しました"
+    },
+    "profile": {
+      "intro": "HTML からレンダリングされたエージェントペルソナカード。agentwaker ロールフォルダからインポート、または手動でアップロード。プレビューはサンドボックス iframe で実行されます。",
+      "upload_button": "HTML をアップロード",
+      "clear_action": "クリア",
+      "preview_mode": "プレビュー",
+      "edit_mode": "編集",
+      "placeholder": "HTML を貼り付けまたはアップロード…",
+      "empty_hint": "プロフィール HTML がありません。HTML ファイルをアップロードするか、編集モードでコンテンツを貼り付けしてください。",
+      "preview_aria": "エージェントプロフィールプレビュー",
+      "saved_toast": "プロフィールを保存しました",
+      "save_failed_toast": "プロフィールの保存に失敗しました",
+      "upload_failed_toast": "HTML ファイルの読み込みに失敗しました"
     },
     "skills": {
       "intro": "このエージェントに割り当てられたワークスペースのスキルです。ローカルランタイムのスキルは常に自動的に利用できます。",

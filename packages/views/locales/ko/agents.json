@@ -213,6 +213,7 @@
     "composio_mcp": "MCP 앱",
     "integrations": "연동",
     "runtime_config": "라우팅",
+    "profile": "프로필",
     "discard_dialog_title": "저장하지 않은 변경사항을 버릴까요?",
     "discard_dialog_description": "이 탭에 저장하지 않은 변경사항이 있습니다. 지금 나가면 변경사항이 사라집니다.",
     "discard_keep": "계속 편집",
@@ -398,6 +399,19 @@
       "tls_hint": "http:// 대신 https://로 다이얼",
       "saved_toast": "라우팅 설정이 저장되었습니다",
       "save_failed_toast": "라우팅 설정 저장 실패"
+    },
+    "profile": {
+      "intro": "HTML로 렌더링된 에이전트 페르소나 카드. agentwaker 역할 폴더에서 가져오거나 수동으로 업로드. 미리보기는 샌드박스 iframe에서 실행됩니다.",
+      "upload_button": "HTML 업로드",
+      "clear_action": "지우기",
+      "preview_mode": "미리보기",
+      "edit_mode": "편집",
+      "placeholder": "HTML을 붙여넣거나 업로드…",
+      "empty_hint": "프로필 HTML이 없습니다. HTML 파일을 업로드하거나 편집 모드에서 콘텐츠를 붙여넣으세요.",
+      "preview_aria": "에이전트 프로필 미리보기",
+      "saved_toast": "프로필이 저장되었습니다",
+      "save_failed_toast": "프로필 저장 실패",
+      "upload_failed_toast": "HTML 파일 읽기 실패"
     },
     "skills": {
       "intro": "이 에이전트에 할당된 워크스페이스 스킬입니다. 로컬 런타임 스킬은 항상 자동으로 사용할 수 있습니다.",
