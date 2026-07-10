@@ -147,6 +147,13 @@ function renderDialog(runtimes: RuntimeDevice[], template?: Agent) {
       </QueryClientProvider>
     </I18nProvider>,
   );
+  // Non-duplicate opens land on the method chooser. Click through to the
+  // manual form so the existing assertions (which expect the name field,
+  // runtime picker, etc. to be visible) still work. Duplicate mode skips
+  // the chooser entirely.
+  if (!template) {
+    fireEvent.click(screen.getByText("Create manually"));
+  }
   return { onCreate, onClose };
 }
 

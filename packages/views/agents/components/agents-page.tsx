@@ -1053,6 +1053,26 @@ export function AgentsPage(_props: AgentsPageProps = {}) {
     return agent;
   };
 
+  // Called after a directory import that OVERWROTE an existing agent (the
+  // create path navigates inside handleCreate, so this is only for the
+  // overwrite case). Mirrors handleCreate's cache + navigation logic but
+  // skips createAgent — the import form already did updateAgent.
+  const handleImported = useCallback(
+    (agent: Agent) => {
+      qc.setQueryData<Agent[]>(workspaceKeys.agents(wsId), (current = []) => {
+        const exists = current.some((a) => a.id === agent.id);
+        return exists
+          ? current.map((a) => (a.id === agent.id ? agent : a))
+          : [...current, agent];
+      });
+      setShowCreate(false);
+      setDuplicateTemplate(null);
+      navigation.push(paths.agentDetail(agent.id));
+      qc.invalidateQueries({ queryKey: workspaceKeys.agents(wsId) });
+    },
+    [qc, wsId, navigation, paths],
+  );
+
   const handleDuplicate = useCallback((agent: Agent) => {
     setDuplicateTemplate(agent);
     setShowCreate(true);
@@ -1257,6 +1277,7 @@ export function AgentsPage(_props: AgentsPageProps = {}) {
             setDuplicateTemplate(null);
           }}
           onCreate={handleCreate}
+          onImported={handleImported}
         />
       )}
     </div>

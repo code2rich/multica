@@ -420,6 +420,14 @@ export interface CreateAgentRequest {
   runtime_config?: Record<string, unknown>;
   custom_env?: Record<string, string>;
   custom_args?: string[];
+  /**
+   * MCP server configuration JSON (e.g. `{ "mcpServers": { ... } }`).
+   * The backend persists it verbatim; runtime backends validate / translate
+   * it according to their own MCP integration. Mirrors the tri-state
+   * `UpdateAgentRequest.mcp_config`, though on create `null` is equivalent
+   * to omitting the field.
+   */
+  mcp_config?: unknown | null;
   visibility?: AgentVisibility;
   /**
    * Invocation permission mode (MUL-3963). When present it is authoritative;
