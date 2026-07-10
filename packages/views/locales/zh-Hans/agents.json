@@ -92,6 +92,7 @@
   "row_actions": {
     "cancel_all_tasks": "取消全部 task",
     "duplicate": "复制",
+    "overwrite": "从目录覆盖",
     "restore": "恢复",
     "archive": "归档",
     "agent_archived_toast": "已归档智能体",
@@ -249,7 +250,13 @@
       "importing": "导入中...",
       "fallback_error": "导入目录失败。",
       "skill_create_failed_toast": "部分技能导入失败：{{error}}",
-      "env_update_failed_toast": "智能体已更新，但环境变量保存失败：{{error}}"
+      "env_update_failed_toast": "智能体已更新，但环境变量保存失败：{{error}}",
+      "overwrite_title": "覆盖智能体",
+      "overwrite_description": "选择一个 agentwaker 角色目录来覆盖「{{name}}」。指令、技能、环境变量、MCP 和画像将被替换。",
+      "overwrite_submit": "覆盖",
+      "overwrite_success_toast": "智能体「{{name}}」覆盖成功",
+      "profile_detected": "已检测到画像 HTML",
+      "profile_none": "无画像 HTML"
     },
     "name_label": "名称",
     "name_placeholder": "例如：深度研究智能体",

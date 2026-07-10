@@ -96,6 +96,7 @@
   "row_actions": {
     "cancel_all_tasks": "Cancel all tasks",
     "duplicate": "Duplicate",
+    "overwrite": "Overwrite from directory",
     "restore": "Restore",
     "archive": "Archive",
     "agent_archived_toast": "Agent archived",
@@ -258,7 +259,13 @@
       "importing": "Importing...",
       "fallback_error": "Failed to import directory.",
       "skill_create_failed_toast": "Some skills failed to import: {{error}}",
-      "env_update_failed_toast": "Agent updated, but env failed to save: {{error}}"
+      "env_update_failed_toast": "Agent updated, but env failed to save: {{error}}",
+      "overwrite_title": "Overwrite Agent",
+      "overwrite_description": "Select an agentwaker role directory to overwrite \"{{name}}\". Instructions, skills, env, MCP, and profile will be replaced.",
+      "overwrite_submit": "Overwrite",
+      "overwrite_success_toast": "Agent \"{{name}}\" overwritten successfully",
+      "profile_detected": "Profile HTML detected",
+      "profile_none": "No profile HTML"
     },
     "name_label": "Name",
     "name_placeholder": "e.g. Deep Research Agent",

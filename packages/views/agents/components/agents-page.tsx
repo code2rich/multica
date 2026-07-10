@@ -77,6 +77,7 @@ import { ActorAvatar } from "../../common/actor-avatar";
 import { PageHeader } from "../../layout/page-header";
 import { availabilityConfig } from "../presence";
 import { CreateAgentDialog } from "./create-agent-dialog";
+import { OverwriteAgentDialog } from "./overwrite-agent-dialog";
 import { AgentRowActions } from "./agent-row-actions";
 import {
   AgentListToolbar,
@@ -832,6 +833,7 @@ export function AgentsPage(_props: AgentsPageProps = {}) {
   const [duplicateTemplate, setDuplicateTemplate] = useState<Agent | null>(
     null,
   );
+  const [overwriteAgent, setOverwriteAgent] = useState<Agent | null>(null);
   const [selectedIds, setSelectedIds] = useState<ReadonlySet<string>>(
     new Set(),
   );
@@ -1078,6 +1080,10 @@ export function AgentsPage(_props: AgentsPageProps = {}) {
     setShowCreate(true);
   }, []);
 
+  const handleOverwrite = useCallback((agent: Agent) => {
+    setOverwriteAgent(agent);
+  }, []);
+
   const selectedRows = rows.filter((row) => selectedIds.has(row.agent.id));
   const allSelected = rows.length > 0 && selectedRows.length === rows.length;
   const someSelected = selectedRows.length > 0 && !allSelected;
@@ -1248,6 +1254,7 @@ export function AgentsPage(_props: AgentsPageProps = {}) {
                             presence={row.presence}
                             canManage={row.canManage}
                             onDuplicate={handleDuplicate}
+                            onOverwrite={handleOverwrite}
                           />
                         </span>
                       </ListGridCell>
@@ -1278,6 +1285,13 @@ export function AgentsPage(_props: AgentsPageProps = {}) {
           }}
           onCreate={handleCreate}
           onImported={handleImported}
+        />
+      )}
+
+      {overwriteAgent && (
+        <OverwriteAgentDialog
+          agent={overwriteAgent}
+          onClose={() => setOverwriteAgent(null)}
         />
       )}
     </div>

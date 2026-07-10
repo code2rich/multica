@@ -92,6 +92,7 @@
   "row_actions": {
     "cancel_all_tasks": "모든 작업 취소",
     "duplicate": "복제",
+    "overwrite": "디렉토리에서 덮어쓰기",
     "restore": "복원",
     "archive": "보관",
     "agent_archived_toast": "에이전트를 보관했습니다",
@@ -249,7 +250,13 @@
       "importing": "가져오는 중...",
       "fallback_error": "디렉토리 가져오기에 실패했습니다.",
       "skill_create_failed_toast": "일부 스킬 가져오기 실패: {{error}}",
-      "env_update_failed_toast": "에이전트가 업데이트되었지만 환경 변수 저장에 실패했습니다: {{error}}"
+      "env_update_failed_toast": "에이전트가 업데이트되었지만 환경 변수 저장에 실패했습니다: {{error}}",
+      "overwrite_title": "에이전트 덮어쓰기",
+      "overwrite_description": "agentwaker 역할 디렉토리를 선택하여 \"{{name}}\"을(를) 덮어씁니다. 지침, 스킬, 환경 변수, MCP, 프로필이 교체됩니다.",
+      "overwrite_submit": "덮어쓰기",
+      "overwrite_success_toast": "에이전트 \"{{name}}\" 덮어쓰기 성공",
+      "profile_detected": "프로필 HTML 감지됨",
+      "profile_none": "프로필 HTML 없음"
     },
     "name_label": "이름",
     "name_placeholder": "예: 심층 리서치 에이전트",

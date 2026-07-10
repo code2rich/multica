@@ -658,16 +658,16 @@ function ImportAgentForm({
       // /env endpoint. On create, both env and mcp ride along in one call.
       let existingAgent: Agent | undefined;
       try {
-        // Match agentListOptions' call shape — workspace is resolved from
-        // the X-Workspace-Slug header by middleware, and include_archived
-        // ensures we find the agent even if it was archived.
+        // include_archived ensures we find same-named agents even if they
+        // were archived. The DB unique constraint (workspace_id, name)
+        // applies to ALL rows regardless of archived_at, so an archived
+        // agent still blocks creation — we must overwrite it (not skip it)
+        // to avoid a 409.
         const agents = await api.listAgents({
           workspace_id: wsId,
           include_archived: true,
         });
-        existingAgent = agents.find(
-          (a) => a.name === trimmedName && !a.archived_at,
-        );
+        existingAgent = agents.find((a) => a.name === trimmedName);
       } catch {
         // If the list call fails, proceed to create — a 409 will surface.
       }
@@ -686,6 +686,18 @@ function ImportAgentForm({
           profile_html: importData.profileHtml || null,
         };
         agent = await api.updateAgent(existingAgent.id, updateData);
+        // If the existing agent was archived, restore it so the imported
+        // agent is immediately usable — the DB unique constraint blocks
+        // creating a new same-named agent while the archived one exists,
+        // so overwriting + restoring is the right move.
+        if (existingAgent.archived_at) {
+          try {
+            agent = await api.restoreAgent(existingAgent.id);
+          } catch {
+            // Non-fatal: agent is updated but still archived. The user
+            // can restore it manually from the agent list.
+          }
+        }
         if (hasEnv) {
           try {
             await api.updateAgentEnv(existingAgent.id, {
@@ -730,9 +742,7 @@ function ImportAgentForm({
               workspace_id: wsId,
               include_archived: true,
             });
-            const found = agents.find(
-              (a) => a.name === trimmedName && !a.archived_at,
-            );
+            const found = agents.find((a) => a.name === trimmedName);
             if (!found) {
               throw createErr;
             }
@@ -744,6 +754,13 @@ function ImportAgentForm({
               mcp_config: importData.mcpConfig ?? null,
               profile_html: importData.profileHtml || null,
             });
+            if (found.archived_at) {
+              try {
+                agent = await api.restoreAgent(found.id);
+              } catch {
+                // Non-fatal: agent is updated but still archived.
+              }
+            }
             if (hasEnv) {
               try {
                 await api.updateAgentEnv(found.id, {

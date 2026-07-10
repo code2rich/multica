@@ -4,6 +4,7 @@ import { useState } from "react";
 import {
   AlertCircle,
   Copy,
+  FolderInput,
   MoreHorizontal,
   RotateCcw,
   Square,
@@ -46,6 +47,9 @@ interface AgentRowActionsProps {
   // Called when the user picks "Duplicate" — the page opens a Create
   // dialog pre-populated with this agent's config as a template.
   onDuplicate: (agent: Agent) => void;
+  // Called when the user picks "Overwrite from directory" — the page opens
+  // an OverwriteAgentDialog for this agent.
+  onOverwrite: (agent: Agent) => void;
 }
 
 /**
@@ -65,6 +69,7 @@ export function AgentRowActions({
   presence,
   canManage,
   onDuplicate,
+  onOverwrite,
 }: AgentRowActionsProps) {
   const { t } = useT("agents");
   const wsId = useWorkspaceId();
@@ -83,10 +88,11 @@ export function AgentRowActions({
   // branches.
   const showStop = canManage && !isArchived && hasActiveWork;
   const showDuplicate = !isArchived; // any workspace member can duplicate
+  const showOverwrite = canManage; // overwrite works on both active and archived
   const showArchive = canManage && !isArchived;
   const showRestore = canManage && isArchived;
 
-  const hasAnyAction = showStop || showDuplicate || showArchive || showRestore;
+  const hasAnyAction = showStop || showDuplicate || showOverwrite || showArchive || showRestore;
 
   const invalidateAgents = () => {
     qc.invalidateQueries({ queryKey: workspaceKeys.agents(wsId) });
@@ -157,6 +163,12 @@ export function AgentRowActions({
             <DropdownMenuItem onClick={() => onDuplicate(agent)}>
               <Copy className="h-3.5 w-3.5" />
               {t(($) => $.row_actions.duplicate)}
+            </DropdownMenuItem>
+          )}
+          {showOverwrite && (
+            <DropdownMenuItem onClick={() => onOverwrite(agent)}>
+              <FolderInput className="h-3.5 w-3.5" />
+              {t(($) => $.row_actions.overwrite)}
             </DropdownMenuItem>
           )}
           {showRestore && (

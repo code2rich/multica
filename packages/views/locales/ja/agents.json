@@ -84,6 +84,7 @@
   "row_actions": {
     "cancel_all_tasks": "すべてのタスクをキャンセル",
     "duplicate": "複製",
+    "overwrite": "ディレクトリから上書き",
     "restore": "復元",
     "archive": "アーカイブ",
     "agent_archived_toast": "エージェントをアーカイブしました",
@@ -241,7 +242,13 @@
       "importing": "インポート中...",
       "fallback_error": "ディレクトリのインポートに失敗しました。",
       "skill_create_failed_toast": "一部のスキルのインポートに失敗しました: {{error}}",
-      "env_update_failed_toast": "エージェントは更新されましたが、環境変数の保存に失敗しました: {{error}}"
+      "env_update_failed_toast": "エージェントは更新されましたが、環境変数の保存に失敗しました: {{error}}",
+      "overwrite_title": "エージェントを上書き",
+      "overwrite_description": "agentwaker ロールディレクトリを選択して「{{name}}」を上書きします。指示、スキル、環境変数、MCP、プロフィールが置き換えられます。",
+      "overwrite_submit": "上書き",
+      "overwrite_success_toast": "エージェント「{{name}}」を上書きしました",
+      "profile_detected": "プロフィール HTML を検出",
+      "profile_none": "プロフィール HTML なし"
     },
     "name_label": "名前",
     "name_placeholder": "例: ディープリサーチエージェント",
