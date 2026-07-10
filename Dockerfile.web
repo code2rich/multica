@@ -3,6 +3,9 @@ FROM node:22-alpine AS deps
 
 WORKDIR /app
 
+# Use a reachable npm registry for environments where registry.npmjs.org is slow
+ENV NPM_CONFIG_REGISTRY=https://registry.npmmirror.com
+
 # Copy workspace config and all package.json files for dependency resolution
 COPY pnpm-lock.yaml pnpm-workspace.yaml package.json turbo.json .npmrc ./
 COPY apps/web/package.json apps/web/

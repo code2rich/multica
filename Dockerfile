@@ -5,6 +5,9 @@ RUN apk add --no-cache git
 
 WORKDIR /src
 
+# Use a reachable module proxy for environments where proxy.golang.org is slow
+ENV GOPROXY=https://goproxy.cn,https://proxy.golang.org,direct
+
 # Cache dependencies
 COPY server/go.mod server/go.sum ./server/
 RUN cd server && go mod download
