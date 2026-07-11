@@ -13,6 +13,12 @@
     "skills": "스킬",
     "settings": "설정"
   },
+  "user_menu": {
+    "account_settings": "계정 설정"
+  },
+  "mobile_nav": {
+    "title": "내비게이션"
+  },
   "help": {
     "trigger": "도움말",
     "docs": "문서",

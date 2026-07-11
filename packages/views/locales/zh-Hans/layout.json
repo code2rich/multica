@@ -13,6 +13,12 @@
     "skills": "Skills",
     "settings": "设置"
   },
+  "user_menu": {
+    "account_settings": "账号设置"
+  },
+  "mobile_nav": {
+    "title": "导航"
+  },
   "help": {
     "trigger": "帮助",
     "docs": "文档",

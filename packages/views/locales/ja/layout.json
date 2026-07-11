@@ -10,8 +10,14 @@
     "squads": "スクワッド",
     "usage": "使用量",
     "runtimes": "ランタイム",
-    "skills": "スキル",
+    "skills": "ス킬",
     "settings": "設定"
+  },
+  "user_menu": {
+    "account_settings": "アカウント設定"
+  },
+  "mobile_nav": {
+    "title": "ナビゲーション"
   },
   "help": {
     "trigger": "ヘルプ",
