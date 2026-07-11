@@ -210,11 +210,17 @@
       "runtime": {
         "title": "从运行时复制",
         "desc": "扫描本地运行时，把它磁盘上的 skill 提升到工作区。"
+      },
+      "directory": {
+        "title": "从目录导入",
+        "desc": "上传包含 SKILL.md 和支撑文件的本地文件夹。"
       }
     },
     "method_card": {
       "manual_title": "手动创建",
       "manual_desc": "从空白 SKILL.md 开始，自己写指令。",
+      "directory_title": "从目录导入",
+      "directory_desc": "从电脑选择一个文件夹，支持多层子目录。",
       "url_title": "从 URL 导入",
       "url_desc": "从 ClawHub 或 Skills.sh 拉取已发布的 skill。",
       "runtime_title": "从运行时复制",
@@ -245,6 +251,25 @@
       "fallback_error": "导入失败",
       "cancel": "取消",
       "toast_imported": "已导入 skill"
+    },
+    "directory": {
+      "choose_button": "选择文件夹",
+      "choose_hint": "选择包含 SKILL.md 文件的文件夹。",
+      "change_button": "更换",
+      "name_label": "名称",
+      "name_placeholder": "例如：review-helper",
+      "name_hint": "工作区内必须唯一。若 SKILL.md 没有 name frontmatter，则使用文件夹名称。",
+      "description_label": "描述",
+      "description_placeholder": "用一句话说什么时候应该把这个 skill 分配给智能体。",
+      "files_label_other": "{{count}} 个支撑文件",
+      "skipped_label_other": "跳过 {{count}} 个",
+      "no_files": "没有支撑文件",
+      "name_conflict_hint": "请换一个名字再提交。",
+      "fallback_error": "导入目录失败",
+      "cancel": "取消",
+      "submit": "导入 skill",
+      "submitting": "导入中...",
+      "toast_created": "已导入 skill"
     }
   },
   "runtime_import": {

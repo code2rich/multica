@@ -205,11 +205,17 @@
       "runtime": {
         "title": "Copy from runtime",
         "desc": "Scan a local runtime and promote one of its on-disk skills into this workspace."
+      },
+      "directory": {
+        "title": "Import from directory",
+        "desc": "Upload a local folder containing a SKILL.md and supporting files."
       }
     },
     "method_card": {
       "manual_title": "Create manually",
       "manual_desc": "Start from a blank SKILL.md and write your own instructions.",
+      "directory_title": "Import from directory",
+      "directory_desc": "Upload a folder from your computer. Nested directories are supported.",
       "url_title": "Import from URL",
       "url_desc": "Pull a published skill from ClawHub or Skills.sh.",
       "runtime_title": "Copy from runtime",
@@ -240,6 +246,27 @@
       "fallback_error": "Import failed",
       "cancel": "Cancel",
       "toast_imported": "Skill imported"
+    },
+    "directory": {
+      "choose_button": "Choose folder",
+      "choose_hint": "Select a folder that contains a SKILL.md file.",
+      "change_button": "Change",
+      "name_label": "Skill name",
+      "name_placeholder": "e.g. review-helper",
+      "name_hint": "Must be unique within the workspace. Falls back to the folder name if SKILL.md has no name frontmatter.",
+      "description_label": "Description",
+      "description_placeholder": "One sentence on when to assign this skill to an agent.",
+      "files_label_one": "{{count}} supporting file",
+      "files_label_other": "{{count}} supporting files",
+      "skipped_label_one": "{{count}} skipped",
+      "skipped_label_other": "{{count}} skipped",
+      "no_files": "No supporting files",
+      "name_conflict_hint": " Try a different name and submit again.",
+      "fallback_error": "Failed to import directory",
+      "cancel": "Cancel",
+      "submit": "Import skill",
+      "submitting": "Importing…",
+      "toast_created": "Skill imported"
     }
   },
   "runtime_import": {

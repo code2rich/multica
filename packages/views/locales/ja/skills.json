@@ -198,11 +198,17 @@
       "runtime": {
         "title": "ランタイムからコピー",
         "desc": "ローカルランタイムをスキャンし、ディスク上のスキルの 1 つをこのワークスペースに昇格します。"
+      },
+      "directory": {
+        "title": "ディレクトリからインポート",
+        "desc": "SKILL.md と補助ファイルを含むローカルフォルダをアップロードします。"
       }
     },
     "method_card": {
       "manual_title": "手動で作成",
       "manual_desc": "空の SKILL.md から始めて、独自の指示を記述します。",
+      "directory_title": "ディレクトリからインポート",
+      "directory_desc": "コンピュータからフォルダを選択します。ネストしたディレクトリもサポートされています。",
       "url_title": "URL からインポート",
       "url_desc": "ClawHub または Skills.sh の公開スキルを取得します。",
       "runtime_title": "ランタイムからコピー",
@@ -233,6 +239,25 @@
       "fallback_error": "インポートに失敗しました",
       "cancel": "キャンセル",
       "toast_imported": "スキルをインポートしました"
+    },
+    "directory": {
+      "choose_button": "フォルダを選択",
+      "choose_hint": "SKILL.md ファイルを含むフォルダを選択してください。",
+      "change_button": "変更",
+      "name_label": "スキル名",
+      "name_placeholder": "例: review-helper",
+      "name_hint": "ワークスペース内で一意である必要があります。SKILL.md に name フロントマターがない場合はフォルダ名が使用されます。",
+      "description_label": "説明",
+      "description_placeholder": "このスキルをエージェントにいつ割り当てるべきかを 1 文で書いてください。",
+      "files_label_other": "補助ファイル {{count}} 個",
+      "skipped_label_other": "スキップ {{count}} 個",
+      "no_files": "補助ファイルがありません",
+      "name_conflict_hint": " 別の名前で再度送信してください。",
+      "fallback_error": "ディレクトリのインポートに失敗しました",
+      "cancel": "キャンセル",
+      "submit": "スキルをインポート",
+      "submitting": "インポート中…",
+      "toast_created": "スキルをインポートしました"
     }
   },
   "runtime_import": {
