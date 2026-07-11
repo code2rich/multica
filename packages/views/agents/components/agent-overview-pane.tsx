@@ -6,6 +6,7 @@ import {
   Blocks,
   BookOpenText,
   FileText,
+  History,
   IdCard,
   KeyRound,
   ListTodo,
@@ -22,6 +23,7 @@ import { COMPOSIO_MCP_APPS_FLAG } from "@multica/core/feature-flags";
 import { useWorkspaceId } from "@multica/core/hooks";
 import { larkInstallationsOptions } from "@multica/core/lark";
 import { slackInstallationsOptions } from "@multica/core/slack";
+import { wechatInstallationsOptions } from "@multica/core/wechat";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -33,6 +35,7 @@ import {
   AlertDialogTitle,
 } from "@multica/ui/components/ui/alert-dialog";
 import { ActivityTab } from "./tabs/activity-tab";
+import { RunsTab } from "./tabs/runs-tab";
 import { InstructionsTab } from "./tabs/instructions-tab";
 import { SkillsTab } from "./tabs/skills-tab";
 import { EnvTab } from "./tabs/env-tab";
@@ -48,6 +51,7 @@ import { useT } from "../../i18n";
 export type DetailTab =
   | "activity"
   | "tasks"
+  | "runs"
   | "instructions"
   | "skills"
   | "env"
@@ -58,9 +62,10 @@ export type DetailTab =
   | "runtime_config"
   | "profile";
 
-const TAB_LABEL_KEY: Record<DetailTab, "activity" | "tasks" | "instructions" | "skills" | "environment" | "custom_args" | "mcp_config" | "composio_mcp" | "integrations" | "runtime_config" | "profile"> = {
+const TAB_LABEL_KEY: Record<DetailTab, "activity" | "tasks" | "runs" | "instructions" | "skills" | "environment" | "custom_args" | "mcp_config" | "composio_mcp" | "integrations" | "runtime_config" | "profile"> = {
   activity: "activity",
   tasks: "tasks",
+  runs: "runs",
   instructions: "instructions",
   skills: "skills",
   env: "environment",
@@ -78,6 +83,7 @@ const detailTabs: {
 }[] = [
   { id: "activity", icon: Activity },
   { id: "tasks", icon: ListTodo },
+  { id: "runs", icon: History },
   { id: "instructions", icon: FileText },
   { id: "skills", icon: BookOpenText },
   { id: "env", icon: KeyRound },
@@ -168,9 +174,14 @@ export function AgentOverviewPane({
     enabled: !!wsId,
   });
   const slackConfigured = slackListing?.configured === true;
-  // The Integrations tab appears once EITHER channel is wired on the
-  // deployment, so a Slack-only deployment (no Lark) still surfaces it.
-  const integrationsConfigured = larkConfigured || slackConfigured;
+  const { data: wechatListing } = useQuery({
+    ...wechatInstallationsOptions(wsId),
+    enabled: !!wsId,
+  });
+  const wechatConfigured = wechatListing?.configured === true;
+  // The Integrations tab appears once ANY channel is wired on the deployment,
+  // so a Slack-only or WeChat-only deployment (no Lark) still surfaces it.
+  const integrationsConfigured = larkConfigured || slackConfigured || wechatConfigured;
 
   // The MCP tab is only shown when the agent's runtime backend actually
   // consumes mcp_config — see providerSupportsMcpConfig. We default to
@@ -277,6 +288,7 @@ export function AgentOverviewPane({
             <ActorIssuesPanel actorType="agent" actorId={agent.id} />
           </div>
         )}
+        {effectiveTab === "runs" && <RunsTab agent={agent} />}
         {effectiveTab === "instructions" && (
           <TabContent>
             <InstructionsTab
