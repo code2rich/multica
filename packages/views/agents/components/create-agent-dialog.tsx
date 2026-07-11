@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   AlertCircle,
   ChevronRight,
@@ -36,6 +36,10 @@ import type {
   UpdateAgentRequest,
 } from "@multica/core/types";
 import { isImeComposing } from "@multica/core/utils";
+import {
+  buildAgentIconUrl,
+  defaultAgentIconKey,
+} from "@multica/ui/lib/agent-icon-url";
 import {
   Dialog,
   DialogContent,
@@ -313,6 +317,19 @@ function ManualAgentForm({
   const [model, setModel] = useState(template?.model ?? "");
   const [instructions, setInstructions] = useState(template?.instructions ?? "");
   const [avatarUrl, setAvatarUrl] = useState<string | null>(template?.avatar_url ?? null);
+  // Tracks whether the user made an explicit avatar choice (uploaded a photo
+  // or picked an icon). Until they do, the avatar tracks a name-derived
+  // default icon so a freshly-created agent always has a distinct identity
+  // and the user can see/override it before submitting. Duplicating an agent
+  // that already had an avatar counts as explicit so the clone keeps it.
+  const [userPickedAvatar, setUserPickedAvatar] = useState(
+    !!template?.avatar_url,
+  );
+  useEffect(() => {
+    if (userPickedAvatar) return;
+    const trimmed = name.trim();
+    setAvatarUrl(trimmed ? buildAgentIconUrl(defaultAgentIconKey(trimmed)) : null);
+  }, [name, userPickedAvatar]);
   const [selectedSkillIds, setSelectedSkillIds] = useState<Set<string>>(
     () => new Set(template?.skills.map((s) => s.id) ?? []),
   );
@@ -436,8 +453,18 @@ function ManualAgentForm({
               value={avatarUrl}
               name={name}
               size={64}
-              onUploaded={setAvatarUrl}
-              onClear={() => setAvatarUrl(null)}
+              onUploaded={(url) => {
+                setAvatarUrl(url);
+                setUserPickedAvatar(true);
+              }}
+              onIconPick={(key) => {
+                setAvatarUrl(buildAgentIconUrl(key));
+                setUserPickedAvatar(true);
+              }}
+              onClear={() => {
+                setAvatarUrl(null);
+                setUserPickedAvatar(false);
+              }}
             />
             <div className="flex-1 min-w-0 space-y-3">
               <div>

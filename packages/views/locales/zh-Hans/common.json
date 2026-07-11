@@ -4,7 +4,9 @@
     "remove": "移除",
     "select_image": "请选择一张图片文件。",
     "updated": "头像已更新",
-    "failed": "头像上传失败"
+    "failed": "头像上传失败",
+    "library_aria": "从图标库中选择",
+    "library_title": "选择图标"
   },
   "avatar_crop": {
     "title": "编辑头像",

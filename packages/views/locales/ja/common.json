@@ -4,7 +4,9 @@
     "remove": "削除",
     "select_image": "画像ファイルを選択してください。",
     "updated": "アバターを更新しました",
-    "failed": "アバターのアップロードに失敗しました"
+    "failed": "アバターのアップロードに失敗しました",
+    "library_aria": "アイコンライブラリから選択",
+    "library_title": "アイコンを選択"
   },
   "avatar_crop": {
     "title": "アバターを編集",

@@ -295,6 +295,24 @@ describe("CreateAgentDialog runtime visibility gate", () => {
     expect(createBtn).toBeDefined();
     expect((createBtn as HTMLButtonElement).disabled).toBe(true);
   });
+
+  it("submits a name-derived icon avatar_url when no photo is uploaded", async () => {
+    // New agents without an uploaded avatar get a default icon matched from
+    // the built-in library (avatar_url = "icon:<key>"), persisted on create
+    // so the identity is stable and editable.
+    const mine = makeRuntime({ id: "rt-mine", name: "My Runtime", owner_id: ME });
+    const { onCreate } = renderDialog([mine]);
+
+    fireEvent.change(screen.getByPlaceholderText("e.g. Deep Research Agent"), {
+      target: { value: "Icon Agent" },
+    });
+    fireEvent.click(screen.getByText("Create"));
+    await new Promise((r) => setTimeout(r, 0));
+
+    const payload = onCreate.mock.calls[0]?.[0];
+    expect(payload).toBeDefined();
+    expect(payload.avatar_url).toMatch(/^icon:/);
+  });
 });
 
 describe("CreateAgentDialog access picker (MUL-4010, feature-flag gated)", () => {

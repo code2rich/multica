@@ -1,13 +1,19 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Bot, Users } from "lucide-react";
+import { Users } from "lucide-react";
 import { cn } from "@multica/ui/lib/utils";
 import {
   AVATAR_SIZE_PX,
   DEFAULT_AVATAR_SIZE,
   type AvatarSize,
 } from "@multica/ui/lib/avatar-size";
+import {
+  isAgentIconUrl,
+  agentIconKeyFromUrl,
+  defaultAgentIconKey,
+} from "@multica/ui/lib/agent-icon-url";
+import { AgentIcon } from "./agent-icons";
 import { MulticaIcon } from "./multica-icon";
 
 interface ActorAvatarProps {
@@ -55,7 +61,15 @@ function ActorAvatar({
       style={{ width: px, height: px, fontSize: px * 0.45 }}
       title={name}
     >
-      {avatarUrl && !imgError ? (
+      {avatarUrl && isAgentIconUrl(avatarUrl) ? (
+        // Built-in icon reference: render the matching SVG. An unknown key
+        // (corrupt value) falls through to the name-derived default so an
+        // agent always shows a real icon.
+        <AgentIcon
+          iconKey={agentIconKeyFromUrl(avatarUrl) ?? defaultAgentIconKey(name)}
+          size={px}
+        />
+      ) : avatarUrl && !imgError ? (
         <img
           src={avatarUrl}
           alt={name}
@@ -65,7 +79,10 @@ function ActorAvatar({
       ) : isSystem ? (
         <MulticaIcon noSpin style={{ width: px * 0.55, height: px * 0.55 }} />
       ) : isAgent ? (
-        <Bot style={{ width: px * 0.55, height: px * 0.55 }} />
+        // No uploaded avatar: derive a stable icon from the name so every
+        // agent — including pre-existing ones with a null avatar_url — gets a
+        // distinct identity with zero backfill.
+        <AgentIcon iconKey={defaultAgentIconKey(name)} size={px} />
       ) : isSquad ? (
         <Users style={{ width: px * 0.55, height: px * 0.55 }} />
       ) : (

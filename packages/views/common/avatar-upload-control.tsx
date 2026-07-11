@@ -1,12 +1,27 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { Bot, Camera, Loader2, Users, X } from "lucide-react";
+import { Camera, Loader2, Sparkles, Users, X } from "lucide-react";
 import { toast } from "sonner";
 import { api } from "@multica/core/api";
 import { useFileUpload } from "@multica/core/hooks/use-file-upload";
 import { resolvePublicFileUrl } from "@multica/core/workspace/avatar-url";
 import { cn } from "@multica/ui/lib/utils";
+import {
+  isAgentIconUrl,
+  agentIconKeyFromUrl,
+  defaultAgentIconKey,
+} from "@multica/ui/lib/agent-icon-url";
+import {
+  AGENT_ICONS,
+  AgentIcon,
+  type AgentIconKey,
+} from "@multica/ui/components/common/agent-icons";
+import {
+  Popover,
+  PopoverTrigger,
+  PopoverContent,
+} from "@multica/ui/components/ui/popover";
 import { useT } from "../i18n";
 import { AvatarCropDialog } from "./avatar-crop-dialog";
 
@@ -35,6 +50,15 @@ interface AvatarUploadControlProps {
    * avatar is out of scope).
    */
   onClear?: () => void;
+  /**
+   * Agent-only: when provided, renders a "pick from icon library" affordance
+   * next to the upload button. Selecting an icon fires this with the icon
+   * key; the parent persists it as `avatar_url: "icon:<key>"`. Non-agent
+   * variants omit it and behave exactly as before. Mutually exclusive with
+   * an uploaded photo — picking an icon replaces any photo URL the parent
+   * stored, since both ride on the same `value` string.
+   */
+  onIconPick?: (key: AgentIconKey) => void;
   className?: string;
   ariaLabel?: string;
 }
@@ -58,7 +82,10 @@ function AvatarFallback({
   size: number;
 }) {
   if (variant === "agent") {
-    return <Bot style={{ width: size * 0.5, height: size * 0.5 }} />;
+    // Match the renderer: an agent with no avatar shows the name-derived
+    // built-in icon, so the control's empty state stays consistent with every
+    // other surface that renders the avatar.
+    return <AgentIcon iconKey={defaultAgentIconKey(name)} size={size} />;
   }
   if (variant === "squad") {
     return <Users style={{ width: size * 0.5, height: size * 0.5 }} />;
@@ -75,7 +102,7 @@ function AvatarFallback({
 }
 
 /**
- * Shared click-to-upload avatar control for web/desktop. Renders the current
+ * Shared click-to-upload avatar control for the web app. Renders the current
  * avatar with a hover "change" affordance; on pick it opens {@link
  * AvatarCropDialog} for reposition/zoom, then uploads the cropped image
  * through the existing `/api/upload-file` chain and hands the URL back via
@@ -89,6 +116,7 @@ export function AvatarUploadControl({
   disabled = false,
   onUploaded,
   onClear,
+  onIconPick,
   className,
   ariaLabel,
 }: AvatarUploadControlProps) {
@@ -99,8 +127,13 @@ export function AvatarUploadControl({
   const [dialogOpen, setDialogOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [previewError, setPreviewError] = useState(false);
+  const [iconPickerOpen, setIconPickerOpen] = useState(false);
 
-  const resolved = value ? resolvePublicFileUrl(value) : null;
+  const isIcon = variant === "agent" && isAgentIconUrl(value);
+  const iconKey = isIcon ? agentIconKeyFromUrl(value) : null;
+  // `icon:` values must bypass resolvePublicFileUrl (which would leave them
+  // unchanged anyway) AND bypass the <img> branch — they render as SVG.
+  const resolved = value && !isIcon ? resolvePublicFileUrl(value) : null;
   const hasImage = !!resolved && !previewError;
 
   const handlePick = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -151,7 +184,9 @@ export function AvatarUploadControl({
         )}
         style={{ width: size, height: size }}
       >
-        {hasImage ? (
+        {iconKey ? (
+          <AgentIcon iconKey={iconKey} size={size} />
+        ) : hasImage ? (
           <img
             src={resolved ?? undefined}
             alt={name}
@@ -173,7 +208,7 @@ export function AvatarUploadControl({
         )}
       </button>
 
-      {onClear && hasImage && !busy && !disabled && (
+      {onClear && (hasImage || isIcon) && !busy && !disabled && (
         <button
           type="button"
           onClick={(e) => {
@@ -186,6 +221,54 @@ export function AvatarUploadControl({
         >
           <X className="h-3 w-3" />
         </button>
+      )}
+
+      {variant === "agent" && onIconPick && !busy && !disabled && (
+        <Popover open={iconPickerOpen} onOpenChange={setIconPickerOpen}>
+          <PopoverTrigger
+            render={
+              <button
+                type="button"
+                aria-label={t(($) => $.avatar_upload.library_aria)}
+                className="absolute -bottom-1.5 -right-1.5 flex h-5 w-5 items-center justify-center rounded-full border bg-background text-muted-foreground shadow-sm transition-colors hover:bg-muted hover:text-foreground"
+              >
+                <Sparkles className="h-3 w-3" />
+              </button>
+            }
+          />
+          <PopoverContent align="start" className="w-auto p-2">
+            <div
+              role="grid"
+              aria-label={t(($) => $.avatar_upload.library_title)}
+              className="grid grid-cols-6 gap-1.5"
+            >
+              {AGENT_ICONS.map((entry) => {
+                const selected = iconKey === entry.key;
+                return (
+                  <button
+                    key={entry.key}
+                    type="button"
+                    role="gridcell"
+                    aria-label={entry.label}
+                    aria-selected={selected}
+                    onClick={() => {
+                      onIconPick(entry.key);
+                      setIconPickerOpen(false);
+                    }}
+                    className={cn(
+                      "flex h-8 w-8 items-center justify-center rounded-full transition-all",
+                      selected
+                        ? "ring-2 ring-foreground ring-offset-1 ring-offset-background"
+                        : "hover:scale-110",
+                    )}
+                  >
+                    <AgentIcon iconKey={entry.key} size={26} />
+                  </button>
+                );
+              })}
+            </div>
+          </PopoverContent>
+        </Popover>
       )}
 
       <input

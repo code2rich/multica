@@ -4,7 +4,9 @@
     "remove": "Remove",
     "select_image": "Please choose an image file.",
     "updated": "Avatar updated",
-    "failed": "Failed to upload avatar"
+    "failed": "Failed to upload avatar",
+    "library_aria": "Choose from icon library",
+    "library_title": "Pick an icon"
   },
   "avatar_crop": {
     "title": "Edit avatar",

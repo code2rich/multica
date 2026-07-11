@@ -10,6 +10,7 @@
   "exports": {
     "./components/ui/*": "./components/ui/*.tsx",
     "./components/common/*": "./components/common/*.tsx",
+    "./components/common/agent-icons": "./components/common/agent-icons/index.tsx",
     "./markdown": "./markdown/index.ts",
     "./markdown/*": "./markdown/*.tsx",
     "./markdown/linkify": "./markdown/linkify.ts",
@@ -17,6 +18,7 @@
     "./hooks/*": "./hooks/*.ts",
     "./lib/utils": "./lib/utils.ts",
     "./lib/avatar-size": "./lib/avatar-size.ts",
+    "./lib/agent-icon-url": "./lib/agent-icon-url.ts",
     "./lib/data-table": "./lib/data-table.ts",
     "./lib/code-style": "./lib/code-style.ts",
     "./lib/clipboard": "./lib/clipboard.ts",

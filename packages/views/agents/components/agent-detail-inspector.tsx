@@ -16,6 +16,7 @@ import {
   type AgentPresenceDetail,
 } from "@multica/core/agents";
 import { isImeComposing } from "@multica/core/utils";
+import { buildAgentIconUrl } from "@multica/ui/lib/agent-icon-url";
 import { useTimeAgo } from "../../i18n";
 import { Button } from "@multica/ui/components/ui/button";
 import { ActorAvatar } from "../../common/actor-avatar";
@@ -309,6 +310,7 @@ function AvatarEditor({
       name={agent.name}
       size={56}
       onUploaded={(url) => onUpdate({ avatar_url: url })}
+      onIconPick={(key) => onUpdate({ avatar_url: buildAgentIconUrl(key) })}
     />
   );
 }
