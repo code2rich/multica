@@ -221,8 +221,8 @@ func (h *Handler) ReorderPins(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// Fan out so other sessions (web/desktop, or a second tab) refetch
-	// the pin list and pick up the new order. Without this, reorder is
+	// Fan out so other sessions (additional browser tabs or other web clients)
+	// refetch the pin list and pick up the new order. Without this, reorder is
 	// only consistent on the originating client until a hard refresh.
 	h.publish(protocol.EventPinReordered, workspaceID, "member", userID, map[string]any{"items": req.Items})
 

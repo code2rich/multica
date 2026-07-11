@@ -40,7 +40,7 @@ func TestHealthHandlerReportsCLIVersionAndActiveTaskCount(t *testing.T) {
 	}
 
 	// Decode into a raw map so the test locks in the exact wire-level JSON
-	// keys — the desktop TS client depends on snake_case (cli_version,
+	// keys — the web TS client depends on snake_case (cli_version,
 	// active_task_count), so a silent struct-tag rename must fail here.
 	var raw map[string]any
 	if err := json.Unmarshal(rec.Body.Bytes(), &raw); err != nil {
@@ -56,9 +56,9 @@ func TestHealthHandlerReportsCLIVersionAndActiveTaskCount(t *testing.T) {
 	if got, want := raw["status"], "running"; got != want {
 		t.Errorf("status key: got %v, want %q", got, want)
 	}
-	// The desktop relies on the `os` key (runtime.GOOS) to detect a daemon it
-	// can't manage (e.g. Linux-in-WSL behind a Windows desktop). A rename or
-	// drop would silently re-break #3916, so lock both the key and its value.
+	// Clients rely on the `os` key (runtime.GOOS) to detect a daemon they
+	// can't manage (e.g. a mismatched host OS). A rename or drop would
+	// silently re-break #3916, so lock both the key and its value.
 	if got, want := raw["os"], runtime.GOOS; got != want {
 		t.Errorf("os key: got %v, want %q", got, want)
 	}
@@ -80,8 +80,8 @@ func TestHealthHandlerReportsCLIVersionAndActiveTaskCount(t *testing.T) {
 // TestHealthHandlerReportsStartingUntilReady pins the liveness/readiness split:
 // the health server binds and answers before preflight finishes, but it must
 // report "starting" until d.ready is set, and only then "running". Otherwise a
-// slow or failing preflight would be misreported to `daemon start` (and the
-// desktop) as a fully started daemon.
+// slow or failing preflight would be misreported to `daemon start` as a fully
+// started daemon.
 func TestHealthHandlerReportsStartingUntilReady(t *testing.T) {
 	t.Parallel()
 

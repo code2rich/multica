@@ -14,8 +14,7 @@ import (
 )
 
 // resolveCommentHTTP drives the POST /api/comments/{id}/resolve handler and
-// returns the decoded response. Mirrors the resolve path the web/desktop client
-// hits.
+// returns the decoded response. Mirrors the resolve path the web client hits.
 func resolveCommentHTTP(t *testing.T, commentID string) CommentResponse {
 	t.Helper()
 	w := httptest.NewRecorder()

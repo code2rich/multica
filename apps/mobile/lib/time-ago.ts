@@ -1,7 +1,7 @@
 /**
  * Mobile time-ago formatter. Mirrors the algorithm in
  * packages/views/inbox/components/inbox-list-item.tsx `useTimeAgo` so
- * "X minutes ago" reads identically across web/desktop and mobile (Behavioral
+ * "X minutes ago" reads identically across web and mobile (Behavioral
  * parity rule in apps/mobile/CLAUDE.md). The web version is i18n-driven via
  * useT; mobile v1 is English-only — when mobile ships i18n, mirror that
  * structure.

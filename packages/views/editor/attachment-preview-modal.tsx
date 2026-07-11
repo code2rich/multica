@@ -8,8 +8,7 @@
  *   - image : <img className="object-contain"> centered in the modal frame.
  *             Replaces the previous standalone ImageLightbox.
  *   - pdf   : <iframe src={download_url}> — relies on Chromium's PDFium
- *             plugin. On desktop, requires webPreferences.plugins=true
- *             (see apps/desktop/src/main/index.ts).
+ *             plugin.
  *   - video : <video controls src={download_url}>
  *   - audio : <audio controls src={download_url}>
  *
@@ -48,7 +47,6 @@ import { paths, useWorkspaceSlug } from "@multica/core/paths";
 import { resolvePublicFileUrl } from "@multica/core/workspace/avatar-url";
 import { useT } from "../i18n";
 import { useNavigation } from "../navigation";
-import { openExternal } from "../platform";
 import { ReadonlyContent } from "./readonly-content";
 import {
   extensionToLanguage,
@@ -103,10 +101,7 @@ function normalize(source: PreviewSource): PreviewState {
   // returned by the unified-endpoint metadata path when no CloudFront
   // signer is configured) against the configured API base. Web with the
   // default empty base keeps the relative path and resolves it against
-  // the page origin — same behaviour as before this PR. Desktop renderer
-  // (loaded from `app://` / file: / dev-server origin) needs the absolute
-  // form so `<img src>` / `<iframe src>` / `<video src>` actually point at
-  // the API server instead of the shell origin.
+  // the page origin — same behaviour as before this PR.
   if (source.kind === "full") {
     return {
       filename: source.attachment.filename,
@@ -220,7 +215,7 @@ export function AttachmentPreviewModal({
     if (state.attachmentId) {
       download(state.attachmentId);
     } else {
-      openExternal(state.mediaUrl);
+      window.open(state.mediaUrl, "_blank", "noopener,noreferrer");
     }
   };
 

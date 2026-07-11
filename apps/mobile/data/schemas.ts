@@ -5,7 +5,7 @@
  * loose() so unknown server fields pass through, defaults so a missing
  * array doesn't take the page down).
  *
- * If web/desktop later need these same schemas, promote them to core; until
+ * If web later need these same schemas, promote them to core; until
  * then they live here so mobile satisfies its "Parse, don't cast" rule
  * (root CLAUDE.md "API Response Compatibility") for these endpoints.
  */

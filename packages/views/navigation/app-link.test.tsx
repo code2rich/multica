@@ -72,7 +72,7 @@ describe("AppLink", () => {
     expect(callerFocus).toHaveBeenCalledTimes(1);
   });
 
-  it("is a no-op when adapter does not implement prefetch (desktop)", () => {
+  it("is a no-op when adapter does not implement prefetch", () => {
     const adapter = makeAdapter();
     renderLink(adapter);
     expect(() => fireEvent.mouseEnter(screen.getByText("go"))).not.toThrow();

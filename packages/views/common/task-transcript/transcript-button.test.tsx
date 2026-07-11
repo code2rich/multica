@@ -102,7 +102,7 @@ afterEach(() => {
 });
 
 describe("TranscriptButton", () => {
-  it("closes the transcript dialog when desktop navigation starts", async () => {
+  it("closes the transcript dialog when in-app navigation starts", async () => {
     const items: TimelineItem[] = [{ seq: 1, type: "text", content: "hello" }];
     const qc = newClient();
     renderWith(

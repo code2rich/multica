@@ -8,9 +8,7 @@
     "headline_line2": "in",
     "headline_emphasis": "one workspace.",
     "lede": "Assign them work like you'd assign a colleague — they pick it up, update status, and comment when done.",
-    "lede_web": "Desktop bundles the runtime — nothing to install. Continue on web to connect your own CLI.",
-    "lede_desktop": "By the end, a real agent will be replying to your first issue.",
-    "download_desktop": "Download Desktop",
+    "lede_web": "Connect your own CLI to run agents on your machines.",
     "continue_on_web": "Continue on web",
     "start_exploring": "Start exploring",
     "skip_existing": "I've done this before",
@@ -349,12 +347,6 @@
     "headline": "Connect a computer to run your agent.",
     "lede": "Your agent runs on a real computer that you connect to Multica. Pick how you want to connect one.",
     "hint_default": "Pick a way to connect — or skip and connect a computer later.",
-    "hint_downloaded": "Finish setup on the download page, then come back to this tab.",
-    "download_title": "Use this computer",
-    "download_title_after": "Opening the download page…",
-    "download_subtitle": "Install our desktop app to connect this computer. Zero setup — pick your platform on the next page.",
-    "download_subtitle_after": "Opened in a new tab. Pick your installer there, then finish setup on desktop.",
-    "download_button": "Download",
     "cli_title": "Connect from the terminal",
     "cli_subtitle": "Connect a server, remote dev box, or any headless computer. Terminal required.",
     "cli_action": "Show steps",
@@ -362,7 +354,7 @@
     "cloud_subtitle": "We'll run a computer for you in the cloud. Not live yet.",
     "cloud_action": "Coming soon",
     "cli_dialog_title": "Connect from the terminal",
-    "cli_dialog_description": "Same connection as Desktop, set up from the terminal. Use it for servers, remote dev boxes, or any headless computer.",
+    "cli_dialog_description": "Set up the connection from the terminal. Use it for servers, remote dev boxes, or any headless computer.",
     "cli_dialog_pick_hint": "Pick a computer above.",
     "cli_dialog_connect": "Connect & continue",
     "runtimes_connected_one": "{{count}} computer connected",
@@ -375,8 +367,8 @@
     "stage_slow_prefix": "Taking longer than usual. Check the terminal where you ran ",
     "stage_slow_suffix": " for errors.",
     "stage_stalled_prefix": "Nothing coming through yet. If you're not comfortable with the terminal, ",
-    "stage_stalled_term": "Desktop",
-    "stage_stalled_suffix": " is the smoother path — one click and this computer is connected. Close this dialog and pick Desktop, or hit Skip to continue."
+    "stage_stalled_term": "check the terminal",
+    "stage_stalled_suffix": " where you ran the command for errors, or hit Skip to continue."
   },
   "errors": {
     "skip_failed": "Failed to finish onboarding"

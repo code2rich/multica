@@ -14,9 +14,7 @@ const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const REASON_MAX = 500;
 
 /**
- * Cloud waitlist inline form — used from both:
- *   - web Step 3 (`StepPlatformFork` cloud fork)
- *   - desktop Step 3 empty state (`StepRuntimeConnect`)
+ * Cloud waitlist inline form — used from web Step 3 (`StepPlatformFork` cloud fork).
  *
  * Submitting calls `joinCloudWaitlist` and disables the form. Does NOT
  * advance the onboarding flow — the caller owns navigation (usually

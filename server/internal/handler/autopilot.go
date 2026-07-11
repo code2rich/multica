@@ -302,7 +302,7 @@ type CreateAutopilotRequest struct {
 	Description *string `json:"description"`
 	ProjectID   *string `json:"project_id"`
 	// AssigneeType is optional and defaults to "agent" — preserves backward
-	// compatibility with desktop clients shipped before MUL-2429.
+	// compatibility with older web clients shipped before MUL-2429.
 	AssigneeType       *string           `json:"assignee_type"`
 	AssigneeID         string            `json:"assignee_id"`
 	ExecutionMode      string            `json:"execution_mode"`

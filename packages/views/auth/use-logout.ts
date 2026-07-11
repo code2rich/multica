@@ -11,11 +11,10 @@ import { useNavigation } from "../navigation";
 
 /**
  * Performs a complete logout: clears per-workspace client storage, legacy
- * cookies, the desktop tab state, the entire React Query cache, the
- * in-memory auth store, and finally navigates to /login. Wraps what was
- * previously duplicated in app-sidebar's logout handler so NoAccessPage's
- * "Sign in as a different user" and any future entry point can use the
- * same flow.
+ * cookies, the entire React Query cache, the in-memory auth store, and
+ * finally navigates to /login. Wraps what was previously duplicated in
+ * app-sidebar's logout handler so NoAccessPage's "Sign in as a different
+ * user" and any future entry point can use the same flow.
  *
  * Without a unified logout, callers that only do `navigate('/login')`
  * leave the auth cookie + React Query cache + local storage intact —
@@ -46,9 +45,8 @@ export function useLogout() {
         "last_workspace_slug=; path=/; max-age=0; SameSite=Lax";
     }
 
-    // Clear desktop tab state. Tab paths can contain workspace slugs and
-    // issue UUIDs that must not survive across user sessions on a shared
-    // machine. No-op on web (web doesn't write this key).
+    // Clear tab state. Tab paths can contain workspace slugs and issue UUIDs
+    // that must not survive across user sessions on a shared machine.
     defaultStorage.removeItem("multica_tabs");
 
     queryClient.clear();

@@ -44,11 +44,11 @@ const timelineHardCap = 2000
 
 // timelinePaginatedResponse mirrors the wrapper shape produced by the prior
 // cursor-paginated ListTimeline (#2128). It is preserved as a backward-compat
-// surface for installed Desktop builds and stale Web bundles between #2128 and
-// #1929 that send `?limit=`/`?before=`/`?after=`/`?around=` and parse the
-// response with the old TimelinePageSchema (entries + cursors). Cursors are
-// always nil and `has_more_*` are always false: the new server returns the
-// whole timeline in one shot.
+// surface for stale Web bundles between #2128 and #1929 that send
+// `?limit=`/`?before=`/`?after=`/`?around=` and parse the response with the
+// old TimelinePageSchema (entries + cursors). Cursors are always nil and
+// `has_more_*` are always false: the new server returns the whole timeline in
+// one shot.
 type timelinePaginatedResponse struct {
 	Entries       []TimelineEntry `json:"entries"`
 	NextCursor    *string         `json:"next_cursor"`
@@ -62,10 +62,10 @@ type timelinePaginatedResponse struct {
 // Two response shapes coexist for boundary compatibility (#1929):
 //
 //   - No pagination params → flat ASC `TimelineEntry[]`. Matches the legacy
-//     desktop contract (Multica.app ≤ v0.2.25) and the new client.
+//     Web contract and the current client.
 //   - Any of `limit` / `before` / `after` / `around` present → wrapped object
 //     with DESC entries + null cursors + has_more_*=false. Matches what a
-//     stale v0.2.26+ build expects when it parses the response with
+//     stale Web bundle expects when it parses the response with
 //     TimelinePageSchema; cursor-walking is now a no-op so the client just
 //     sees a single full page.
 //
@@ -133,7 +133,7 @@ func (h *Handler) ListTimeline(w http.ResponseWriter, r *http.Request) {
 
 // mergeTimeline merges comments and activities and returns them sorted by
 // (created_at, id). When ascending=true, oldest first (the new flat-array
-// contract); otherwise newest first (the wrapped legacy contract).
+// contract); otherwise newest first (the wrapped legacy Web contract).
 func (h *Handler) mergeTimeline(r *http.Request, comments []db.Comment, activities []db.ActivityLog, ascending bool) []TimelineEntry {
 	out := make([]TimelineEntry, 0, len(comments)+len(activities))
 	out = append(out, h.commentsToEntries(r, comments)...)

@@ -49,7 +49,7 @@ export interface AppConfigResponse {
 // ---------------------------------------------------------------------------
 // Schemas for the highest-risk API endpoints — those whose responses drive
 // the issue detail page (timeline, comments, subscribers) and the issues
-// list. These are the surfaces that white-screened in #2143 / #2147 / #2192.
+// list. These are the surfaces that crashed in #2143 / #2147 / #2192.
 //
 // These schemas are intentionally LENIENT:
 //   - String enums are stored as `z.string()` rather than `z.enum([...])`.
@@ -603,12 +603,10 @@ export const EMPTY_CANCEL_TASK_RESPONSE: CancelTaskResponse = {
 
 // ---------------------------------------------------------------------------
 // Agent template catalog — `/api/agent-templates*` and the
-// create-from-template response. The desktop app's create-agent picker
-// reaches these endpoints, and a future server change to the template shape
-// would white-screen older installed builds (#2192 pattern) without these
-// parsers. Lenient by the same rules as IssueSchema above: arrays default to
-// `[]`, optional fields stay optional, `.loose()` lets unknown fields pass
-// through unchanged.
+// create-from-template response. A future server change to the template shape
+// would crash older clients (#2192 pattern) without these parsers. Lenient by
+// the same rules as IssueSchema above: arrays default to `[]`, optional fields
+// stay optional, `.loose()` lets unknown fields pass through unchanged.
 // ---------------------------------------------------------------------------
 
 const AgentTemplateSkillRefSchema = z.object({
@@ -633,8 +631,8 @@ const AgentTemplateSummarySchemaBase = z.object({
 export const AgentTemplateSummarySchema = AgentTemplateSummarySchemaBase;
 
 // List endpoint historically returns a bare array. Server could legitimately
-// migrate to `{templates: [...]}` later — we accept either shape so an old
-// desktop survives the upgrade.
+// migrate to `{templates: [...]}` later — we accept either shape so older
+// clients survive the upgrade.
 export const AgentTemplateSummaryListSchema = z.union([
   z.array(AgentTemplateSummarySchemaBase),
   z.object({ templates: z.array(AgentTemplateSummarySchemaBase).default([]) })

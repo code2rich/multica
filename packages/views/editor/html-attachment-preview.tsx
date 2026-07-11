@@ -11,9 +11,8 @@
  * inline ```html``` fenced block (HtmlBlockPreview) is the surface for reading
  * / copying HTML source; an attachment's contract is view + download.
  *
- * Open-in-new-tab routes to `/{slug}/attachments/{id}/preview` — desktop uses
- * `openInNewTab` to add an app tab; web falls back to `window.open` against
- * the shareable URL.
+ * Open-in-new-tab routes to `/{slug}/attachments/{id}/preview` and opens it in
+ * a browser tab via `window.open` against the public shareable URL.
  *
  * Mounted by the unified `<Attachment>` dispatcher when the attachment is
  * HTML and an `attachmentId` is resolvable (the /content proxy is ID-keyed).
@@ -66,18 +65,14 @@ export function HtmlAttachmentPreview({
   const navigation = useNavigation();
 
   // Only enable the new-tab button when the workspace slug is resolvable —
-  // outside a workspace context the path is meaningless. Prefer desktop's
-  // tab system; on web fall back to window.open against the public shareable
-  // URL (auth is handled by the cookie session on the new page).
+  // outside a workspace context the path is meaningless. The preview is opened
+  // in a browser tab via window.open against the public shareable URL (auth is
+  // handled by the cookie session on the new page).
   const canOpenInNewTab = !!slug && !!attachmentId;
   const handleOpenInNewTab = () => {
     if (!slug) return;
     const nameQuery = filename ? `?name=${encodeURIComponent(filename)}` : "";
     const path = `${paths.workspace(slug).attachmentPreview(attachmentId)}${nameQuery}`;
-    if (navigation.openInNewTab) {
-      navigation.openInNewTab(path, filename, { activate: true });
-      return;
-    }
     const url = navigation.getShareableUrl(path);
     window.open(url, "_blank", "noopener,noreferrer");
   };

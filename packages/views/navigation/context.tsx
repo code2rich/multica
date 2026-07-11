@@ -15,9 +15,8 @@ export function NavigationProvider({
 }) {
   // Wrap push/replace in startTransition so any caller of useNavigation()
   // (sidebar AppLink, command palette, modal post-create jumps) gets a
-  // React pending signal during route commit. On web this stays true until
-  // Next.js commits the new RSC payload; on desktop it flips off quickly
-  // because react-router commits synchronously — both are correct.
+  // React pending signal during route commit. It stays true until Next.js
+  // commits the new RSC payload.
   const [isPending, startTransition] = useTransition();
   const wrapped = useMemo<NavigationAdapter>(
     () => ({

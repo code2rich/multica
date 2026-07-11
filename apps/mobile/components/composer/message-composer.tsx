@@ -138,7 +138,7 @@ function makeLocalId(): string {
 /** Serialises mention chips into the markdown link form the backend
  *  regex parser recognises. The string lands at the START of the
  *  outgoing content; mobile can't position mentions inline because the
- *  TextInput is plain. Acceptable semantic difference vs web/desktop's
+ *  TextInput is plain. Acceptable semantic difference vs web's
  *  rich editor (web supports anywhere-in-text). */
 function serializeMentions(chips: MentionChip[]): string {
   return chips

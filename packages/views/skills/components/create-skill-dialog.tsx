@@ -41,7 +41,6 @@ import { Label } from "@multica/ui/components/ui/label";
 import { Textarea } from "@multica/ui/components/ui/textarea";
 import { useScrollFade } from "@multica/ui/hooks/use-scroll-fade";
 import { cn } from "@multica/ui/lib/utils";
-import { openExternal } from "../../platform";
 import { RuntimeLocalSkillImportPanel } from "./runtime-local-skill-import-panel";
 import { useT } from "../../i18n";
 import { isNameConflictError } from "../lib/utils";
@@ -273,7 +272,7 @@ function SourceCard({
       <div className="text-xs font-medium">{label}</div>
       <button
         type="button"
-        onClick={() => openExternal(browseUrl)}
+        onClick={() => window.open(browseUrl, "_blank", "noopener,noreferrer")}
         className="mt-0.5 block max-w-full truncate text-left font-mono text-xs text-brand underline decoration-brand/40 underline-offset-2 hover:decoration-brand"
       >
         {exampleHost}

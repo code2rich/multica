@@ -133,7 +133,7 @@ func TestLegacyDaemonUUIDs_ScansProfileDirs(t *testing.T) {
 
 	uuidA := uuid.Must(uuid.NewV7()).String()
 	uuidB := uuid.Must(uuid.NewV7()).String()
-	for name, id := range map[string]string{"prod": uuidA, "desktop-multica": uuidB} {
+	for name, id := range map[string]string{"prod": uuidA, "web-multica": uuidB} {
 		dir := filepath.Join(home, ".multica", "profiles", name)
 		if err := os.MkdirAll(dir, 0o755); err != nil {
 			t.Fatalf("mkdir %s: %v", name, err)

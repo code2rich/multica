@@ -3,11 +3,11 @@
 **Date:** 2026-05-09 (rewritten — initial research had a wrong claim about
 mention syntax, see *Decision Log* below).
 **Scope:** `apps/mobile/` — choosing a markdown renderer for Multica iOS that
-matches the web/desktop feature set.
+matches the web feature set.
 
 **Target requirements:**
 
-1. Render the markdown that web/desktop already write to the database
+1. Render the markdown that web already write to the database
    (issue descriptions + comments) without losing semantic content.
 2. Make `@member` / `@agent` / `#issue` mentions tappable chips.
 3. Make `![alt](url)` images inline + tappable to a lightbox.
@@ -225,14 +225,14 @@ The DB has two mention serializations because of an April 2026 migration:
 - **New**: `[@Label](mention://member/id)` — emitted by current Tiptap editor
 - **Legacy**: `[@ id="abc-123" label="Naiyuan"]` — old shortcode form
 
-Mobile must convert legacy → new before parsing, otherwise old comments render the literal shortcode text. Logic is a pure regex transform — `packages/ui/markdown/index.ts` exports `preprocessMentionShortcodes` for web/desktop, but mobile **cannot** import from `@multica/ui/*` (Sharing Principles in `apps/mobile/CLAUDE.md`).
+Mobile must convert legacy → new before parsing, otherwise old comments render the literal shortcode text. Logic is a pure regex transform — `packages/ui/markdown/index.ts` exports `preprocessMentionShortcodes` for web, but mobile **cannot** import from `@multica/ui/*` (Sharing Principles in `apps/mobile/CLAUDE.md`).
 
 Two options:
 
 | Option | Trade-off |
 |---|---|
-| **A.** Lift the pure function to `@multica/core/markdown/` so all three apps share it | One PR adds a new core module; web/desktop migrate their import path; mobile imports same function. Single source of truth |
-| **B.** Mobile re-implements it (~30 lines) | No web/desktop change; risk of drift if the legacy format ever expands |
+| **A.** Lift the pure function to `@multica/core/markdown/` so all three apps share it | One PR adds a new core module; web migrate their import path; mobile imports same function. Single source of truth |
+| **B.** Mobile re-implements it (~30 lines) | No web change; risk of drift if the legacy format ever expands |
 
 **Recommend A.** This is exactly the kind of pure-function-share-zone the monorepo is for, and parity is required (same legacy comment must produce the same mention id on both clients).
 

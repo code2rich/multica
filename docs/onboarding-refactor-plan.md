@@ -23,7 +23,7 @@ v3 在 v2 之上做更激进的清理:**后端 onboarding 业务复杂度归零,
 4. **进工作区 hook 看 welcome-store**,有信号 → 按 runtime/skip 分两路调通用 `createAgent` / `createIssue`
 5. **Helper instructions / starter prompt / install-runtime issue 描述(EN/ZH)全部在前端 TS 模块**(`packages/views/onboarding/templates/`)
 
-外加双向路由 hard gate:`apps/web/app/[workspaceSlug]/layout.tsx` 拦未 onboarded → `/onboarding`;`apps/web/app/(auth)/onboarding/page.tsx` 拦已 onboarded → workspace。桌面端用 `App.tsx` 的 overlay 决策达成同样效果(no URL bar, no router.replace)。
+外加双向路由 hard gate:`apps/web/app/[workspaceSlug]/layout.tsx` 拦未 onboarded → `/onboarding`;`apps/web/app/(auth)/onboarding/page.tsx` 拦已 onboarded → workspace。(原桌面端的 `App.tsx` overlay 决策随 Electron 应用下线已移除。)
 
 ## 3. 4 类用户链路
 
@@ -98,6 +98,9 @@ welcome-store 无信号 → 不弹
 
 ### D2:Desktop 路由 hard gate 走 overlay 而非 router.replace
 
+> **Historical note:** This covered the Electron desktop client, which has been
+> discontinued. The web behavior described below still applies.
+
 桌面端 onboarding 是 `WindowOverlay`,不是 react-router 路由。`apps/desktop/src/renderer/src/App.tsx` 的 overlay 决策 effect 增加规则:`!hasOnboarded` 一律 `setCurrentWorkspace(null,null) + open onboarding overlay`(不管 wsCount)。web 端在 `layout.tsx` 用 `router.replace(paths.onboarding())` 直接跳。两套实现在效果上等价。
 
 ### D3:`resolvePostAuthDestination` 改回 onboarded-first
@@ -149,8 +152,7 @@ instructions 是 94 行 markdown,issue 描述是 60+ 行带列表 / 代码块。
 - `server/internal/handler/auth.go`:`UserResponse` / `userToResponse` 删两字段
 - `server/internal/handler/workspace_test.go`:测试断言保留,注释更新引用 layout gate 而非 OnboardingHelperModal
 - `apps/web/app/[workspaceSlug]/layout.tsx`:加 hard gate effect + 改挂 `<WelcomeAfterOnboarding />`
-- `apps/desktop/src/renderer/src/App.tsx`:overlay 决策加规则 — `!hasOnboarded` 一律开 onboarding overlay 并先 `setCurrentWorkspace(null,null)`
-- `apps/desktop/src/renderer/src/components/workspace-route-layout.tsx`:`<WorkspaceOnboardingInit />` → `<WelcomeAfterOnboarding />`
+- *(removed desktop renderer entries — Electron app discontinued)*
 - `packages/core/onboarding/index.ts`:精简 exports + 加 welcome-store exports
 - `packages/core/paths/resolve.ts`:回到 onboarded-first 优先级
 - `packages/core/paths/resolve.test.ts`:断言同步翻新
@@ -196,6 +198,12 @@ instructions 是 94 行 markdown,issue 描述是 60+ 行带列表 / 代码块。
 
 ## 10. Deprecation shim — `BootstrapOnboarding*`
 
+> **Update (post-desktop-removal):** This shim has been **removed**. The
+> Electron desktop app was discontinued, so there are no longer any pre-v3
+> desktop clients calling these endpoints. `onboarding_shim.go`, the two router
+> entries, and the 5 regression tests were deleted in the desktop-removal pass.
+> The text below is kept as historical context for the v3 rollout.
+
 **为什么保留**:v3 server 发布到 desktop auto-update 完成之间有 ~30 分钟真空期,期间老桌面会调旧 endpoint。删了 endpoint → 老桌面 404 → 新用户 onboarding 死循环。
 
 **位置**:`server/internal/handler/onboarding_shim.go`(独立文件,所有 deprecated 代码都在这里;v3 主路径 `onboarding.go` 不含一行 shim 代码)。
@@ -215,4 +223,4 @@ instructions 是 94 行 markdown,issue 描述是 60+ 行带列表 / 代码块。
 
 - `starter_content_state` 列(老桌面端兼容)— v3 后端不再触碰,但列保留(老桌面读 NULL → 渲染 legacy 导入 dialog)。可在 desktop 0.2.x 之前的版本全部 EOL 后单独 PR 删
 - `OnboardingCompletionPath` 里的 `cloud_waitlist` enum 值实际无人发送 — 可清理
-- `apps/web/app/[workspaceSlug]/layout.test.tsx`(新增)+ `apps/desktop/src/renderer/src/App.test.tsx`(新增用例)覆盖两端 hard gate 的 redirect 行为 — 当前由手动 E2E 覆盖
+- `apps/web/app/[workspaceSlug]/layout.test.tsx`(新增)覆盖 hard gate 的 redirect 行为 — 当前由手动 E2E 覆盖

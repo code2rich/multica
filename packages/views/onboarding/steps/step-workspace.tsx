@@ -26,7 +26,6 @@ import type { Workspace } from "@multica/core/types";
 import { isImeComposing } from "@multica/core/utils";
 import { useConfigStore } from "@multica/core/config";
 import { workspaceUrlHost } from "@multica/core/workspace/workspace-url";
-import { DragStrip } from "@multica/views/platform";
 import { useLogout } from "../../auth";
 import { StepHeader } from "../components/step-header";
 import { RadioMark } from "../components/option-card";
@@ -280,9 +279,8 @@ export function StepWorkspace({
 
   return (
     <div className="animate-onboarding-enter grid h-full min-h-0 grid-cols-1 lg:grid-cols-[minmax(0,1fr)_480px]">
-      {/* Left column — DragStrip + 3-region app shell */}
+      {/* Left column — 3-region app shell */}
       <div className="flex min-h-0 flex-col">
-        <DragStrip />
         <header className="flex shrink-0 items-center gap-4 bg-background px-6 py-3 sm:px-10 md:px-14 lg:px-16">
           {onBack ? (
             <button
@@ -389,7 +387,6 @@ export function StepWorkspace({
           "what lives inside / things you'll do here" so the preview
           stays honest to the user's current choice. */}
       <aside className="hidden min-h-0 border-l bg-muted/40 lg:flex lg:flex-col">
-        <DragStrip />
         <div className="min-h-0 flex-1 overflow-y-auto px-12 py-12">
           {reusing && mode !== "create" ? (
             <ExistingWorkspaceSide workspace={reusing} />

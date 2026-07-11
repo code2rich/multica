@@ -8,9 +8,7 @@
     "headline_line2": "在",
     "headline_emphasis": "同一个工作区。",
     "lede": "像分配给同事一样把 task 交给它们——它们会接手、推进状态、完成后留下评论。",
-    "lede_web": "桌面端自带运行时，无需安装。在 web 端继续可以连接你自己的 CLI。",
-    "lede_desktop": "完成本流程后，真实的智能体会回复你创建的第一个 issue。",
-    "download_desktop": "下载桌面端",
+    "lede_web": "连接你自己的 CLI，在你的机器上运行智能体。",
     "continue_on_web": "在 web 端继续",
     "start_exploring": "开始探索",
     "skip_existing": "我之前做过了",
@@ -348,12 +346,6 @@
     "headline": "连接一台电脑来运行你的智能体。",
     "lede": "你的智能体运行在你连接到 Multica 的一台真实电脑上。选一种你想要的连接方式。",
     "hint_default": "在上方选一种方式 —— 或先跳过，之后再连接电脑。",
-    "hint_downloaded": "在下载页完成安装，然后回到此标签页。",
-    "download_title": "使用这台电脑",
-    "download_title_after": "正在打开下载页...",
-    "download_subtitle": "安装我们的桌面端来连接这台电脑。零配置 —— 下一页选你的平台。",
-    "download_subtitle_after": "已在新标签页打开。在那里选安装包，然后在桌面端完成设置。",
-    "download_button": "下载",
     "cli_title": "通过终端连接",
     "cli_subtitle": "连接一台服务器、远程开发机或任意无头电脑。需要终端。",
     "cli_action": "查看步骤",
@@ -361,7 +353,7 @@
     "cloud_subtitle": "我们会在云上为你运行一台电脑。尚未上线。",
     "cloud_action": "即将推出",
     "cli_dialog_title": "通过终端连接",
-    "cli_dialog_description": "和桌面端相同的连接，通过终端配置。适用于服务器、远程开发机或任意无头电脑。",
+    "cli_dialog_description": "通过终端配置连接。适用于服务器、远程开发机或任意无头电脑。",
     "cli_dialog_pick_hint": "在上方选一台电脑。",
     "cli_dialog_connect": "连接并继续",
     "runtimes_connected_other": "已连接 {{count}} 台电脑",
@@ -373,8 +365,8 @@
     "stage_slow_prefix": "比平时慢一些。请检查运行 ",
     "stage_slow_suffix": " 的终端是否有错误。",
     "stage_stalled_prefix": "还没有任何信号传来。如果你不太习惯终端，",
-    "stage_stalled_term": "桌面端",
-    "stage_stalled_suffix": " 更顺手 —— 一键搞定，这台电脑就连接好了。关闭这个对话框选择桌面端，或点跳过继续。"
+    "stage_stalled_term": "检查运行命令的终端",
+    "stage_stalled_suffix": " 是否有错误，或点跳过继续。"
   },
   "errors": {
     "skip_failed": "完成上手引导失败"

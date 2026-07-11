@@ -59,7 +59,7 @@ Multica = **人 + AI agent 在同一个看板上协作的任务管理平台**。
 
 | 篇目 | 核心内容 |
 |---|---|
-| **Welcome** | 定位 + 核心价值 + 一张架构图 + 3 种部署形态（Cloud / Self-Host / Desktop）导航 |
+| **Welcome** | 定位 + 核心价值 + 一张架构图 + 2 种部署形态（Cloud / Self-Host）导航；CLI 作为补充 |
 | **How Multica works** | 一张大图把 User / Issue / Agent / Runtime / Daemon / Skill / Task / Trigger 之间的关系串起来——目标是建立**正确心智模型**，而不是记名词 |
 
 ### 板块 2. Getting Started（3 篇）
@@ -158,7 +158,7 @@ Installation / Authentication / Setup / Daemon / Workspace / Issue / Comment / A
 | 组件 | 用途 |
 |---|---|
 | Mermaid diagram | 架构图 / task 生命周期 / trigger 流向 / autopilot 调度链 |
-| Tabs | Cloud / Self-Host / Desktop 并列；CLI / UI 并列 |
+| Tabs | Cloud / Self-Host 并列；CLI / UI 并列 |
 | Callouts（内置）| Tip / Warning / Note — **警告类密集用在 Agents 的 custom_env 和 Self-Host 的固定测试验证码** |
 | Code Tabs | API 调用多语言（Shell / Node / Go） |
 | Video / GIF | "Create your first agent"、"Follow an agent working" |

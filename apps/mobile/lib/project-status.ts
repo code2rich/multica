@@ -2,7 +2,7 @@
  * Mobile-owned project status + priority config. Mirror of
  * `packages/core/projects/config.ts` — same enum order, same labels, same
  * semantic colors. Mirrored (not imported) so mobile keeps full control of
- * Tailwind tokens (we use the mobile tailwind palette, web/desktop use v4
+ * Tailwind tokens (we use the mobile tailwind palette, web use v4
  * tokens with different class names like `text-warning`).
  *
  * Behavioral parity (apps/mobile/CLAUDE.md "Behavioral parity"):

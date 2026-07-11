@@ -8,7 +8,6 @@ import { cn } from "@multica/ui/lib/utils";
 import { useScrollFade } from "@multica/ui/hooks/use-scroll-fade";
 import { runtimeKeys } from "@multica/core/runtimes/queries";
 import type { AgentRuntime } from "@multica/core/types";
-import { DragStrip } from "@multica/views/platform";
 import { StepHeader } from "../components/step-header";
 import { RuntimeAsidePanel } from "../components/runtime-aside-panel";
 import { useRuntimePicker } from "../components/use-runtime-picker";
@@ -16,9 +15,9 @@ import { ProviderLogo } from "../../runtimes/components/provider-logo";
 import { useT } from "../../i18n";
 
 /**
- * Step 3 (desktop) — connect a runtime.
+ * Step 3 — connect a runtime.
  *
- * Owns the full window: DragStrip + 3-region app shell (header /
+ * Owns the full window: 3-region app shell (header /
  * scrolling middle / sticky footer) on the left, permanent
  * educational aside on the right. Built to mirror Step 1
  * questionnaire's shell so the onboarding flow reads as one
@@ -28,22 +27,18 @@ import { useT } from "../../i18n";
  * while empty; `daemon:register` WS event invalidates instantly;
  * default selection prefers online, falls back to first.
  *
- * Web routes to `StepPlatformFork` instead — it owns its own
- * runtime picker embedded under the CLI expand.
+ * The platform fork (`StepPlatformFork`) embeds its own runtime
+ * picker under the CLI expand; this component is the standalone
+ * runtime-connect step.
  */
 export function StepRuntimeConnect({
   wsId,
   onNext,
   onBack,
-  onRefresh,
 }: {
   wsId: string;
   onNext: (runtime: AgentRuntime | null) => void | Promise<void>;
   onBack?: () => void;
-  /** Platform-level rescan hook. Desktop wires this to restart the
-   *  bundled daemon so a freshly-installed CLI shows up — otherwise the
-   *  daemon's PATH probe runs once at boot and never re-probes. */
-  onRefresh?: () => void | Promise<void>;
 }) {
   const { runtimes, selected, selectedId, setSelectedId } =
     useRuntimePicker(wsId);
@@ -57,13 +52,12 @@ export function StepRuntimeConnect({
       setSelectedId={setSelectedId}
       onNext={onNext}
       onBack={onBack}
-      onRefresh={onRefresh}
     />
   );
 }
 
 // ============================================================
-// Fancy desktop view
+// Fancy view
 // ============================================================
 
 type Phase = "scanning" | "found" | "empty";
@@ -79,7 +73,6 @@ function FancyView({
   setSelectedId,
   onNext,
   onBack,
-  onRefresh,
 }: {
   wsId: string;
   runtimes: AgentRuntime[];
@@ -88,20 +81,18 @@ function FancyView({
   setSelectedId: (id: string) => void;
   onNext: (runtime: AgentRuntime | null) => void | Promise<void>;
   onBack?: () => void;
-  onRefresh?: () => void | Promise<void>;
 }) {
   const { t } = useT("onboarding");
   const qc = useQueryClient();
   const mainRef = useRef<HTMLElement>(null);
   const fadeStyle = useScrollFade(mainRef);
 
-  // Flip to "empty" only after we've waited long enough for the daemon
-  // to report. The 5s budget covers the bundled daemon's typical 1–3s
+  // Flip to "empty" only after we've waited long enough for runtime
+  // discovery to report. The 5s budget covers the daemon's typical 1–3s
   // boot; anything past that is a genuine "no runtime" situation and we
   // switch from scanning skeletons to the skip / refresh exits.
-  // `scanEpoch` resets the timer when the user hits Refresh, so a
-  // freshly-installed CLI gets another scanning window before falling
-  // back to the empty state.
+  // `scanEpoch` resets the timer when the user hits Refresh, giving
+  // discovery another scanning window before falling back to empty.
   const [scanEpoch, setScanEpoch] = useState(0);
   const [hasTimedOut, setHasTimedOut] = useState(false);
   useEffect(() => {
@@ -119,22 +110,19 @@ function FancyView({
   const [submitting, setSubmitting] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
 
-  // Refresh triggers a re-scan: restart the daemon (if the platform
-  // wired `onRefresh`) so its PATH probe runs again, invalidate the
-  // runtime query, and reset the empty-state timeout so the user sees
-  // the scanning skeleton instead of the empty exits while the daemon
-  // boots back up.
+  // Refresh triggers a re-scan: invalidate the runtime query and reset
+  // the empty-state timeout so the user sees scanning skeletons instead
+  // of the empty exits while discovery runs again.
   const handleRefresh = useCallback(async () => {
     if (refreshing) return;
     setRefreshing(true);
     try {
-      if (onRefresh) await onRefresh();
       await qc.invalidateQueries({ queryKey: runtimeKeys.all(wsId) });
       setScanEpoch((n) => n + 1);
     } finally {
       setRefreshing(false);
     }
-  }, [onRefresh, qc, wsId, refreshing]);
+  }, [qc, wsId, refreshing]);
 
   // Skip is always available — regardless of phase. Hitting Skip routes
   // through the runtime-less branch, which creates one focused self-serve
@@ -172,10 +160,8 @@ function FancyView({
 
   return (
     <div className="animate-onboarding-enter grid h-full min-h-0 grid-cols-1 lg:grid-cols-[minmax(0,1fr)_480px]">
-      {/* Left — DragStrip + 3-region app shell */}
+      {/* Left — 3-region app shell */}
       <div className="flex min-h-0 flex-col">
-        <DragStrip />
-
         {/* Header — Back + horizontal step indicator */}
         <header className="flex shrink-0 items-center gap-4 bg-background px-6 py-3 sm:px-10 md:px-14 lg:px-16">
           {onBack ? (
@@ -269,7 +255,6 @@ function FancyView({
       {/* Right — always-visible educational aside. "You picked" subsection
           only appears when there's a selection; the other two stay constant. */}
       <aside className="hidden min-h-0 border-l bg-muted/40 lg:flex lg:flex-col">
-        <DragStrip />
         <div className="min-h-0 flex-1 overflow-y-auto px-12 py-12">
           <RuntimeAsidePanel />
         </div>

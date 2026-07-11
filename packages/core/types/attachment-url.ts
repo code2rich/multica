@@ -38,7 +38,7 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
  * URL shape that is safe to persist into markdown bodies.
  *
  * Returns a site-relative path (no host) so the same value works in
- * SSR, CSR, Electron, and the mobile webview where the host differs.
+ * SSR, CSR, and the mobile webview where the host differs.
  *
  * Callers SHOULD use this when emitting markdown that references an
  * attachment (image src, file-card href, attachment_ids tracker keys).
@@ -73,9 +73,9 @@ export function attachmentIdFromDownloadURL(rawURL: string): string | undefined 
   const hi = path.indexOf("#");
   if (hi >= 0) path = path.slice(0, hi);
 
-  // Allow absolute URLs (electron, host-bearing CDN URL); pull just the
-  // pathname. Skip the protocol-aware parser for site-relative paths so
-  // SSR (no document) and webview environments behave identically.
+  // Allow absolute URLs (host-bearing CDN URL); pull just the pathname.
+  // Skip the protocol-aware parser for site-relative paths so SSR (no
+  // document) and webview environments behave identically.
   if (/^https?:\/\//i.test(path)) {
     try {
       path = new URL(path).pathname;

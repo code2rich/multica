@@ -100,9 +100,9 @@ import jaUi from "./ja/ui.json";
 import jaSquads from "./ja/squads.json";
 import jaBilling from "./ja/billing.json";
 
-// Single source of truth for the resource bundle. Both apps (web layout +
-// desktop App.tsx) import from here so adding a locale or namespace happens
-// in exactly one place.
+// Single source of truth for the resource bundle. Both the web layout and
+// mobile app import from here so adding a locale or namespace happens in
+// exactly one place.
 export const RESOURCES: Record<SupportedLocale, LocaleResources> = {
   en: {
     common: enCommon,

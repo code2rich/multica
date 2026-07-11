@@ -243,7 +243,7 @@ func TestHandleWebSocket_ClientIdentityFromQuery(t *testing.T) {
 	token := makeTestToken(t)
 	wsURL := "ws" + strings.TrimPrefix(server.URL, "http") +
 		"/ws?workspace_id=" + testWorkspaceID +
-		"&client_platform=desktop&client_version=1.2.3&client_os=macos"
+		"&client_platform=web&client_version=1.2.3&client_os=macos"
 	conn, _, err := websocket.DefaultDialer.Dial(wsURL, nil)
 	if err != nil {
 		t.Fatalf("dial: %v", err)
@@ -291,8 +291,8 @@ func TestHandleWebSocket_ClientIdentityFromQuery(t *testing.T) {
 	if found == nil {
 		t.Fatalf("did not observe \"websocket connected\" log entry; buffered logs:\n%s", buf.String())
 	}
-	if got, _ := found["client_platform"].(string); got != "desktop" {
-		t.Errorf("client_platform = %q, want %q", got, "desktop")
+	if got, _ := found["client_platform"].(string); got != "web" {
+		t.Errorf("client_platform = %q, want %q", got, "web")
 	}
 	if got, _ := found["client_version"].(string); got != "1.2.3" {
 		t.Errorf("client_version = %q, want %q", got, "1.2.3")
@@ -378,7 +378,7 @@ func TestCheckOrigin(t *testing.T) {
 		want       bool
 	}{
 		{"empty origin allowed", "api.multica.ai", "", "", "1.2.3.4:5678", true},
-		{"same-origin allowed (native client default)", "localhost:8080", "http://localhost:8080", "", "1.2.3.4:5678", true},
+		{"same-origin allowed (default same-origin request)", "localhost:8080", "http://localhost:8080", "", "1.2.3.4:5678", true},
 		{"same-origin allowed (https)", "api.multica.ai", "https://api.multica.ai", "", "1.2.3.4:5678", true},
 		{"same-origin allowed (case-insensitive host, RFC 7230)", "API.Multica.AI", "https://api.multica.ai", "", "1.2.3.4:5678", true},
 		{"whitelisted origin allowed (web cross-origin)", "localhost:8080", "http://localhost:3000", "", "1.2.3.4:5678", true},

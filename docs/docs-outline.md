@@ -192,7 +192,7 @@ multica issue assign <issue-id> --agent <agent-slug>
 | 5 | [Working with Agents](#板块-5working-with-agents) | **4 种触发方式——产品核心特色** | 4 |
 | 6 | [Staying Informed](#板块-6staying-informed) | Inbox + Subscriptions | 1 |
 | 7 | [Administration](#板块-7administration) | Env / Auth Setup / Troubleshooting | 3 |
-| 8 | [Reference](#板块-8reference) | CLI / Tokens / Desktop | 3 |
+| 8 | [Reference](#板块-8reference) | CLI / Tokens | 2 |
 
 ---
 
@@ -212,7 +212,7 @@ multica issue assign <issue-id> --agent <agent-slug>
     2. Agent 跑在你自己的 daemon 上——你掌控计算和 API key
     3. Provider-agnostic：支持 Claude Code / Codex / Cursor CLI / Copilot 等 10 种
   - 一句借势："Speaks MCP natively. Compatible with Anthropic Agent Skills."
-  - 3 种部署形态导航（Cloud / Self-Host / Desktop）
+  - 2 种部署形态导航（Cloud / Self-Host），CLI 作为补充
 - **不写**:
   - 不用 "AI-native"（已贬值）
   - 不用 "autonomous"（撞 Autopilot 大军）
@@ -828,28 +828,8 @@ multica issue assign <issue-id> --agent <agent-slug>
   - Daemon Token 不能命中 user-scoped 路由必须明确
 - **Owner**: –
 
-### 8.3 Desktop App — ⬜ Not started [v1]
-
-- **Source files**: `apps/desktop/src/main/`, `apps/desktop/src/renderer/src/stores/tab-store.ts`, `stores/window-overlay-store.ts`, `apps/desktop/src/main/updater.ts`, `scripts/package.mjs`
-- **目标读者**: 使用 desktop 版的用户
-- **叙事位置**: Reference 最后一篇。桌面版独有能力。
-- **写什么**（1000-1500 字）:
-  - **Desktop vs Web 对比表**（开篇）
-  - **多 tab 系统**（per-workspace 隔离，localStorage 持久化，跨 workspace 切换时恢复上次活跃 tab）
-  - **自动更新**（electron-updater + GitHub Release；Windows arm64 特殊处理 `latest-arm64.yml`；app quit 时安装）
-  - **Daemon 不内置**：desktop 只是窗口，daemon 要单独 `multica daemon start`，desktop package 里 bundle 了 CLI
-  - 安装：macOS .dmg / Windows .exe / Linux .AppImage
-- **不写**:
-  - Window Overlay（实现细节，用户无感知）
-  - Electron 框架本身
-- **写前要验证**:
-  - Tab system 持久化机制
-  - 自动更新平台矩阵
-  - CLI 确实 bundle 进 desktop 包
-- **⚠️ 动笔前必读**:
-  - 重点是"为什么选 desktop 而不是 web"
-  - Desktop vs Web 对比表是核心
-- **Owner**: –
+> **Note:** Desktop App docs (原 §8.3) removed — the Electron desktop app has
+> been discontinued. Cloud / Self-Host / CLI remain the supported surfaces.
 
 ---
 

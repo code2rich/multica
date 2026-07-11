@@ -9,18 +9,16 @@ const {
   getAttachmentMock,
   getBaseUrlMock,
   downloadMock,
-  openExternalMock,
   openByUrlMock,
 } = vi.hoisted(() => ({
   getAttachmentTextContentMock: vi.fn(),
   getAttachmentMock: vi.fn(),
   // Default: empty base URL so existing tests render site-relative URLs
   // through the proxy (i.e. exactly the way the web app behaves). The
-  // absolutize-specific suite below overrides this to simulate Desktop /
+  // absolutize-specific suite below overrides this to simulate a
   // mobile webview, where the renderer's origin does NOT proxy /api.
   getBaseUrlMock: vi.fn(() => ""),
   downloadMock: vi.fn(),
-  openExternalMock: vi.fn(),
   openByUrlMock: vi.fn(),
 }));
 
@@ -36,10 +34,6 @@ vi.mock("@multica/core/api", () => ({
 
 vi.mock("./use-download-attachment", () => ({
   useDownloadAttachment: () => downloadMock,
-}));
-
-vi.mock("../platform", () => ({
-  openExternal: openExternalMock,
 }));
 
 vi.mock("../i18n", () => ({
@@ -159,8 +153,8 @@ beforeEach(() => {
   resolverState.attachments = [];
   configStore.setState({ cdnDomain: "", cdnSigned: false });
   // Default to "no proxy override" — site-relative URLs stay as-is, mirroring
-  // the web app's same-origin proxy. Tests that simulate Desktop / mobile
-  // webview override per-case via getBaseUrlMock.mockReturnValue(...).
+  // the web app's same-origin proxy. Tests that simulate a mobile webview or
+  // split-origin self-host override per-case via getBaseUrlMock.mockReturnValue(...).
   getBaseUrlMock.mockReturnValue("");
 });
 
@@ -363,11 +357,12 @@ describe("Attachment — image dispatch", () => {
   });
 
   it("re-signs the inline media URL through getAttachment on token-mode clients (MUL-3254)", async () => {
-    // Desktop / mobile webview: file:// document origin, Bearer-token auth.
-    // The auth-gated /api/attachments/<id>/download endpoint 401s as a
-    // native <img> fetch, so the renderer must swap in a freshly signed URL
-    // from authenticated attachment metadata — the reopened-draft case where
-    // the persisted record deliberately strips the expired download_url.
+    // Mobile webview or split-origin deployment: the document origin does not
+    // proxy /api, and Bearer-token auth means the auth-gated
+    // /api/attachments/<id>/download endpoint 401s as a native <img> fetch.
+    // The renderer must swap in a freshly signed URL from authenticated
+    // attachment metadata — the reopened-draft case where the persisted record
+    // deliberately strips the expired download_url.
     getBaseUrlMock.mockReturnValue("https://multica-api.copilothub.ai");
     configStore.setState({ cdnDomain: "cdn.example.test", cdnSigned: true });
     const id = "11111111-2222-3333-4444-555555555555";
@@ -641,14 +636,14 @@ describe("Attachment — file-card dispatch", () => {
   });
 });
 
-// MUL-3192 — Desktop quick-create: site-relative `/api/attachments/<id>/
-// download` and `/uploads/<key>` URLs only resolve in environments where the
-// document origin proxies them to the API host (web via Next.js rewrites).
-// In Electron desktop the renderer origin is `file://`, so the same path
-// can't load. The Attachment renderer runs the picked URL through an
-// absolutize pass that prefixes `apiBaseUrl` when one is configured.
+// MUL-3192 — site-relative `/api/attachments/<id>/download` and
+// `/uploads/<key>` URLs only resolve in environments where the document origin
+// proxies them to the API host (web via Next.js rewrites). In a mobile webview
+// or split-origin self-host the renderer origin does not proxy those paths, so
+// the Attachment renderer runs the picked URL through an absolutize pass that
+// prefixes `apiBaseUrl` when one is configured.
 describe("Attachment — absolutize site-relative URLs (MUL-3192)", () => {
-  it("prefixes site-relative /api/attachments/<id>/download with apiBaseUrl in Desktop-like environments", () => {
+  it("prefixes site-relative /api/attachments/<id>/download with apiBaseUrl in split-origin or mobile-webview environments", () => {
     getBaseUrlMock.mockReturnValue("https://api.example.test");
     renderWithQuery(
       <Attachment
@@ -671,8 +666,8 @@ describe("Attachment — absolutize site-relative URLs (MUL-3192)", () => {
     // markdown_url, so pickInlineMediaURL falls through to record.url.
     // For LocalStorage with no LOCAL_UPLOAD_BASE_URL configured that's
     // a site-relative `/uploads/<key>` — the absolutize pass at the
-    // renderer's edge prefixes the apiBaseUrl so Desktop's file:// origin
-    // doesn't resolve it to file:///uploads/...
+    // renderer's edge prefixes the apiBaseUrl so a non-proxying origin
+    // doesn't resolve it to the wrong host.
     getBaseUrlMock.mockReturnValue("https://api.example.test");
     const att = makeRecord({
       url: "/uploads/ws-1/abc.png",

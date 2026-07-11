@@ -78,9 +78,9 @@ function isElementVisible(el: HTMLElement | null): boolean {
 }
 
 // Bring `range` into view by driving the scroll container's scrollTop directly.
-// Never native scrollIntoView: on this page it propagates to the desktop shell
-// wrapper and shoves the whole view off-screen (#3929). Only scrolls when the
-// match is actually outside the comfortable viewport band.
+// Never native scrollIntoView: on this page it propagates up to the page root
+// and shoves the whole view off-screen (#3929). Only scrolls when the match is
+// actually outside the comfortable viewport band.
 function scrollRangeIntoView(container: HTMLElement | null, range: Range): void {
   if (!container) return;
   const rects = range.getClientRects();
@@ -265,9 +265,8 @@ export function useInPageFind(options: {
     applyActive(rangesRef.current, activeIndex, true);
   }, [activeIndex, open, applyActive]);
 
-  // Global Cmd/Ctrl+F. The listener is scoped to the mounted issue detail; on
-  // desktop, <Activity> cycles this effect with tab visibility, so only the
-  // visible tab intercepts the key. The visibility guard is defensive.
+  // Global Cmd/Ctrl+F. The listener is scoped to the mounted issue detail;
+  // the visibility guard keeps hidden issue pages from intercepting the key.
   useEffect(() => {
     if (!enabled) return;
     const onKeyDown = (e: KeyboardEvent) => {

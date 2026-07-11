@@ -13,7 +13,7 @@ interface DashboardGuardProps {
  * Shared guard for dashboard layouts.
  *
  * Handles: auth check → workspace check → render children.
- * Both web and desktop layouts compose their own UI structure inside this.
+ * Web layouts compose their own UI structure inside this.
  *
  * WorkspaceIdProvider has been removed — useWorkspaceId() now derives from
  * the URL slug via useCurrentWorkspace(). The guard still gates on workspace

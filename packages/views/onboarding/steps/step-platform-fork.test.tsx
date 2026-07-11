@@ -76,15 +76,18 @@ describe("StepPlatformFork", () => {
     vi.restoreAllMocks();
   });
 
-  it("renders the three fork options at rest", () => {
+  it("renders the two fork options at rest", () => {
     renderFork();
-    expect(screen.getByText(/^use this computer$/i)).toBeInTheDocument();
     expect(screen.getByText(/^connect from the terminal$/i)).toBeInTheDocument();
     expect(screen.getByText(/^use a cloud computer$/i)).toBeInTheDocument();
     // Cloud option is a "Coming soon" preview — not yet wired up.
     expect(screen.getByText(/^coming soon$/i)).toBeInTheDocument();
     expect(
       screen.queryByRole("button", { name: /^coming soon$/i }),
+    ).not.toBeInTheDocument();
+    // No desktop download card anymore (the Electron app was discontinued).
+    expect(
+      screen.queryByText(/^use this computer$/i),
     ).not.toBeInTheDocument();
     // CLI dialog closed at rest → no CLI instructions.
     expect(screen.queryByTestId("cli-instructions")).not.toBeInTheDocument();
@@ -111,25 +114,6 @@ describe("StepPlatformFork", () => {
     await user.click(screen.getByRole("button", { name: /skip for now/i }));
     expect(onNext).toHaveBeenCalledTimes(1);
     expect(onNext).toHaveBeenCalledWith(null);
-  });
-
-  it("opens the download page and flips the card to a post-click state", async () => {
-    const openSpy = vi.spyOn(window, "open").mockReturnValue(null);
-    const user = userEvent.setup();
-    renderFork();
-
-    await user.click(screen.getByText(/^use this computer$/i));
-
-    // Routes to the new /download page (not GitHub releases) so the
-    // user lands on the OS auto-detect surface.
-    expect(openSpy).toHaveBeenCalledWith(
-      "/download",
-      "_blank",
-      "noopener,noreferrer",
-    );
-    expect(
-      screen.getByText(/opening the download page/i),
-    ).toBeInTheDocument();
   });
 
   it("CLI dialog: opens with instructions + 'waiting' and a disabled Connect button", async () => {

@@ -15,7 +15,6 @@ import {
 } from "@multica/core/paths";
 import { useNavigation } from "../navigation";
 import { useLogout } from "../auth";
-import { DragStrip } from "../platform";
 import { useT } from "../i18n";
 import { Button } from "@multica/ui/components/ui/button";
 import { Card, CardContent } from "@multica/ui/components/ui/card";
@@ -34,11 +33,8 @@ export interface InvitePageProps {
 }
 
 /**
- * Full-page shell for the "accept invitation" transition. Shared between
- * web (Next.js route `/invite/[id]`) and desktop (window-overlay).
- * Top-bar affordances (Back, Log out) live here so both platforms get
- * identical UX. Platform chrome (window drag region, immersive mode) is
- * layered on by the desktop overlay; web just renders the page directly.
+ * Full-page shell for the "accept invitation" transition. Rendered by the
+ * Next.js route `/invite/[id]`. Top-bar affordances (Back, Log out) live here.
  */
 export function InvitePage({ invitationId, onBack }: InvitePageProps) {
   const { t } = useT("invite");
@@ -248,7 +244,7 @@ export function InvitePage({ invitationId, onBack }: InvitePageProps) {
 /**
  * Shared chrome for every InvitePage render state (loading, error,
  * default, accepted, declined). Keeps Back + Log out buttons in a
- * consistent position across all branches and across platforms.
+ * consistent position across all branches.
  */
 function InviteShell({
   onBack,
@@ -261,7 +257,6 @@ function InviteShell({
   const logout = useLogout();
   return (
     <div className="relative flex min-h-svh flex-col bg-background">
-      <DragStrip />
       {onBack && (
         <Button
           variant="ghost"

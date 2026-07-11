@@ -28,8 +28,8 @@ import { MAX_FILE_SIZE } from "../constants/upload";
 //                    (public CDN durable URL, or
 //                    `<MULTICA_PUBLIC_URL>/api/attachments/<id>/download`).
 //                    The contract is "absolute, no TTL, loads natively
-//                    on every client" — that's what fixes the Desktop /
-//                    mobile-webview regression where a site-relative
+//                    on every client" — that's what fixes the mobile-
+//                    webview regression where a site-relative
 //                    `/api/attachments/<id>/download` couldn't resolve
 //                    against `file://` (MUL-3192).
 //
@@ -48,7 +48,7 @@ import { MAX_FILE_SIZE } from "../constants/upload";
 // these two semantics into a single `link` field; MUL-3192 followed up
 // by moving the durable-URL choice from the client to the server so
 // the persisted shape is correct for the deployment without the client
-// having to know whether it's running on web / desktop / mobile.
+// having to know whether it's running on web / mobile.
 export type UploadResult = Attachment & {
   link: string;
   markdownLink: string;
@@ -69,8 +69,8 @@ export interface UploadContext {
 //      endpoint pinned to `MULTICA_PUBLIC_URL` based on the deployment.
 //   2. `attachmentDownloadPath(att.id)` — site-relative legacy shape,
 //      retained for compatibility with backends old enough to predate
-//      MUL-3192. Web's Next rewrite makes this load; desktop / mobile
-//      surfaces hit the attachment.tsx legacy-absolutize fallback.
+//      MUL-3192. Web's Next rewrite makes this load; mobile surfaces hit
+//      the attachment.tsx legacy-absolutize fallback.
 //   3. `att.url` — no attachment-row id (the no-workspace avatar branch
 //      of UploadFile). Markdown callers fall back to whatever storage
 //      backend produced for the upload; persistence is on the caller.

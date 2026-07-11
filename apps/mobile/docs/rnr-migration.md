@@ -189,7 +189,7 @@ The current `tailwind.config.js` has hard-coded hex values for ~20 semantic toke
 Dark mode colors are not in the current config and need to be authored. Two options:
 
 1. **Use shadcn's neutral-base dark palette** (`--background: 0 0% 3.9%`, etc., per RNR's default install) — fastest, gets us a working dark mode immediately, may need a second pass for brand alignment.
-2. **Author dark mode by hand** mirroring the web/desktop dark theme — slower, but stays visually consistent with desktop.
+2. **Author dark mode by hand** mirroring the web dark theme — slower, but stays visually consistent with desktop.
 
 Phase 1 starts with **option 1** (shadcn default dark palette) for velocity. A later pass can tune to match desktop's `packages/ui/styles/tokens.css` dark theme once the infrastructure is proven.
 

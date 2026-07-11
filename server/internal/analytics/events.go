@@ -126,10 +126,11 @@ const (
 )
 
 // Platform is used as the "platform" event property so funnels can split by
-// web / desktop / cli. Request-path events use PlatformServer as a fallback
-// when the caller is a server-originating action (e.g. auto-created user);
-// otherwise the frontend passes the real platform via a header / body field
-// in later iterations.
+// caller platform. The web frontend reports PlatformWeb; CLI and server-
+// originated actions report PlatformCLI / PlatformServer respectively.
+// Request-path events use PlatformServer as a fallback when the caller is a
+// server-originating action (e.g. auto-created user); otherwise the frontend
+// passes the real platform via a header / body field in later iterations.
 const (
 	PlatformServer  = "server"
 	PlatformWeb     = "web"

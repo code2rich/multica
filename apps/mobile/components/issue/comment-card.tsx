@@ -453,7 +453,7 @@ function CommentBody({
 
   // Per-comment attachments render in two complementary places:
   //   - inline via the markdown renderer when the content references
-  //     them with `![](url)` (typical for web/desktop comments authored
+  //     them with `![](url)` (typical for web comments authored
   //     in the rich editor)
   //   - via <CommentAttachmentList> below the body when they exist but
   //     aren't referenced in markdown (mobile-authored comments take this

@@ -34,7 +34,6 @@ var autoUpdateInitialDelay = 2 * time.Minute
 //   - the operator opted out via --no-auto-update / MULTICA_DAEMON_AUTO_UPDATE=false;
 //   - the daemon points at a self-hosted server (default-off — set
 //     MULTICA_DAEMON_AUTO_UPDATE=true to opt back in);
-//   - the daemon was spawned by Desktop (the Electron app owns the binary);
 //   - the running version doesn't look like a tagged release (dev builds).
 //
 // Each tick is silent on the happy path of "already on latest" so the log
@@ -42,12 +41,6 @@ var autoUpdateInitialDelay = 2 * time.Minute
 func (d *Daemon) autoUpdateLoop(ctx context.Context) {
 	if !d.cfg.AutoUpdateEnabled {
 		d.logger.Info("auto-update: disabled")
-		return
-	}
-	if d.cfg.LaunchedBy == "desktop" {
-		// Desktop ships and replaces the CLI binary itself; self-update would
-		// be clobbered on the next launch. Stay quiet but don't run.
-		d.logger.Info("auto-update: skipped (managed by Desktop)")
 		return
 	}
 	if !isReleaseVersion(d.cfg.CLIVersion) {

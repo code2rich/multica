@@ -113,7 +113,7 @@ export function AuthInitializer({
       return;
     }
 
-    // Token mode: read from localStorage (Electron / legacy).
+    // Token mode: read from localStorage (legacy).
     const token = storage.getItem("multica_token");
     if (!token) {
       onLogout?.();

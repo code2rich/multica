@@ -8,9 +8,7 @@
     "headline_line2": "하나의",
     "headline_emphasis": "워크스페이스에서.",
     "lede": "동료에게 일을 맡기듯 작업을 할당하세요. 에이전트가 이슈를 맡고, 상태를 업데이트하고, 끝나면 댓글을 남깁니다.",
-    "lede_web": "데스크톱에는 런타임이 포함되어 있어 따로 설치할 게 없습니다. 웹에서 계속하려면 내 CLI를 연결하세요.",
-    "lede_desktop": "끝나면 실제 에이전트가 첫 이슈에 답하고 있을 겁니다.",
-    "download_desktop": "데스크톱 다운로드",
+    "lede_web": "내 CLI를 연결해서 내 머신에서 에이전트를 실행하세요.",
     "continue_on_web": "웹에서 계속",
     "start_exploring": "둘러보기 시작",
     "skip_existing": "이미 해봤습니다",
@@ -348,12 +346,6 @@
     "headline": "에이전트를 실행할 컴퓨터를 연결하세요.",
     "lede": "에이전트는 Multica에 연결한 실제 컴퓨터에서 실행됩니다. 연결 방법을 선택하세요.",
     "hint_default": "연결 방법을 선택하세요. 건너뛰고 나중에 연결할 수도 있습니다.",
-    "hint_downloaded": "다운로드 페이지에서 설정을 마친 뒤 이 탭으로 돌아오세요.",
-    "download_title": "이 컴퓨터 사용",
-    "download_title_after": "다운로드 페이지 여는 중...",
-    "download_subtitle": "데스크톱 앱을 설치해 이 컴퓨터를 연결하세요. 별도 설정 없이 다음 페이지에서 플랫폼만 고르면 됩니다.",
-    "download_subtitle_after": "새 탭에서 열었습니다. 그곳에서 설치 파일을 고르고 데스크톱에서 설정을 마치세요.",
-    "download_button": "다운로드",
     "cli_title": "터미널에서 연결",
     "cli_subtitle": "서버, 원격 개발 환경, headless 컴퓨터를 연결합니다. 터미널이 필요합니다.",
     "cli_action": "단계 보기",
@@ -361,7 +353,7 @@
     "cloud_subtitle": "클라우드에서 컴퓨터를 실행해 드립니다. 아직 제공되지 않습니다.",
     "cloud_action": "준비 중",
     "cli_dialog_title": "터미널에서 연결",
-    "cli_dialog_description": "데스크톱과 같은 연결을 터미널에서 설정합니다. 서버, 원격 개발 환경, headless 컴퓨터에 사용하세요.",
+    "cli_dialog_description": "터미널에서 연결을 설정합니다. 서버, 원격 개발 환경, headless 컴퓨터에 사용하세요.",
     "cli_dialog_pick_hint": "위에서 컴퓨터를 선택하세요.",
     "cli_dialog_connect": "연결하고 계속",
     "runtimes_connected_other": "컴퓨터 {{count}}대 연결됨",
@@ -373,8 +365,8 @@
     "stage_slow_prefix": "평소보다 오래 걸리고 있습니다. ",
     "stage_slow_suffix": "을(를) 실행한 터미널에서 오류가 있는지 확인하세요.",
     "stage_stalled_prefix": "아직 아무 것도 들어오지 않습니다. 터미널이 익숙하지 않다면 ",
-    "stage_stalled_term": "데스크톱",
-    "stage_stalled_suffix": "이 더 부드러운 경로입니다. 한 번 클릭하면 이 컴퓨터가 연결됩니다. 이 대화상자를 닫고 데스크톱을 선택하거나, 건너뛰기를 눌러 계속하세요."
+    "stage_stalled_term": "명령을 실행한 터미널에 오류가 있는지 확인",
+    "stage_stalled_suffix": "하거나, 건너뛰기를 눌러 계속하세요."
   },
   "errors": {
     "skip_failed": "온보딩을 마치지 못했습니다"

@@ -408,15 +408,7 @@ describe("handleInboxNew", () => {
     };
   }
 
-  function stubDesktopAPI() {
-    const showNotification = vi.fn();
-    (globalThis as Record<string, unknown>).desktopAPI = { showNotification };
-    return showNotification;
-  }
 
-  afterEach(() => {
-    delete (globalThis as Record<string, unknown>).desktopAPI;
-  });
 
   it("still shows the banner when the slug can't be resolved, with an empty slug so the click is a no-op", async () => {
     const qc = createQueryClient();
@@ -427,17 +419,13 @@ describe("handleInboxNew", () => {
     qc.setQueryData(notificationPreferenceKeys.all("ws-a"), {
       preferences: { system_notifications: "all" },
     });
-    const showNotification = stubDesktopAPI();
+    installBrowserNotification("granted");
 
     await handleInboxNew(qc, inboxItem());
 
-    expect(showNotification).toHaveBeenCalledWith({
-      slug: "",
-      itemId: "item-1",
-      issueKey: "issue-1",
-      title: "Mentioned you",
-      body: "in a comment",
-    });
+    expect(webBanners).toHaveLength(1);
+    expect(webBanners[0]?.title).toBe("Mentioned you");
+    expect(webBanners[0]?.options?.body).toBe("in a comment");
   });
 
   it("invalidates the ITEM's workspace inbox cache and resolves its slug, not the active workspace's", async () => {
@@ -450,16 +438,15 @@ describe("handleInboxNew", () => {
       preferences: { system_notifications: "all" },
     });
     const invalidate = vi.spyOn(qc, "invalidateQueries");
-    const showNotification = stubDesktopAPI();
+    installBrowserNotification("granted");
 
     await handleInboxNew(qc, inboxItem());
 
     expect(invalidate).toHaveBeenCalledWith({
       queryKey: inboxKeys.list("ws-a"),
     });
-    expect(showNotification).toHaveBeenCalledWith(
-      expect.objectContaining({ slug: "workspace-a" }),
-    );
+    expect(webBanners).toHaveLength(1);
+    expect(webBanners[0]?.title).toBe("Mentioned you");
   });
 
   it("honors the SOURCE workspace's mute preference", async () => {
@@ -468,11 +455,11 @@ describe("handleInboxNew", () => {
     qc.setQueryData(notificationPreferenceKeys.all("ws-a"), {
       preferences: { system_notifications: "muted" },
     });
-    const showNotification = stubDesktopAPI();
+    installBrowserNotification("granted");
 
     await handleInboxNew(qc, inboxItem());
 
-    expect(showNotification).not.toHaveBeenCalled();
+    expect(webBanners).toHaveLength(0);
   });
 
   // The tests below exercise the COLD-cache mute path (source preference not
@@ -495,14 +482,13 @@ describe("handleInboxNew", () => {
       .fn()
       .mockResolvedValue({ preferences: { system_notifications: "all" } });
     setApiInstance({ getNotificationPreferences } as unknown as ApiClient);
-    const showNotification = stubDesktopAPI();
+    installBrowserNotification("granted");
 
     await handleInboxNew(qc, inboxItem());
 
     expect(getNotificationPreferences).toHaveBeenCalledWith("workspace-a");
-    expect(showNotification).toHaveBeenCalledWith(
-      expect.objectContaining({ slug: "workspace-a" }),
-    );
+    expect(webBanners).toHaveLength(1);
+    expect(webBanners[0]?.title).toBe("Mentioned you");
   });
 
   it("suppresses the banner when the SOURCE workspace is muted on a cold cache", async () => {
@@ -512,12 +498,12 @@ describe("handleInboxNew", () => {
       .fn()
       .mockResolvedValue({ preferences: { system_notifications: "muted" } });
     setApiInstance({ getNotificationPreferences } as unknown as ApiClient);
-    const showNotification = stubDesktopAPI();
+    installBrowserNotification("granted");
 
     await handleInboxNew(qc, inboxItem());
 
     expect(getNotificationPreferences).toHaveBeenCalledWith("workspace-a");
-    expect(showNotification).not.toHaveBeenCalled();
+    expect(webBanners).toHaveLength(0);
   });
 
   it("never fetches the active workspace's preference when the source slug can't be resolved", async () => {
@@ -530,21 +516,17 @@ describe("handleInboxNew", () => {
       .fn()
       .mockResolvedValue({ preferences: { system_notifications: "muted" } });
     setApiInstance({ getNotificationPreferences } as unknown as ApiClient);
-    const showNotification = stubDesktopAPI();
+    installBrowserNotification("granted");
 
     await handleInboxNew(qc, inboxItem());
 
     // Must NOT fall back to the active workspace's preference — that both
     // mis-mutes and pollutes the source workspace's cache key (#3766).
     expect(getNotificationPreferences).not.toHaveBeenCalled();
-    expect(showNotification).toHaveBeenCalledWith(
-      expect.objectContaining({ slug: "" }),
-    );
+    expect(webBanners).toHaveLength(1);
+    expect(webBanners[0]?.title).toBe("Mentioned you");
   });
 
-  // --- Web path: no desktopAPI → the browser Notification API ---
-  // Same focus/mute gating as desktop, but the desktop bridge is absent and a
-  // granted browser Notification stub is installed on `window`.
   let webBanners: { title: string; options?: NotificationOptions }[] = [];
   class FakeNotification {
     static permission: NotificationPermission = "granted";
@@ -572,7 +554,7 @@ describe("handleInboxNew", () => {
     delete (globalThis as Record<string, unknown>).window;
   });
 
-  it("shows a browser banner on web (no desktopAPI) when granted and not muted", async () => {
+  it("shows a browser banner when granted and not muted", async () => {
     const qc = createQueryClient();
     qc.setQueryData<Workspace[]>(workspaceKeys.list(), [workspace()]);
     qc.setQueryData(notificationPreferenceKeys.all("ws-a"), {

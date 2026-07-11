@@ -19,11 +19,11 @@ import (
 type HealthResponse struct {
 	Status string `json:"status"`
 	PID    int    `json:"pid"`
-	// OS is the daemon's runtime.GOOS. The desktop app compares it against its
-	// own host OS to detect a daemon it cannot manage — e.g. a Windows desktop
+	// OS is the daemon's runtime.GOOS. Callers compare it against their own
+	// host OS to detect a daemon they cannot manage — e.g. a Windows client
 	// reaching a Linux daemon inside WSL2 over localhost forwarding. The
 	// lifecycle CLI (`daemon start/stop`) acts on the host process namespace,
-	// so a foreign-OS daemon can't be started/stopped by the app even though
+	// so a foreign-OS daemon can't be started/stopped locally even though
 	// /health is reachable. See #3916.
 	OS              string            `json:"os"`
 	Uptime          string            `json:"uptime"`
@@ -86,7 +86,7 @@ func (d *Daemon) healthHandler(startedAt time.Time) http.HandlerFunc {
 		// actually claim tasks. The health port is bound before preflight for
 		// liveness/diagnostics, so callers must not treat a reachable endpoint
 		// as ready — they gate on this status. Consumers that only know
-		// "running" (older CLI/desktop) safely treat "starting" as not-ready.
+		// "running" (older CLI clients) safely treat "starting" as not-ready.
 		status := "starting"
 		if d.ready.Load() {
 			status = "running"

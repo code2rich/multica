@@ -75,19 +75,7 @@ const LEGACY_WORKSPACE_TAB_REDIRECTS: Record<string, string> = {
   lark: "integrations",
 };
 
-export interface ExtraSettingsTab {
-  value: string;
-  label: string;
-  icon: React.ComponentType<{ className?: string }>;
-  content: React.ReactNode;
-}
-
-interface SettingsPageProps {
-  /** Additional tabs injected by platform (e.g. desktop daemon settings) */
-  extraAccountTabs?: ExtraSettingsTab[];
-}
-
-export function SettingsPage({ extraAccountTabs }: SettingsPageProps = {}) {
+export function SettingsPage() {
   const { t } = useT("settings");
   const workspaceName = useCurrentWorkspace()?.name;
   const navigation = useNavigation();
@@ -96,13 +84,8 @@ export function SettingsPage({ extraAccountTabs }: SettingsPageProps = {}) {
   // the default. Whitelisting also blocks junk like ?tab=<script> from
   // surfacing in the DOM via Radix Tabs internals.
   const validTabs = React.useMemo(
-    () =>
-      new Set<string>([
-        ...ACCOUNT_TAB_KEYS,
-        ...Object.values(WORKSPACE_TAB_VALUES),
-        ...(extraAccountTabs?.map((tab) => tab.value) ?? []),
-      ]),
-    [extraAccountTabs],
+    () => new Set<string>([...ACCOUNT_TAB_KEYS, ...Object.values(WORKSPACE_TAB_VALUES)]),
+    [],
   );
 
   const tabFromUrl = navigation.searchParams.get(TAB_QUERY_KEY);
@@ -144,12 +127,6 @@ export function SettingsPage({ extraAccountTabs }: SettingsPageProps = {}) {
               </TabsTrigger>
             );
           })}
-          {extraAccountTabs?.map((tab) => (
-            <TabsTrigger key={tab.value} value={tab.value}>
-              <tab.icon className="h-4 w-4" />
-              {tab.label}
-            </TabsTrigger>
-          ))}
 
           {/* Workspace group */}
           <span className="px-2 pb-1 pt-4 text-xs font-medium text-muted-foreground truncate">
@@ -181,9 +158,6 @@ export function SettingsPage({ extraAccountTabs }: SettingsPageProps = {}) {
           <TabsContent value="integrations"><IntegrationsTab /></TabsContent>
           <TabsContent value="labs"><LabsTab /></TabsContent>
           <TabsContent value="members"><MembersTab /></TabsContent>
-          {extraAccountTabs?.map((tab) => (
-            <TabsContent key={tab.value} value={tab.value}>{tab.content}</TabsContent>
-          ))}
         </div>
       </div>
     </Tabs>

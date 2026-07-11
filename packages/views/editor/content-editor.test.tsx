@@ -452,9 +452,8 @@ function asUploadResult(att: Attachment): UploadResult {
 // editor without a server-supplied `attachments` prop. Without in-session
 // tracking, the AttachmentDownloadProvider had nothing to resolve the
 // freshly-inserted /api/attachments/<id>/download URL against, so
-// Attachment.normalize() couldn't swap it for a freshly-loadable URL — the
-// <img> rendered broken on Desktop where the renderer's origin doesn't
-// proxy /api to the API host. ContentEditor now wraps onUploadFile so the
+// Attachment.normalize() couldn't swap it for a freshly-loadable URL and the
+// <img> rendered broken. ContentEditor now wraps onUploadFile so the
 // successful UploadResult lands in the provider as a tracked record.
 describe("ContentEditor — in-session attachment tracking (MUL-3192)", () => {
   it("seeds the AttachmentDownloadProvider with the caller-supplied attachments prop", () => {

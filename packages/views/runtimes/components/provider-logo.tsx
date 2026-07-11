@@ -194,10 +194,8 @@ function QoderLogo({ className }: { className: string }) {
 }
 
 // Antigravity (Google) — official mark, shipped as a PNG asset next to
-// this file. Different bundlers type the PNG import differently — Next.js
-// gives a StaticImageData object (.src), electron-vite + plain vite give
-// a string. Normalise via unknown so neither side's narrower type wins
-// and breaks the other's typecheck.
+// this file. Next.js gives a StaticImageData object (.src); normalise via
+// unknown so the component always gets a string.
 import antigravityLogo from "./antigravity-logo.png";
 const antigravityLogoSrc: string = (() => {
   const asset = antigravityLogo as unknown;

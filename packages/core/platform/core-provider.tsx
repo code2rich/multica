@@ -81,8 +81,8 @@ export function CoreProvider({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useMemo(() => initCore(apiBaseUrl, storage, onLogin, onLogout, cookieAuth, identity), []);
 
-  // Client-only freeze watchdog — shared by web and desktop. No-op on the
-  // server and idempotent, so mounting it here covers both apps in one place.
+  // Client-only freeze watchdog. No-op on the server and idempotent, so
+  // mounting it here covers the app in one place.
   useEffect(() => {
     installFreezeWatchdog();
   }, []);
@@ -113,7 +113,7 @@ export function CoreProvider({
   );
 
   // UserLocaleSync requires a LocaleAdapter to persist; only mount it when
-  // the host app provides one (web layout + desktop App both do).
+  // the host app provides one (the web layout does).
   const withAdapter = localeAdapter ? (
     <LocaleAdapterProvider adapter={localeAdapter}>
       <UserLocaleSync />

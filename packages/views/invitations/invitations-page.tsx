@@ -13,7 +13,6 @@ import { paths } from "@multica/core/paths";
 import type { Invitation } from "@multica/core/types";
 import { useNavigation } from "../navigation";
 import { useLogout } from "../auth";
-import { DragStrip } from "../platform";
 import { useT } from "../i18n";
 import { Button } from "@multica/ui/components/ui/button";
 import { Card, CardContent } from "@multica/ui/components/ui/card";
@@ -273,7 +272,6 @@ function InvitationsShell({ children }: { children: ReactNode }) {
   const logout = useLogout();
   return (
     <div className="relative flex min-h-svh flex-col bg-background">
-      <DragStrip />
       <Button
         variant="ghost"
         size="sm"

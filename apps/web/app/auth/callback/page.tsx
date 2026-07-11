@@ -24,7 +24,6 @@ function CallbackContent() {
   const qc = useQueryClient();
   const loginWithGoogle = useAuthStore((s) => s.loginWithGoogle);
   const [error, setError] = useState("");
-  const [desktopToken, setDesktopToken] = useState<string | null>(null);
 
   useEffect(() => {
     const code = searchParams.get("code");
@@ -41,7 +40,6 @@ function CallbackContent() {
 
     const state = searchParams.get("state") || "";
     const stateParts = state.split(",");
-    const isDesktop = stateParts.includes("platform:desktop");
     const nextPart = stateParts.find((p) => p.startsWith("next:"));
     // Strip "next:" prefix, then drop anything that isn't a safe relative path
     // so an attacker-controlled `state=next:https://evil` cannot redirect here.
@@ -75,17 +73,6 @@ function CallbackContent() {
         .googleLogin(code, redirectUri)
         .then(({ token }) => {
           redirectToCliCallback(cliCallback, token, cliState);
-        })
-        .catch((err) => {
-          setError(err instanceof Error ? err.message : "Login failed");
-        });
-    } else if (isDesktop) {
-      // Desktop flow: exchange code for token, then redirect via deep link
-      api
-        .googleLogin(code, redirectUri)
-        .then(({ token }) => {
-          setDesktopToken(token);
-          window.location.href = `multica://auth/callback?token=${encodeURIComponent(token)}`;
         })
         .catch((err) => {
           setError(err instanceof Error ? err.message : "Login failed");
@@ -142,32 +129,6 @@ function CallbackContent() {
         });
     }
   }, [searchParams, loginWithGoogle, router, qc]);
-
-  if (desktopToken) {
-    return (
-      <div className="flex min-h-screen items-center justify-center">
-        <Card className="w-full max-w-sm">
-          <CardHeader className="text-center">
-            <CardTitle className="text-2xl">Opening Multica</CardTitle>
-            <CardDescription>
-              You should see a prompt to open the Multica desktop app. If
-              nothing happens, click the button below.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="flex justify-center">
-            <Button
-              variant="outline"
-              onClick={() => {
-                window.location.href = `multica://auth/callback?token=${encodeURIComponent(desktopToken)}`;
-              }}
-            >
-              Open Multica Desktop
-            </Button>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
 
   if (error) {
     return (

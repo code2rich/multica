@@ -13,7 +13,7 @@
     "filter_all_description": "このビューのすべてのランタイム",
     "empty": {
       "title": "まだランタイムがありません",
-      "hint": "デスクトップ版はこのコンピュータを自動でスキャンします。別のマシン — サーバー、開発用マシン、ターミナルのあるコンピュータ — を使うには、ここに追加してください。"
+      "hint": "別のマシン — サーバー、開発用マシン、ターミナルのあるコンピュータ — を使うには、ここに追加してください。"
     },
     "no_matches": {
       "title": "一致する結果なし",
@@ -233,8 +233,6 @@
   "update": {
     "cli_version_label": "CLI バージョン:",
     "version_unknown": "不明",
-    "managed_by_desktop": "デスクトップで管理",
-    "managed_by_desktop_title": "CLI バイナリは Multica Desktop で管理されています。CLI をアップグレードするには Desktop を更新してください。",
     "latest": "最新",
     "available": "利用可能",
     "action": "更新",
@@ -262,7 +260,6 @@
     "col_cost": "コスト · 7 日",
     "col_cli": "CLI",
     "cost_delta_flat": "変化なし",
-    "cli_managed_badge": "デスクトップ",
     "row_actions_aria": "行の操作",
     "delete_action": "削除",
     "delete_permission_hint": "ランタイムの所有者とワークスペース管理者のみが、このランタイムを削除できます",

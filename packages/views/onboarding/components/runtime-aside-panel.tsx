@@ -3,12 +3,10 @@
 import { useT } from "../../i18n";
 
 /**
- * Shared right-rail aside for Step 3 (runtime).
+ * Right-rail aside for Step 3 (runtime).
  *
- * Same content on both paths — desktop (runtime-connect FancyView)
- * and web (platform-fork). Explains what a runtime is and reassures
- * the user they can swap later. Designed to live inside a two-column
- * editorial shell's `<aside>` column.
+ * Explains what a runtime is and reassures the user they can swap later.
+ * Designed to live inside a two-column editorial shell's `<aside>` column.
  */
 export function RuntimeAsidePanel() {
   const { t, i18n } = useT("onboarding");

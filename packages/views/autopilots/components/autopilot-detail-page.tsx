@@ -285,8 +285,8 @@ function TriggerRow({ trigger, autopilotId, canWrite }: { trigger: AutopilotTrig
   const isWebhook = trigger.kind === "webhook";
   const isApi = trigger.kind === "api";
   // Resolve the URL from the server's webhook_url first, then compose
-  // from the API base URL (desktop) or window.origin (web). Falls back
-  // to the relative path if neither is available.
+  // from the API base URL or window.origin. Falls back to the relative path
+  // if neither is available.
   const webhookUrl = isWebhook
     ? buildAutopilotWebhookUrl({
         trigger,

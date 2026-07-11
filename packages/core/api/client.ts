@@ -229,7 +229,7 @@ import {
  *  X-Client-OS so the backend can log, gate, or split metrics by client.
  *  See server/internal/middleware/client.go for the receiving end. */
 export interface ApiClientIdentity {
-  /** Logical client kind. Server expects: "web" | "desktop" | "cli" | "daemon". */
+  /** Logical client kind. Server expects: "web" | "cli" | "daemon". */
   platform?: string;
   /** Client/app version string (e.g. "0.1.0", git tag, commit). */
   version?: string;
@@ -1842,7 +1842,7 @@ export class ApiClient {
     } catch (err) {
       // Deployment-order compatibility: a backend deployed before this endpoint
       // existed returns 404 for the unknown route. Fall back to the legacy
-      // full-list endpoint so chat never white-screens regardless of whether
+      // full-list endpoint so chat never crashes regardless of whether
       // the server or the client deploys first. Only the initial (cursorless)
       // page falls back — the legacy endpoint returns every message at once, so
       // the fallback page reports has_more: false and there is no follow-up
@@ -2130,7 +2130,7 @@ export class ApiClient {
   // Per-squad members status snapshot: one row per member with derived
   // working/idle/offline/unstable plus the issues each agent is currently
   // running. Parsed with a lenient schema so a new server-side status
-  // value or extra field can't white-screen the Squad page (#2143).
+  // value or extra field can't crash the Squad page (#2143).
   async getSquadMemberStatus(squadId: string): Promise<SquadMemberStatusListResponse> {
     const raw = await this.fetch<unknown>(`/api/squads/${squadId}/members/status`);
     return parseWithFallback(raw, SquadMemberStatusListResponseSchema, EMPTY_SQUAD_MEMBER_STATUS_LIST, {

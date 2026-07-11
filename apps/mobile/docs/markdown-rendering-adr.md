@@ -176,7 +176,7 @@ code: {
   would lose its only visual identity once the chip is removed.
 - `color: t.brand` — secondary identification tint, distinguishes inline
   code from regular prose alongside the monospace.
-- **Visual trade-off**: mobile no longer matches web/desktop chip style.
+- **Visual trade-off**: mobile no longer matches web chip style.
   Inline code on mobile reads as "tinted monospace span". Acceptable
   given that the alternative is the top-heavy chip artifact.
 - **Revisit when**: upstream issue #255 ships a padding control. At
@@ -199,7 +199,7 @@ React-tree renderer:
   surveyed above either drops path A (perf) or drops custom React (lightbox /
   syntax highlight). No path forward there until the ecosystem ships a
   library that satisfies both.
-- **Migrating chat to streamdown**: web/desktop have no streaming-specific
+- **Migrating chat to streamdown**: web have no streaming-specific
   renderer either; mobile parity demands the same. Reconsider only if
   AI-chat streaming becomes a top user complaint.
 

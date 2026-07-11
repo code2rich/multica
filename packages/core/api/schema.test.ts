@@ -20,9 +20,9 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-// These tests cover the five failure modes that white-screened the desktop
-// app in past incidents. The contract is: a malformed response degrades to
-// an empty/safe shape, never throws into React.
+// These tests cover the five failure modes that crashed the app in past
+// incidents. The contract is: a malformed response degrades to an empty/safe
+// shape, never throws into React.
 describe("ApiClient schema fallback", () => {
   describe("listTimeline", () => {
     it("falls back to an empty array when the body is null", async () => {
@@ -235,10 +235,10 @@ describe("ApiClient schema fallback", () => {
     });
   });
 
-  // Agent template catalog is hit by the desktop create-agent picker.
-  // Installed desktop builds outlive any given server, so the shape MUST
-  // survive future field renames / wrapping without crashing. Each test
-  // here mirrors a concrete future drift we want to absorb.
+  // Agent template catalog is hit by the create-agent picker. Clients
+  // outlive any given server, so the shape MUST survive future field renames
+  // / wrapping without crashing. Each test here mirrors a concrete future
+  // drift we want to absorb.
   describe("listAgentTemplates", () => {
     it("falls back to [] when the body is null", async () => {
       stubFetchJson(null);

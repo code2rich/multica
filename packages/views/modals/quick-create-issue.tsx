@@ -232,7 +232,7 @@ export function AgentCreatePanel({
   // server re-validates as the trust boundary. Dev-built daemons
   // (git-describe shape) are exempted inside checkQuickCreateCliVersion
   // — frontend and server share the same signal there, so they agree by
-  // construction across web/desktop/staging without comparing env flags.
+  // construction across web/staging without comparing env flags.
   const { data: runtimes = [] } = useQuery(runtimeListOptions(wsId));
   const selectedRuntime = useMemo(
     () =>

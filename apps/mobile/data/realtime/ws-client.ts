@@ -17,7 +17,7 @@
  *     bridge — see facebook/react-native#9465).
  *   - Token-mode auth only (no cookies on native).
  *
- * Server compatibility: same protocol as web/desktop. Sends
+ * Server compatibility: same protocol as web. Sends
  *   {type:"auth", payload:{token}} as first frame; expects {type:"auth_ack"}
  *   before any business events. workspace_slug + client_platform passed as
  *   query params on the upgrade URL (RN's WebSocket can't set headers).

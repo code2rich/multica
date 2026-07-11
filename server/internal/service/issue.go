@@ -98,9 +98,9 @@ type IssueCreateOpts struct {
 	AnalyticsAgentID string
 
 	// Platform tags the IssueCreated analytics + business-metrics event
-	// with the client surface the request came in on (web / desktop /
-	// daemon / lark / autopilot). Derived from middleware's client
-	// metadata at the handler layer.
+	// with the client surface the request came in on (web / daemon / lark /
+	// autopilot). Derived from middleware's client metadata at the handler
+	// layer.
 	Platform string
 }
 

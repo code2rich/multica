@@ -23,9 +23,8 @@ let _pendingRehydrate = false;
  *   2. All registered persist stores rehydrate from the new slug's namespace.
  *
  * Both side effects are idempotent on slug-equality: repeat calls with the
- * same slug are a pure no-op. This matters on desktop, where N tabs each
- * mount their own WorkspaceRouteLayout and each one naively tries to sync;
- * only the first call for a given slug does real work.
+ * same slug are a pure no-op. Only the first call for a given slug does real
+ * work.
  *
  * Both side effects are deferred to a microtask because zustand persist
  * rehydrate + subscriber notifications both end up calling setState(), and

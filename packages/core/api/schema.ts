@@ -22,8 +22,8 @@ export interface ParseOptions {
  *
  * On failure we log a warning with the endpoint and zod's structured error,
  * but never throw — the UI layer must keep rendering. This is the boundary
- * defense that turns "API contract drifted" from a white-screen incident
- * into a degraded-but-rendering page.
+ * defense that turns "API contract drifted" from a crash incident into a
+ * degraded-but-rendering page.
  *
  * The return type is anchored to `T` (inferred from `fallback`), not to the
  * schema's `z.infer` type. Schemas are intentionally **lenient** — string

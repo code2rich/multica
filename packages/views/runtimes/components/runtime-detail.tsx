@@ -60,17 +60,6 @@ function getCliVersion(metadata: Record<string, unknown>): string | null {
   return null;
 }
 
-function getLaunchedBy(metadata: Record<string, unknown>): string | null {
-  if (
-    metadata &&
-    typeof metadata.launched_by === "string" &&
-    metadata.launched_by
-  ) {
-    return metadata.launched_by;
-  }
-  return null;
-}
-
 function shortDaemonId(id: string | null): string | null {
   if (!id) return null;
   if (id.length <= 10) return id;
@@ -95,8 +84,6 @@ export function RuntimeDetail({ runtime }: { runtime: AgentRuntime }) {
   const { t } = useT("runtimes");
   const cliVersion =
     runtime.runtime_mode === "local" ? getCliVersion(runtime.metadata) : null;
-  const launchedBy =
-    runtime.runtime_mode === "local" ? getLaunchedBy(runtime.metadata) : null;
 
   const user = useAuthStore((s) => s.user);
   const wsId = useWorkspaceId();
@@ -200,7 +187,6 @@ export function RuntimeDetail({ runtime }: { runtime: AgentRuntime }) {
             <DiagnosticsCard
               runtime={runtime}
               cliVersion={cliVersion}
-              launchedBy={launchedBy}
               canEdit={!!canEditRuntime}
               canDelete={!!canDelete}
               onDelete={() => setDeleteOpen(true)}
@@ -469,14 +455,12 @@ function ServingAgentsCard({
 function DiagnosticsCard({
   runtime,
   cliVersion,
-  launchedBy,
   canEdit,
   canDelete,
   onDelete,
 }: {
   runtime: AgentRuntime;
   cliVersion: string | null;
-  launchedBy: string | null;
   canEdit: boolean;
   canDelete: boolean;
   onDelete: () => void;
@@ -508,7 +492,6 @@ function DiagnosticsCard({
               runtimeId={runtime.id}
               currentVersion={cliVersion}
               isOnline={runtime.status === "online"}
-              launchedBy={launchedBy}
             />
           </div>
         )}

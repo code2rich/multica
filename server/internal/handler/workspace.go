@@ -220,8 +220,8 @@ func (h *Handler) CreateWorkspace(w http.ResponseWriter, r *http.Request) {
 	// (Step 3 of the flow) and by AcceptInvitation (invitee joining an
 	// existing workspace). This decouples "the user has a workspace"
 	// from "the user has finished setup"; the workspace-layer route
-	// gate (web layout / desktop App.tsx overlay) redirects un-onboarded
-	// users back to /onboarding instead.
+	// gate (web layout route guard) redirects un-onboarded users back to
+	// /onboarding instead.
 
 	if err := tx.Commit(r.Context()); err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to create workspace")

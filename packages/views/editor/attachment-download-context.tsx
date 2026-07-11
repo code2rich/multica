@@ -3,7 +3,6 @@
 import { createContext, use, useMemo, type ReactNode } from "react";
 import type { Attachment } from "@multica/core/types";
 import { attachmentIdFromDownloadURL } from "@multica/core/types/attachment-url";
-import { openExternal } from "../platform";
 import { useDownloadAttachment } from "./use-download-attachment";
 
 interface ResolvedDownload {
@@ -15,9 +14,8 @@ interface ResolvedDownload {
   // this to decide whether the type is previewable and to feed the modal.
   resolveAttachment: (url: string) => Attachment | undefined;
   // Called by NodeView click handlers. Re-signs through `getAttachment` when
-  // the URL maps to a known attachment; falls back to `openExternal` for
-  // external URLs so Electron still routes through the IPC bridge instead of
-  // letting `window.open` hit the `setWindowOpenHandler` deny path.
+  // the URL maps to a known attachment; falls back to `window.open` for
+  // external URLs.
   openByUrl: (url: string) => void;
 }
 
@@ -43,7 +41,7 @@ function matchesAttachmentURL(embeddedURL: string, attachmentURL?: string): bool
 /**
  * Provides a click-time download handler to Tiptap NodeViews mounted inside
  * `ContentEditor`. Without a provider the consumer falls back to opening the
- * raw URL via `openExternal` — same behaviour as before this hook existed.
+ * raw URL via `window.open` — same behaviour as before this hook existed.
  *
  * URL → attachment matching has two fallbacks (in order). New comments
  * (post-MUL-3130) persist the stable `/api/attachments/<id>/download`
@@ -60,8 +58,8 @@ export function AttachmentDownloadProvider({ attachments, children }: ProviderPr
       const lookup = (url: string): Attachment | undefined => {
         if (!url || !attachments?.length) return undefined;
         // Preferred path: stable `/api/attachments/<id>/download` URL.
-        // Match by id so the lookup survives a host swap (Electron vs
-        // web vs SSR) and any incidental query/fragment.
+        // Match by id so the lookup survives a host swap (web vs SSR)
+        // and any incidental query/fragment.
         const idFromUrl = attachmentIdFromDownloadURL(url);
         if (idFromUrl) {
           const byId = attachments.find((a) => a.id === idFromUrl);
@@ -88,7 +86,7 @@ export function AttachmentDownloadProvider({ attachments, children }: ProviderPr
             download(att.id);
             return;
           }
-          if (url) openExternal(url);
+          if (url) window.open(url, "_blank", "noopener,noreferrer");
         },
       };
     },
@@ -117,7 +115,7 @@ export function useAttachmentDownloadResolver(): ResolvedDownload {
     resolveAttachmentId: () => undefined,
     resolveAttachment: () => undefined,
     openByUrl: (url) => {
-      if (url) openExternal(url);
+      if (url) window.open(url, "_blank", "noopener,noreferrer");
     },
   };
 }

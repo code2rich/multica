@@ -111,8 +111,7 @@
     "local_validate_not_found": "パスが存在しません。",
     "local_validate_not_a_directory": "パスはディレクトリではありません。",
     "local_validate_not_readable": "ディレクトリを読み取れません。",
-    "local_validate_not_writable": "ディレクトリに書き込めません。",
-    "local_validate_unsupported": "ローカルディレクトリはデスクトップアプリでのみ選択できます。"
+    "local_validate_not_writable": "ディレクトリに書き込めません。"
   },
   "delete_dialog": {
     "title": "プロジェクトを削除",

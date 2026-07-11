@@ -3,7 +3,7 @@
  *
  * Mirrors packages/views/inbox/components/inbox-detail-label.tsx exactly:
  * for each InboxItemType the user sees the same label they would see on
- * web/desktop. This is a Behavioral parity concern — if web shows "Set
+ * web. This is a Behavioral parity concern — if web shows "Set
  * status to ✓ Done", mobile must show "Set status to ✓ Done" (rendered
  * with mobile primitives, not the literal HTML).
  *

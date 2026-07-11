@@ -31,10 +31,6 @@ vi.mock("../auth", () => ({
   useLogout: () => logout,
 }));
 
-vi.mock("../platform", () => ({
-  DragStrip: () => null,
-}));
-
 vi.mock("@multica/core/auth", () => ({
   useAuthStore: Object.assign(
     (selector?: (s: unknown) => unknown) => {

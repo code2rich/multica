@@ -20,7 +20,6 @@ import { StepSource } from "./steps/step-source";
 import { StepRole } from "./steps/step-role";
 import { StepUseCase } from "./steps/step-use-case";
 import { StepWorkspace } from "./steps/step-workspace";
-import { StepRuntimeConnect } from "./steps/step-runtime-connect";
 import { StepPlatformFork } from "./steps/step-platform-fork";
 import { useT } from "../i18n";
 
@@ -105,15 +104,9 @@ function mergeQuestionnaire(
 export function OnboardingFlow({
   onComplete,
   runtimeInstructions,
-  onRuntimeRefresh,
 }: {
   onComplete: (workspace?: Workspace, issueId?: string) => void;
   runtimeInstructions?: React.ReactNode;
-  /** Desktop wires this to restart the bundled daemon so a freshly
-   *  installed agent CLI gets picked up on the runtime step. Web omits
-   *  it — its CLI install flow already runs on the user's machine and
-   *  the embedded picker reacts to daemon:register events. */
-  onRuntimeRefresh?: () => void | Promise<void>;
 }) {
   const { t } = useT("onboarding");
   const user = useAuthStore((s) => s.user);
@@ -144,12 +137,6 @@ export function OnboardingFlow({
   });
   const existingWorkspace = workspace ?? workspaces[0] ?? null;
   const canSkipWelcome = workspacesFetched && workspaces.length > 0;
-
-  // The `runtimeInstructions` slot is only plumbed by the web shell
-  // (desktop bundles a daemon, so a CLI install card would be noise
-  // there). We reuse its presence as the web signal rather than
-  // introducing a redundant prop.
-  const isWeb = !!runtimeInstructions;
 
   // Derive "what comes after `from`" from ONBOARDING_STEP_ORDER so
   // inserting/reordering a persisted step only requires editing the
@@ -264,14 +251,13 @@ export function OnboardingFlow({
   }, []);
 
   // Welcome, Questionnaire, and Workspace own full-bleed two-column
-  // layouts (hero / side panel) with their own DragStrip + StepHeader.
+  // layouts (hero / side panel) with their own StepHeader.
   // The runtime step owns its own full-bleed shell.
   if (step === "welcome") {
     return (
       <StepWelcome
         onNext={handleWelcomeNext}
         onSkip={canSkipWelcome ? handleWelcomeSkip : undefined}
-        isWeb={isWeb}
       />
     );
   }
@@ -322,23 +308,10 @@ export function OnboardingFlow({
     );
   }
 
-  // Step 3. Both paths own full-bleed two-column layouts.
-  //   - Desktop (no cliInstructions slot) → StepRuntimeConnect drives
-  //     the local daemon's runtime list directly.
-  //   - Web → StepPlatformFork offers Download / CLI / Cloud paths.
-  //     Under the CLI path it embeds StepRuntimeConnect for the live
-  //     probe; the Cloud path is a soft exit via the waitlist.
+  // Step 3. Web-only path: StepPlatformFork offers Download / CLI / Cloud
+  // paths. Under the CLI path it embeds StepRuntimeConnect for the live
+  // probe; the Cloud path is a soft exit via the waitlist.
   if (step === "runtime" && workspace) {
-    if (!runtimeInstructions) {
-      return (
-        <StepRuntimeConnect
-          wsId={workspace.id}
-          onNext={handleRuntimeNext}
-          onBack={() => handleBack("runtime")}
-          onRefresh={onRuntimeRefresh}
-        />
-      );
-    }
     return (
       <StepPlatformFork
         wsId={workspace.id}

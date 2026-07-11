@@ -1,4 +1,4 @@
-// Client freeze watchdog — shared by web and desktop.
+// Client freeze watchdog.
 //
 // Installs a long-task observer in the main thread. A "long task" is any
 // stretch where the thread didn't return to the event loop; the browser
@@ -8,20 +8,18 @@
 // "almost froze" events, not the normal 50–600ms render cost.
 //
 // This is the in-thread, recoverable tier: it catches freezes the thread
-// survives. A true non-recoverable hang (the thread never unblocks) can only
-// be caught from outside — on desktop that is the main process `unresponsive`
-// handler (see apps/desktop renderer-recovery). Web has no free external
-// watcher, so this observer is its only freeze signal for now.
+// survives. Web has no external watcher, so this observer is its only freeze
+// signal for now.
 //
 // The emitted `client_unresponsive` event carries `client_type` automatically
-// (an analytics super-property), so desktop vs web is queryable without any
+// (an analytics super-property), so the client is queryable without any
 // platform branch here.
 
 import { captureEvent } from "../analytics";
 
-// 2s is well above the normal switch/render cost (measured 50–600ms) and just
-// under Electron's renderer-hang threshold, so an event here means "the user
-// felt a real stall" without flooding on routine heavy renders.
+// 2s is well above the normal switch/render cost (measured 50–600ms), so an
+// event here means "the user felt a real stall" without flooding on routine
+// heavy renders.
 const FREEZE_THRESHOLD_MS = 2000;
 
 // A single sustained freeze is delivered by the browser as several separate

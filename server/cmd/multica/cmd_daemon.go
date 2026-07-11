@@ -68,8 +68,8 @@ var daemonDiskUsageCmd = &cobra.Command{
 		"Default view is per-task, sorted by size descending. --by-workspace switches to a per-workspace summary;\n" +
 		"--top N keeps only the largest N entries.\n\n" +
 		"By default only the current profile's root is scanned. --all-profiles aggregates across every workspace\n" +
-		"root — the default root plus each ~/.multica/profiles/* root, including the Desktop app's dedicated\n" +
-		"`desktop-<host>` root — and prints a per-root breakdown with a combined grand total. In that mode --top\n" +
+		"root — the default root plus each ~/.multica/profiles/* root — and prints a per-root breakdown with a\n" +
+		"combined grand total. In that mode --top\n" +
 		"applies within each root and --workspaces-root is not allowed.\n\n" +
 		"Bytes are split into total and the artifact-cleanable subset (node_modules, .next, .turbo by default,\n" +
 		"overridable via MULTICA_GC_ARTIFACT_PATTERNS) so the report stays in sync with what the GC reclaims.\n" +
@@ -490,9 +490,6 @@ func runDaemonForeground(cmd *cobra.Command) error {
 		return err
 	}
 	cfg.CLIVersion = version
-	// Set by the Electron Desktop app when it spawns the CLI so the server
-	// can mark those runtimes as "managed" and hide CLI self-update UI.
-	cfg.LaunchedBy = os.Getenv("MULTICA_LAUNCHED_BY")
 
 	ctx, stop := notifyShutdownContext(context.Background())
 	defer stop()
@@ -881,8 +878,7 @@ func runDaemonDiskUsage(cmd *cobra.Command, _ []string) error {
 
 // runDaemonDiskUsageAggregate scans every workspace root (the default root plus
 // each ~/.multica/profiles/* root) and renders a per-root breakdown with a
-// combined grand total. This is the path that surfaces the Desktop app's
-// `desktop-<host>` root, which the default single-root scan never sees.
+// combined grand total.
 func runDaemonDiskUsageAggregate(byWorkspace bool, top int, output string) error {
 	roots, err := enumerateDiskUsageRoots()
 	if err != nil {

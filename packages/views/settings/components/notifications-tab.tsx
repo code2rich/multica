@@ -112,8 +112,8 @@ export function NotificationsTab() {
           </CardContent>
         </Card>
 
-        {/* Web-only: the browser permission banners require. Renders nothing on
-            desktop (OS-native delivery) or where the Notification API is absent. */}
+        {/* Browser notification permission banners for the web. Renders nothing
+            where the Notification API is absent. */}
         <BrowserNotificationSetting />
       </section>
     </div>

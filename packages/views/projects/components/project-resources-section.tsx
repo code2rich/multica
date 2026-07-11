@@ -36,13 +36,6 @@ import {
   TooltipTrigger,
   TooltipContent,
 } from "@multica/ui/components/ui/tooltip";
-import {
-  isDesktopShell,
-  pickDirectory,
-  useLocalDaemonStatus,
-  validateLocalDirectory,
-  type ValidateLocalDirectoryResult,
-} from "../../platform";
 import { useT } from "../../i18n";
 
 // Project Resources sidebar section.
@@ -67,11 +60,9 @@ export function ProjectResourcesSection({ projectId }: { projectId: string }) {
   const { t } = useT("projects");
   const wsId = useWorkspaceId();
   const workspace = useCurrentWorkspace();
-  const daemonStatus = useLocalDaemonStatus();
   const [open, setOpen] = useState(true);
   const [addOpen, setAddOpen] = useState(false);
   const [repoSearch, setRepoSearch] = useState("");
-  const [picking, setPicking] = useState(false);
 
   const { data: resources = [] } = useQuery(
     projectResourcesOptions(wsId, projectId),
@@ -80,31 +71,14 @@ export function ProjectResourcesSection({ projectId }: { projectId: string }) {
   const updateResource = useUpdateProjectResource(wsId, projectId);
   const deleteResource = useDeleteProjectResource(wsId, projectId);
 
-  // Desktop-only entry points. We hide (not just disable) on web so users
-  // there don't see an action they can never complete — the spec calls for
-  // read-only on web because the daemon-id check can't be performed in the
-  // browser.
-  const desktopMode = isDesktopShell();
-  const localDaemonId = daemonStatus.daemonId;
+  // Local directory resources are managed via CLI; the web UI shows them
+  // read-only.
+  const canEdit = false;
+  const localDaemonId = null;
 
   const attachedUrls = new Set(
     resources.filter(isGithubRef).map((r) => r.resource_ref.url),
   );
-  const attachedLocalPaths = new Set(
-    resources
-      .filter(isLocalDirectoryRef)
-      .filter((r) => r.resource_ref.daemon_id === localDaemonId)
-      .map((r) => r.resource_ref.local_path),
-  );
-  // Per (project, daemon) we allow at most one local_directory — the
-  // daemon-side resolver picks the first match by daemon_id, so two rows
-  // on the same daemon would silently route the agent into one of them.
-  // The server enforces this at the API boundary; the UI mirrors the
-  // restriction by hiding the "Add" affordance once a row exists for the
-  // current daemon, otherwise users would only discover the limit on a
-  // 409 toast.
-  const hasLocalDirectoryForCurrentDaemon =
-    localDaemonId !== null && attachedLocalPaths.size > 0;
 
   const repoQuery = repoSearch.trim().toLowerCase();
   const filteredRepos =
@@ -120,72 +94,6 @@ export function ProjectResourcesSection({ projectId }: { projectId: string }) {
     } catch (err) {
       const msg = err instanceof Error ? err.message : t(($) => $.resources.toast_attach_failed);
       toast.error(msg);
-    }
-  };
-
-  const handleAttachLocalDirectory = async () => {
-    if (picking) return;
-    setPicking(true);
-    try {
-      if (!localDaemonId || !daemonStatus.running) {
-        toast.error(t(($) => $.resources.toast_local_daemon_not_running));
-        return;
-      }
-      // Race guard: the button gates on this already, but if the picker
-      // is opened while a concurrent resource-create lands the user
-      // would otherwise see a 409. Surface a clearer message instead.
-      if (attachedLocalPaths.size > 0) {
-        toast.error(t(($) => $.resources.toast_local_daemon_already_attached));
-        return;
-      }
-      const picked = await pickDirectory();
-      if (!picked.ok) {
-        if (picked.reason && picked.reason !== "cancelled") {
-          toast.error(
-            picked.error ?? t(($) => $.resources.toast_local_pick_failed),
-          );
-        }
-        return;
-      }
-      const path = picked.path ?? "";
-      const fallbackLabel = picked.basename ?? path;
-      if (attachedLocalPaths.has(path)) {
-        toast.error(t(($) => $.resources.toast_local_already_attached));
-        return;
-      }
-      const validation = await validateLocalDirectory(path);
-      if (!validation.ok) {
-        toast.error(
-          localValidationMessage(validation, {
-            not_absolute: t(($) => $.resources.local_validate_not_absolute),
-            not_found: t(($) => $.resources.local_validate_not_found),
-            not_a_directory: t(($) => $.resources.local_validate_not_a_directory),
-            not_readable: t(($) => $.resources.local_validate_not_readable),
-            not_writable: t(($) => $.resources.local_validate_not_writable),
-            unsupported: t(($) => $.resources.local_validate_unsupported),
-            fallback: t(($) => $.resources.toast_local_pick_failed),
-          }),
-        );
-        return;
-      }
-      await createResource.mutateAsync({
-        resource_type: "local_directory",
-        resource_ref: {
-          local_path: path,
-          daemon_id: localDaemonId,
-          label: fallbackLabel,
-        },
-      });
-      toast.success(t(($) => $.resources.toast_local_attached));
-      setAddOpen(false);
-    } catch (err) {
-      const msg =
-        err instanceof Error
-          ? err.message
-          : t(($) => $.resources.toast_local_pick_failed);
-      toast.error(msg);
-    } finally {
-      setPicking(false);
     }
   };
 
@@ -255,7 +163,7 @@ export function ProjectResourcesSection({ projectId }: { projectId: string }) {
                   key={resource.id}
                   resource={resource}
                   localDaemonId={localDaemonId}
-                  canEdit={desktopMode}
+                  canEdit={canEdit}
                   onRemove={() => handleRemove(resource)}
                   onRenameLocalDirectory={handleRenameLocalDirectory}
                 />
@@ -350,37 +258,6 @@ export function ProjectResourcesSection({ projectId }: { projectId: string }) {
               />
             </PopoverContent>
           </Popover>
-          {desktopMode && (
-            <div className="flex flex-col">
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-7 justify-start px-2 text-xs text-muted-foreground hover:text-foreground"
-                disabled={
-                  picking ||
-                  createResource.isPending ||
-                  !daemonStatus.running ||
-                  hasLocalDirectoryForCurrentDaemon
-                }
-                onClick={() => {
-                  void handleAttachLocalDirectory();
-                }}
-              >
-                <FolderOpen className="size-3" />
-                {t(($) => $.resources.add_local_directory_button)}
-              </Button>
-              {!daemonStatus.running && (
-                <p className="px-2 pt-0.5 text-[10px] text-muted-foreground">
-                  {t(($) => $.resources.local_daemon_offline_hint)}
-                </p>
-              )}
-              {daemonStatus.running && hasLocalDirectoryForCurrentDaemon && (
-                <p className="px-2 pt-0.5 text-[10px] text-muted-foreground">
-                  {t(($) => $.resources.local_daemon_already_attached_hint)}
-                </p>
-              )}
-            </div>
-          )}
         </div>
       )}
     </div>
@@ -626,33 +503,4 @@ function CustomRepoForm({
   );
 }
 
-function localValidationMessage(
-  result: ValidateLocalDirectoryResult,
-  strings: {
-    not_absolute: string;
-    not_found: string;
-    not_a_directory: string;
-    not_readable: string;
-    not_writable: string;
-    unsupported: string;
-    fallback: string;
-  },
-): string {
-  switch (result.reason) {
-    case "not_absolute":
-      return strings.not_absolute;
-    case "not_found":
-      return strings.not_found;
-    case "not_a_directory":
-      return strings.not_a_directory;
-    case "not_readable":
-      return strings.not_readable;
-    case "not_writable":
-      return strings.not_writable;
-    case "unsupported":
-      return strings.unsupported;
-    case "error":
-    default:
-      return result.error ?? strings.fallback;
-  }
-}
+

@@ -17,7 +17,7 @@ import { useNavigation } from "./context";
  * call `stopPropagation` so clicking them never reaches these handlers.
  *
  * Mirrors AppLink's modifier semantics: a plain left click pushes; cmd/ctrl
- * (or a middle click) opens a background tab on desktop.
+ * (or a middle click) opens a background browser tab.
  *
  * Callers add `cursor-pointer` to the row's own className (kept out of the
  * returned props so it can't clash with the row's existing className).

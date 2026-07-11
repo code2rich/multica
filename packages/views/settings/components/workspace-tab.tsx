@@ -90,7 +90,7 @@ export function WorkspaceTab() {
     //     delete) — if the singleton still points at the lost workspace
     //     when the WS event arrives, they fire a parallel full-page
     //     relocate that races this navigation.
-    //  2. Chrome gating (`{slug && <AppSidebar />}` on desktop) — if the
+    //  2. Workspace shell gating (`{slug && <AppSidebar />}`) — if the
     //     singleton lingers, the sidebar stays mounted while the deleted
     //     workspace is no longer in the list, and `useWorkspaceId` throws.
     //  3. API client's `X-Workspace-Slug` header — stale header post-

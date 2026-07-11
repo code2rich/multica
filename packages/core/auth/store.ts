@@ -47,7 +47,7 @@ export function createAuthStore(options: AuthStoreOptions) {
         return;
       }
 
-      // Token mode: read from localStorage (Electron / legacy).
+      // Token mode: read from localStorage (legacy).
       const token = storage.getItem("multica_token");
       if (!token) {
         set({ isLoading: false });
@@ -81,7 +81,7 @@ export function createAuthStore(options: AuthStoreOptions) {
     verifyCode: async (email: string, code: string) => {
       const { token, user } = await api.verifyCode(email, code);
       if (!cookieAuth) {
-        // Token mode: persist for Electron / legacy.
+        // Token mode: persist for legacy.
         storage.setItem("multica_token", token);
         api.setToken(token);
       }

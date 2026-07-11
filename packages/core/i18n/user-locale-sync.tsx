@@ -7,9 +7,9 @@ import { useLocaleAdapter } from "./adapter-context";
 import { SUPPORTED_LOCALES, type SupportedLocale } from "./types";
 
 // Pulls the server-stored `user.language` into the local locale adapter on
-// login. Without this, switching device (macOS → Windows, browser → desktop)
-// loses the user's language preference: pickLocale only consults the local
-// adapter (cookie / localStorage), never user.language.
+// login. Without this, switching device (macOS → Windows) loses the user's
+// language preference: pickLocale only consults the local adapter
+// (cookie / localStorage), never user.language.
 //
 // Mounts inside CoreProvider so it has access to the auth store + locale
 // adapter + i18n instance. Renders nothing.

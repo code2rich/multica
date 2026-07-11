@@ -14,8 +14,8 @@ import { CliInstallInstructions, OnboardingFlow } from "@multica/views/onboardin
 
 /**
  * Web shell for the onboarding flow. The route is the platform chrome on
- * web (matching `WindowOverlay` on desktop); content is the shared
- * `<OnboardingFlow />`. Kept minimal — guard on auth, render, exit.
+ * web; content is the shared `<OnboardingFlow />`. Kept minimal — guard on
+ * auth, render, exit.
  *
  * On complete: runtime-connected onboarding may provide a guide issue id;
  * navigate there. Otherwise land on the workspace issues list, or root if

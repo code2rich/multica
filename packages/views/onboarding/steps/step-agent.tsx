@@ -17,7 +17,6 @@ import type {
   AgentRuntime,
   CreateAgentRequest,
 } from "@multica/core/types";
-import { DragStrip } from "@multica/views/platform";
 import { StepHeader } from "../components/step-header";
 import { useT } from "../../i18n";
 
@@ -28,7 +27,7 @@ import { useT } from "../../i18n";
  * (`recommendTemplate()` maps role × use_case → one of 4 templates),
  * attaches the template's default name + instructions, and ships a
  * ready-to-work agent on Create. Layout mirrors Questionnaire /
- * Workspace: a 2-column editorial shell with DragStrip + 3-region
+ * Workspace: a 2-column editorial shell with 3-region
  * app column (header / scrollable main / footer) + "About agents"
  * side panel hidden below lg.
  *
@@ -127,9 +126,8 @@ export function StepAgent({
 
   return (
     <div className="animate-onboarding-enter grid h-full min-h-0 grid-cols-1 lg:grid-cols-[minmax(0,1fr)_480px]">
-      {/* Left column — DragStrip + 3-region app shell */}
+      {/* Left column — 3-region app shell */}
       <div className="flex min-h-0 flex-col">
-        <DragStrip />
         {/* Fixed header — Back + progress indicator */}
         <header className="flex shrink-0 items-center gap-4 bg-background px-6 py-3 sm:px-10 md:px-14 lg:px-16">
           {onBack ? (
@@ -203,7 +201,6 @@ export function StepAgent({
 
       {/* Right — About agents side panel, independent scroll */}
       <aside className="hidden min-h-0 border-l bg-muted/40 lg:flex lg:flex-col">
-        <DragStrip />
         <div className="min-h-0 flex-1 overflow-y-auto px-12 py-12">
           <AboutAgentsSide />
         </div>

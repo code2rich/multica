@@ -9,7 +9,7 @@
  * Pure derivation is shared though — `deriveAgentPresenceDetail` /
  * `buildPresenceMap` are imported from `@multica/core/agents` (pure functions,
  * on the whitelist). Don't re-implement the three-state logic locally; the
- * web/desktop/mobile semantics MUST agree (apps/mobile/CLAUDE.md
+ * web/mobile semantics MUST agree (apps/mobile/CLAUDE.md
  * "State enums and transitions must agree").
  *
  * Two differences from the web hook:

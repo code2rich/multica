@@ -126,8 +126,8 @@ export function InboxPage() {
 
 
   // Auto-mark-read whenever a selected item is unread — covers both click-
-  // to-select and URL-param-select (e.g. OS notification click on desktop).
-  // The mutation flips `read: true` optimistically, so this effect settles
+  // to-select and URL-param-select (e.g. incoming link from a notification or
+  // shared URL). The mutation flips `read: true` optimistically, so this effect settles
   // in one pass and can't loop. Kept in a `useEffect` rather than inlined
   // in handleSelect so URL-driven selection triggers it too.
   const markReadMutate = markReadMutation.mutate;

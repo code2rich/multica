@@ -67,23 +67,14 @@ interface UpdateSectionProps {
   runtimeId: string;
   currentVersion: string | null;
   isOnline: boolean;
-  /**
-   * Non-null when the daemon process was spawned by a managed launcher
-   * (e.g. "desktop" for the Electron app). In that case the CLI binary
-   * is shipped and upgraded by the launcher itself, so in-app self-update
-   * is disabled — upgrading would be clobbered on the next launch anyway.
-   */
-  launchedBy?: string | null;
 }
 
 export function UpdateSection({
   runtimeId,
   currentVersion,
   isOnline,
-  launchedBy,
 }: UpdateSectionProps) {
   const { t } = useT("runtimes");
-  const isManaged = launchedBy === "desktop";
   const [latestVersion, setLatestVersion] = useState<string | null>(null);
   const [status, setStatus] = useState<RuntimeUpdateStatus | null>(null);
   const [error, setError] = useState("");
@@ -186,16 +177,8 @@ export function UpdateSection({
           {currentVersion ?? t(($) => $.update.version_unknown)}
         </span>
 
-        {isManaged ? (
-          <span
-            className="inline-flex items-center gap-1 text-xs text-muted-foreground"
-            title={t(($) => $.update.managed_by_desktop_title)}
-          >
-            {t(($) => $.update.managed_by_desktop)}
-          </span>
-        ) : (
-          <>
-            {!hasUpdate && currentVersion && latestVersion && !status && (
+        <>
+          {!hasUpdate && currentVersion && latestVersion && !status && (
               <span className="inline-flex items-center gap-1 text-xs text-success">
                 <Check className="h-3 w-3" />
                 {t(($) => $.update.latest)}
@@ -224,7 +207,6 @@ export function UpdateSection({
               </Button>
             )}
           </>
-        )}
 
         {config && Icon && status && (
           <span

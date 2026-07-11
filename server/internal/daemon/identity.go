@@ -22,7 +22,7 @@ const daemonIDFileName = "daemon.id"
 // same machine shares one UUID stored at `~/.multica/daemon.id`. Profile
 // boundaries are about which backend/account a daemon is talking to, not
 // about the physical machine's identity, so a single host running both the
-// CLI-spawned daemon and the desktop-spawned daemon (or toggling profiles)
+// CLI-spawned daemon and a web-spawned runtime (or toggling profiles)
 // registers as one runtime everywhere rather than N.
 //
 // The `profile` argument is retained purely for one-time migration: if the

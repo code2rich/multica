@@ -144,11 +144,11 @@ function normalize(
     // pass so a site-relative `/api/attachments/...` or `/uploads/...`
     // path becomes a proper origin-bearing URL when the renderer's
     // document origin doesn't proxy /api or /uploads to the API host
-    // (Electron desktop, mobile webview). Web with a same-origin
-    // proxy keeps `apiBaseUrl=""` and the helper is a no-op there.
+    // (mobile webview). Web with a same-origin proxy keeps
+    // `apiBaseUrl=""` and the helper is a no-op there.
     // See MUL-3192 — quick-create modal regressed because the freshly-
-    // uploaded image URL stayed site-relative and Electron's renderer
-    // origin (file://) couldn't load it.
+    // uploaded image URL stayed site-relative and the mobile webview
+    // origin couldn't load it.
     url: absolutizeMediaURL(
       record ? pickInlineMediaURL(record, input.url, cdnDomain, cdnSigned) : input.url,
     ),
@@ -169,8 +169,8 @@ function normalize(
 // so new content already loads natively on every client. This helper only
 // matters for content written BEFORE MUL-3192 — those bodies still carry
 // the old relative shape, and rendering them on a surface whose document
-// origin is NOT the API host (Electron desktop, mobile webview) needs the
-// API base URL pinned in at render time.
+// origin is NOT the API host (mobile webview) needs the API base URL pinned
+// in at render time.
 //
 // On web, `api.getBaseUrl()` is empty (the Next.js rewrite proxies /api/*
 // to the API host server-side), so this is a no-op there.
@@ -206,7 +206,7 @@ function absolutizeMediaURL(rawUrl: string): string {
 //                             (`/api/attachments/<id>/download`) which
 //                             requires per-request auth and does NOT
 //                             load as a native img on a non-same-site
-//                             origin like Desktop's file://.
+//                             origin like the mobile webview.
 //   - `record.markdown_url` — the durable URL the server picked for
 //                             persistence (MUL-3192 / `buildMarkdownURL`):
 //                             public CDN passthrough when the storage is
@@ -321,11 +321,11 @@ const RESIGN_STALE_MS = 20 * 60 * 1000;
 // endpoint (e.g. a reopened issue draft, whose persisted record deliberately
 // strips the short-lived signed `download_url`). That endpoint needs
 // credentials: web loads it because the session cookie rides on the <img>
-// request (same-site), but Desktop's file:// renderer and the mobile webview
-// are cross-site — no cookie is attached and the Bearer token cannot be put
-// on a native resource fetch, so the image 401s. Those clients are exactly
-// the ones with a non-empty `api.getBaseUrl()` (no same-origin /api proxy),
-// which is the existing platform signal `absolutizeMediaURL` keys off.
+// request (same-site), but the mobile webview is cross-site — no cookie is
+// attached and the Bearer token cannot be put on a native resource fetch,
+// so the image 401s. Those clients are exactly the ones with a non-empty
+// `api.getBaseUrl()` (no same-origin /api proxy), which is the existing
+// platform signal `absolutizeMediaURL` keys off.
 //
 // For them, fetch fresh attachment metadata through the authenticated API —
 // the same re-sign the click-time download path already does — and swap in

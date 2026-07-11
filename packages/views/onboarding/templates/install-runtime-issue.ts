@@ -17,8 +17,8 @@
  *
  * Note: server's deprecation shim (`onboarding_shim.go:noRuntimeIssueTitle`)
  * still uses the bare English string for its title-based dedupe — that
- * codepath only runs for pre-v3 desktop builds and never overlaps with
- * the v3 frontend population, so the two title-spaces drifting is fine.
+ * codepath only runs for pre-v3 clients and never overlaps with the v3
+ * frontend population, so the two title-spaces drifting is fine.
  */
 export const INSTALL_RUNTIME_ISSUE_TITLE = {
   en: "Step 1 — Connect a runtime to start using agents",
@@ -58,7 +58,6 @@ For English users, the fastest first path is Codex:
    codex --version
 5. Restart the Multica daemon:
    multica daemon restart
-   If you use the desktop app, restarting the app is enough.
 6. Return to Runtimes and refresh. You should see a Codex runtime online.
 7. Create your first agent from that runtime, then assign an issue to the agent and set status to todo.
 
@@ -98,7 +97,6 @@ const zh = `欢迎来到 Multica。
 4. 首次启动后输入 /login,按提示完成 Kimi Code 或 API key 配置。
 5. 重启 Multica 守护进程:
    multica daemon restart
-   如果你用桌面端,重启 app 即可。
 6. 回到 Runtimes 页面刷新。你应该能看到一个在线的 Kimi 运行时。
 7. 用这个运行时创建第一个智能体,再把一个 issue 分配给它,并把状态切到 todo。
 
@@ -137,7 +135,6 @@ runtime이 준비되기 전에는 다음을 해볼 수 있습니다:
    codex --version
 5. Multica daemon을 재시작합니다:
    multica daemon restart
-   데스크톱 앱을 사용한다면 앱을 재시작해도 됩니다.
 6. Runtimes로 돌아가 새로고침합니다. Codex runtime이 online으로 보여야 합니다.
 7. 해당 runtime으로 첫 agent를 만든 뒤 issue를 agent에게 배정하고 status를 todo로 바꿉니다.
 
@@ -176,7 +173,6 @@ runtime が準備できる前に、次のことを試せます:
    codex --version
 5. Multica daemon を再起動します:
    multica daemon restart
-   デスクトップアプリを使っている場合は、アプリを再起動するだけで十分です。
 6. Runtimes に戻って再読み込みします。Codex runtime が online と表示されるはずです。
 7. その runtime から最初の agent を作り、issue を agent に割り当てて status を todo にします。
 

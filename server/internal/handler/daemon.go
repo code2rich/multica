@@ -177,7 +177,7 @@ type DaemonRegisterRequest struct {
 	LegacyDaemonIDs []string `json:"legacy_daemon_ids"`
 	DeviceName      string   `json:"device_name"`
 	CLIVersion      string   `json:"cli_version"` // multica CLI version
-	LaunchedBy      string   `json:"launched_by"` // "desktop" when spawned by the Electron app
+	LaunchedBy      string   `json:"launched_by"` // legacy field, no longer interpreted
 	Runtimes        []struct {
 		Name    string `json:"name"`
 		Type    string `json:"type"`

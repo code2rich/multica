@@ -5,7 +5,6 @@ import { ArrowLeft, ArrowRight } from "lucide-react";
 import { Button } from "@multica/ui/components/ui/button";
 import { useScrollFade } from "@multica/ui/hooks/use-scroll-fade";
 import type { OnboardingStep } from "@multica/core/onboarding";
-import { DragStrip } from "@multica/views/platform";
 import { StepHeader } from "../components/step-header";
 import {
   IconOptionCard,
@@ -133,7 +132,6 @@ export function StepQuestion({
 
   return (
     <div className="animate-onboarding-enter flex h-full min-h-0 flex-col bg-background">
-      <DragStrip />
       <header className="flex shrink-0 items-center gap-4 bg-background px-6 py-3 sm:px-10 md:px-14 lg:px-16">
         {onBack ? (
           <button

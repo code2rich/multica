@@ -76,21 +76,21 @@ describe("FeedbackModal", () => {
     vi.restoreAllMocks();
   });
 
-  it("uses a crash-report initialMessage when there is no saved draft", () => {
+  it("uses a provided initialMessage when there is no saved draft", () => {
     storedDraftMessage = "";
 
-    render(<FeedbackModal onClose={vi.fn()} initialMessage="kind: desktop_route_error" />);
+    render(<FeedbackModal onClose={vi.fn()} initialMessage="context: web_error_report" />);
 
-    expect(screen.getByLabelText("feedback editor")).toHaveValue("kind: desktop_route_error");
+    expect(screen.getByLabelText("feedback editor")).toHaveValue("context: web_error_report");
   });
 
-  it("does not overwrite an existing feedback draft when crash report context is provided", () => {
+  it("does not overwrite an existing feedback draft when context is provided", () => {
     storedDraftMessage = "saved draft";
 
-    render(<FeedbackModal onClose={vi.fn()} initialMessage="kind: desktop_route_error" />);
+    render(<FeedbackModal onClose={vi.fn()} initialMessage="context: web_error_report" />);
 
     expect(screen.getByLabelText("feedback editor")).toHaveValue(
-      "saved draft\n\n---\n\nkind: desktop_route_error",
+      "saved draft\n\n---\n\ncontext: web_error_report",
     );
   });
 });

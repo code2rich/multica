@@ -22,7 +22,6 @@ const installationsRef = vi.hoisted(() => ({
 }));
 const mockRegisterBYO = vi.hoisted(() => vi.fn());
 const mockDeleteInstallation = vi.hoisted(() => vi.fn());
-const mockOpenExternal = vi.hoisted(() => vi.fn());
 const mockInvalidate = vi.hoisted(() => vi.fn());
 
 vi.mock("@tanstack/react-query", () => ({
@@ -88,8 +87,6 @@ vi.mock("sonner", () => ({
   toast: { success: vi.fn(), error: vi.fn(), message: vi.fn() },
 }));
 
-vi.mock("../../platform", () => ({ openExternal: mockOpenExternal }));
-
 import { SlackAgentBindButton, SlackTab } from "./slack-tab";
 
 const TEST_RESOURCES = { en: { common: enCommon, settings: enSettings } };
@@ -126,7 +123,9 @@ describe("SlackAgentBindButton", () => {
       }),
     );
     // No OAuth redirect anymore — install is a direct API call.
-    expect(mockOpenExternal).not.toHaveBeenCalled();
+    const openSpy = vi.spyOn(window, "open").mockImplementation(() => null);
+    expect(openSpy).not.toHaveBeenCalled();
+    openSpy.mockRestore();
   });
 
   it("shows the connected badge (not the CTA) when the agent already has an active install", () => {

@@ -74,15 +74,7 @@ The trade-off you accept in both cases is the same: **this version ships no file
 
 ### Attaching a local directory
 
-The folder picker lives in the **Desktop app** only — the web app has no way to read OS paths, so the "Add local directory" button is hidden there. On Desktop:
-
-1. Open the project → **Resources** panel.
-2. Click **Add local directory**. A native folder picker opens.
-3. Pick the folder. The path is bound to **the daemon currently registered by this Desktop install** — the resource record stores both the path and that daemon's ID.
-
-On Desktop the button stays visible but is **disabled with a hint** when the daemon on this machine is offline, or when the project already has a `local_directory` bound to this daemon — so you can see *why* it's unavailable. (On the web app the button is hidden outright, since there's no folder picker available there at all.) To bind another machine's directory, install Desktop on that machine and add the resource from there.
-
-From the CLI (works on web-only environments too, as long as you supply the daemon ID yourself):
+`local_directory` resources are managed through the CLI. The web app does not expose a native folder picker, so you supply the daemon ID and path yourself:
 
 ```bash
 multica project resource add <project-id> \
@@ -111,9 +103,9 @@ The blacklist is intentionally aggressive — picking your home directory would 
 
 ### One per (project, daemon)
 
-A project may hold **at most one `local_directory` per daemon**. Attempting to add a second one on the same daemon returns a `409` from the API; the Desktop button hides itself when the limit is already reached and surfaces a tooltip explaining why.
+A project may hold **at most one `local_directory` per daemon**. Attempting to add a second one on the same daemon returns a `409` from the API.
 
-Different daemons are independent — a shared project can have one `local_directory` per teammate's machine, each binding the same project to a different folder on a different host. When the daemon claims a task, it picks the row that matches its own ID and ignores the rest.
+Different daemons are independent — a shared project can have one `local_directory` per teammate's machine, each binding the project to a different folder on a different host. When the daemon claims a task, it picks the row that matches its own ID and ignores the rest.
 
 ### Mixing resource types, and multiple `local_directory` resources
 
@@ -156,7 +148,7 @@ These are tracked as the agent-task-lifecycle follow-up to the local-directory w
 
 ## Attaching repos at project creation
 
-In the **Web** or **Desktop** app, opening *New project* now shows a **Repos** pill alongside Status / Priority / Lead. Selecting workspace-bound repos (or pasting an ad-hoc URL) attaches them as `github_repo` resources the moment the project is created.
+In the **Web** app, opening *New project* now shows a **Repos** pill alongside Status / Priority / Lead. Selecting workspace-bound repos (or pasting an ad-hoc URL) attaches them as `github_repo` resources the moment the project is created.
 
 From the **CLI**:
 

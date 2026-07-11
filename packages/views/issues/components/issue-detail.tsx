@@ -54,7 +54,6 @@ import { StatusIcon, PriorityIcon, StatusPicker, PriorityPicker, StagePicker, St
 import { maxSiblingStage } from "./pickers/stage-picker";
 import { IssueActionsDropdown, useIssueActions } from "../actions";
 import { ProjectPicker } from "../../projects/components/project-picker";
-import { LocalDirectoryHint } from "../../projects/components/local-directory-hint";
 import { CommentCard } from "./comment-card";
 import { CommentInput } from "./comment-input";
 import { ResolvedThreadBar } from "./resolved-thread-bar";
@@ -883,7 +882,7 @@ export function IssueDetail({ issueId, onDelete, onDone, defaultSidebarOpen = tr
   }, [issue?.id, wsId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Fire `onDelete` once when the issue transitions from loaded to missing.
-  // Delete goes through a shell-level modal, so the caller (e.g. inbox) can't
+  // Delete goes through a page-level modal, so the caller (e.g. inbox) can't
   // be notified directly — instead, the detail page observes its own cache
   // clearing and runs the callback. We navigate via `onDeletedNavigateTo` on
   // the actions menu when no callback is supplied (standalone routes).
@@ -1201,7 +1200,7 @@ export function IssueDetail({ issueId, onDelete, onDone, defaultSidebarOpen = tr
     // scrollIntoView is spec'd to scroll EVERY scrollable ancestor: on a cold
     // mount where the timeline is still growing (streaming agent), the inner
     // scroller can't satisfy centering on its own, so the scroll propagates up
-    // and moves the desktop shell's `overflow:hidden` wrapper — shoving the
+    // and moves the page-level layout's `overflow:hidden` wrapper — shoving the
     // whole page, header included, off the top with no scrollbar to recover,
     // until a resize reflows it (#3929). Scoping the scroll to `container`
     // keeps it contained; re-centering across frames lands the comment
@@ -1900,7 +1899,6 @@ export function IssueDetail({ issueId, onDelete, onDone, defaultSidebarOpen = tr
 
         <div
           ref={setScrollContainerEl}
-          data-tab-scroll-root
           className="relative flex-1 overflow-y-auto"
         >
         <div className="mx-auto w-full max-w-4xl px-8 py-8">
@@ -1960,8 +1958,7 @@ export function IssueDetail({ issueId, onDelete, onDone, defaultSidebarOpen = tr
                 // `issueAttachments`, the renderer can't resolve it to a
                 // freshly-signed `download_url`, and the persisted auth-gated
                 // download endpoint fails to load as a native <img> on clients
-                // whose origin isn't the API host (Desktop/Electron, mobile
-                // webview) — while still working on web via the cookie/proxy.
+                // whose origin isn't the API host.
                 // This mirrors the comment/reply/chat composers, which already
                 // bind via `contentReferencesAttachment` (MUL-3130 / MUL-3192).
                 const ids = descPendingAttachmentsRef.current
@@ -2145,8 +2142,6 @@ export function IssueDetail({ issueId, onDelete, onDone, defaultSidebarOpen = tr
                 </Popover>
               </div>
             </div>
-
-            <LocalDirectoryHint projectId={issue?.project_id} />
 
             {/* The "agent is working" live signal now lives in the header
                 (IssueAgentHeaderChip) so it stays in one fixed place and

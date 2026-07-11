@@ -58,7 +58,7 @@ type DiskUsageReport struct {
 // DiskUsageRoot pairs a workspaces root with the profile it was derived from
 // ("" = the default root). ScanDiskUsageRoots scans each one and labels its
 // report with the profile so the cross-root view can attribute footprint back
-// to a profile (e.g. the Desktop app's `desktop-<host>` root).
+// to a profile (e.g. a web client's `web-<host>` root).
 type DiskUsageRoot struct {
 	Profile string
 	Root    string

@@ -42,9 +42,10 @@ Use a wrapper script when the runtime needs shell behavior.
 
 ## Command not found
 
-Desktop-launched daemons may not inherit the same `PATH` as an interactive
-terminal. If a custom runtime shows a registration error even though the command
-works in your shell, pin the absolute path on that machine:
+Daemons launched outside an interactive shell (e.g. via a service manager or
+the background daemon) may not inherit the same `PATH` as your terminal. If a
+custom runtime shows a registration error even though the command works in your
+shell, pin the absolute path on that machine:
 
 ```sh
 multica runtime profile set-path <profile-id> --path /abs/path/to/agent

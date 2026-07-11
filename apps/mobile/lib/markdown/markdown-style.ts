@@ -218,7 +218,7 @@ export function useMarkdownStyle() {
       //   - we contribute the TextKit 2 fix upstream (the right hook is
       //     NSTextLayoutManager.enumerateTextSegments(in:type:.highlight:))
       // Either way, switch back to a tinted-chip style for cross-platform
-      // visual parity with web/desktop.
+      // visual parity with web.
       code: {
         color: t.mutedForeground,
         backgroundColor: "transparent",

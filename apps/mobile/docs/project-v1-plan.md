@@ -6,7 +6,7 @@
 
 ## Context
 
-This PR brings mobile's Project surface to release-quality parity with web/desktop for the **operate / assign-work / collaborate** use cases. The deferred items (Pin, inline title edit, emoji picker, filters, Gantt, etc.) are documented in the gap audit and not addressed here.
+This PR brings mobile's Project surface to release-quality parity with web for the **operate / assign-work / collaborate** use cases. The deferred items (Pin, inline title edit, emoji picker, filters, Gantt, etc.) are documented in the gap audit and not addressed here.
 
 ## Scope
 

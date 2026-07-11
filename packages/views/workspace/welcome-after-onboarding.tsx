@@ -40,7 +40,7 @@ import {
 /**
  * Workspace welcome experience for users who just finished onboarding.
  *
- * Mounted in the workspace shell on both web and desktop. Subscribes to
+ * Mounted in the workspace shell. Subscribes to
  * the Zustand welcome-store signal that `OnboardingFlow.handleRuntimeNext`
  * parks before navigating. Renders null when there is no signal or when
  * the signal has been dismissed.
@@ -87,8 +87,7 @@ export function WelcomeAfterOnboarding() {
   // Cross-workspace safety: signal lives in a global store, but this
   // component mounts inside a workspace-scoped layout. If the user is
   // currently viewing ws-B while signal points at ws-A (back/forward,
-  // deep-link, desktop multi-tab where stores are shared across tabs in
-  // one renderer), DON'T fire here — would create the Helper agent /
+  // deep-link), DON'T fire here — would create the Helper agent /
   // seed issues in ws-A while the user looks at ws-B, then navigate them
   // away. Render null until the user lands back in the workspace the
   // signal was parked for.

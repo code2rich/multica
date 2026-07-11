@@ -12,7 +12,7 @@ import { defaultStorage } from "../../platform/storage";
  *
  * Keys are issue-scoped because createWorkspaceAwareStorage only partitions
  * by workspace, not by issue. Without issueId in the key, two issues with
- * thread replies open in adjacent desktop tabs would collide.
+ * thread replies open in adjacent browser tabs would collide.
  */
 
 export type CommentDraftKey =

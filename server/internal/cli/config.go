@@ -19,7 +19,7 @@ type CLIConfig struct {
 
 	// Backends contains per-backend overrides for users who want to point
 	// the daemon at non-default tool installations (e.g. an OpenClaw bundled
-	// inside another desktop app, or multiple isolated profiles on the same
+	// inside another local client, or multiple isolated profiles on the same
 	// machine). Empty / absent means "discover from PATH and use vendor
 	// defaults" — the historical behavior. See issue #3875.
 	Backends *BackendOverrides `json:"backends,omitempty"`
@@ -71,8 +71,8 @@ type BackendOverrides struct {
 // Setting StateDir is the fix for the long-standing usability gap where
 // users with non-default OpenClaw installations — multiple isolated
 // profiles (dev/staging/prod, multiple accounts), containerized / CI
-// deployments where ~/.openclaw isn't writable, or third-party desktop
-// apps that bundle their own OpenClaw runtime — had to write a wrapper
+// deployments where ~/.openclaw isn't writable, or third-party clients
+// that bundle their own OpenClaw runtime — had to write a wrapper
 // shell script to inject OPENCLAW_STATE_DIR + run `launchctl setenv`
 // for GUI-launched daemons. With this field, those workarounds become
 // unnecessary.

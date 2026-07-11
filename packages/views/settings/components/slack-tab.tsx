@@ -34,7 +34,6 @@ import { slackInstallationsOptions, slackKeys } from "@multica/core/slack";
 import { api } from "@multica/core/api";
 import type { SlackInstallation } from "@multica/core/types";
 import { ActorAvatar } from "../../common/actor-avatar";
-import { openExternal } from "../../platform";
 import { useT } from "../../i18n";
 
 // SlackTab is the workspace settings panel for Slack bot installations.
@@ -389,7 +388,7 @@ export function SlackAgentBindButton({
           {SLACK_BYO_VIDEO_URL ? (
             <button
               type="button"
-              onClick={() => openExternal(SLACK_BYO_VIDEO_URL)}
+              onClick={() => window.open(SLACK_BYO_VIDEO_URL, "_blank", "noopener,noreferrer")}
               className="inline-flex w-fit items-center gap-2 text-sm font-medium text-primary underline-offset-2 hover:underline"
             >
               <ExternalLink className="h-4 w-4" />
@@ -399,7 +398,7 @@ export function SlackAgentBindButton({
 
           <button
             type="button"
-            onClick={() => openExternal(slackDocsUrl(i18n.language))}
+            onClick={() => window.open(slackDocsUrl(i18n.language), "_blank", "noopener,noreferrer")}
             className="inline-flex w-fit items-center gap-2 text-sm font-medium text-primary underline-offset-2 hover:underline"
             data-testid="slack-byo-docs-link"
           >
@@ -560,7 +559,7 @@ function SlackAgentBotConnectedBadge({
         <button
           type="button"
           onClick={() =>
-            openExternal(`https://app.slack.com/client/${installation.team_id}`)
+            window.open(`https://app.slack.com/client/${installation.team_id}`, "_blank", "noopener,noreferrer")
           }
           className="inline-flex items-center gap-1 text-xs text-muted-foreground underline-offset-2 transition-colors hover:text-foreground hover:underline"
           title={t(($) => $.slack.agent_bot_manage_tooltip)}

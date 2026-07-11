@@ -5,17 +5,12 @@ import { Button } from "@multica/ui/components/ui/button";
 import type { Workspace } from "@multica/core/types";
 import { useConfigStore } from "@multica/core/config";
 import { useLogout } from "../auth";
-import { DragStrip } from "../platform";
 import { useT } from "../i18n";
 import { CreateWorkspaceForm } from "./create-workspace-form";
 
 /**
- * Full-page shell for the "create workspace" transition. Shared between web
- * (Next.js route `/workspaces/new`) and desktop (window-overlay). The
- * top-bar affordances — Back (when dismissable) and Log out — live here
- * so both platforms get identical UX; platform-specific concerns like
- * window-drag region and macOS traffic-light handling stay in each app's
- * shell.
+ * Full-page shell for the "create workspace" transition. The top-bar
+ * affordances — Back (when dismissable) and Log out — live here.
  *
  * `onBack` is optional: caller passes it only when there's somewhere to go
  * back to (user has other workspaces, or the flow was entered from an
@@ -35,7 +30,6 @@ export function NewWorkspacePage({
 
   return (
     <div className="relative flex min-h-svh flex-col bg-background">
-      <DragStrip />
       {onBack && (
         <Button
           variant="ghost"

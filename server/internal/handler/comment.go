@@ -249,7 +249,7 @@ const commentHardCap = 2000
 
 // ListComments returns comments for an issue. The default behaviour is
 // unchanged — full chronological dump capped at commentHardCap — so existing
-// callers and the desktop UI keep working as-is. Optional query params give
+// callers and the web UI keep working as-is. Optional query params give
 // agent-style readers bounded views that scale to long issues without dragging
 // every prior reply into context:
 //
@@ -601,7 +601,7 @@ func (h *Handler) ListComments(w http.ResponseWriter, r *http.Request) {
 	// it points at the oldest thread in the page (next page = older threads);
 	// under thread + tail it points at the oldest reply in the page (next
 	// page = older replies in the same thread). Headers stay out of the JSON
-	// body so the default flat-array response shape — which the desktop UI
+	// body so the default flat-array response shape — which the web UI
 	// and existing callers depend on — is unchanged.
 	if result.NextBefore != "" && result.NextBeforeID != "" {
 		w.Header().Set("X-Multica-Next-Before", result.NextBefore)

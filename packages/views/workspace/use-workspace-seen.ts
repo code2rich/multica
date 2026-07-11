@@ -15,9 +15,8 @@ import { useRef } from "react";
  *    seen) — genuine access-denial case. Return `false` so the layout
  *    can render NoAccessPage with its recovery buttons.
  *
- * Scope: one Set per layout instance. If the workspace layout unmounts
- * (e.g. desktop tab close), the memory is discarded — correct, since the
- * user lost that view anyway.
+ * Scope: one Set per layout instance. If the workspace layout unmounts,
+ * the memory is discarded — correct, since the user lost that view anyway.
  */
 export function useWorkspaceSeen(
   slug: string | undefined,

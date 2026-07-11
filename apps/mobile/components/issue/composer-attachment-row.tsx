@@ -144,7 +144,7 @@ function MentionChipView({
         : "person";
 
   // Issue chips show the bare identifier (e.g. "MUL-123") — no leading @.
-  // Mirrors how the serialized markdown link renders on web/desktop.
+  // Mirrors how the serialized markdown link renders on web.
   const label = mention.type === "issue" ? mention.name : `@${mention.name}`;
 
   return (

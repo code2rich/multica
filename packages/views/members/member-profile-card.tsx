@@ -121,8 +121,8 @@ function OwnedAgentsSection({ agents }: { agents: Agent[] }) {
   // detail page. The presence dot is overlaid on the avatar via ActorAvatar's
   // showStatusDot — `enableHoverCard` deliberately omitted to avoid
   // popover-in-popover nesting; the click-through covers "want to know more".
-  // AppLink uses the platform navigation adapter so this works on web (Next
-  // router) and desktop (react-router-dom) without per-app branching.
+  // AppLink uses the platform navigation adapter so this works on web
+  // without per-app branching.
   const p = useWorkspacePaths();
   const visible = agents.slice(0, 2);
   const overflow = agents.length - visible.length;

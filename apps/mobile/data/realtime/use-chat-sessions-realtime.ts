@@ -31,7 +31,7 @@ export function useChatSessionsRealtime() {
         // even when the user isn't in the chat screen.
         ws.on("chat:done", invalidateSessions),
         // chat:session_read clears the unread flag (could be triggered from
-        // web/desktop on the same account).
+        // web on the same account).
         ws.on("chat:session_read", invalidateSessions),
         // chat:session_updated has no formal payload type yet — server
         // emits {chat_session_id, title?, updated_at?}. Narrow inline.

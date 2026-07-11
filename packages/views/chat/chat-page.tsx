@@ -28,7 +28,7 @@ import { NoAgentBanner } from "./components/no-agent-banner";
 import { ArchivedAgentBanner } from "./components/archived-agent-banner";
 
 /**
- * Chat tab — the first-class two-pane surface (thread list on the left,
+ * Chat page — the first-class two-pane surface (thread list on the left,
  * conversation on the right), mirroring the Inbox page layout. Shares all
  * conversation logic with the floating FAB via `useChatController`; the
  * left rail reuses `ChatThreadList`.

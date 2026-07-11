@@ -43,9 +43,8 @@ export interface User {
   /**
    * Legacy column from the removed starter-content dialog. The column is
    * still written to (always 'imported' for new accounts after the
-   * mark-onboarded paths run) so older desktop builds — which still render
-   * the dialog on NULL — don't show it to anyone created on a newer server.
-   * Kept as `string | null` for forward compatibility.
+   * mark-onboarded paths run). Kept as `string | null` for forward
+   * compatibility.
    */
   starter_content_state: string | null;
   /** Preferred UI language. null means "follow client/system". */

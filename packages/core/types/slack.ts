@@ -2,7 +2,7 @@
  *
  * Wire shape mirrors `SlackInstallationResponse` in
  * `server/internal/handler/slack.go`. New fields the backend adds in the
- * future MUST default to optional so older desktop builds keep parsing the
+ * future MUST default to optional so older clients keep parsing the
  * response — see CLAUDE.md → API Compatibility. */
 export interface SlackInstallation {
   id: string;
@@ -28,7 +28,7 @@ export interface ListSlackInstallationsResponse {
   /** Whether the install path is available (true whenever Slack is configured,
    * i.e. the at-rest key is set — a bring-your-own-app install needs no hosted
    * OAuth credentials). Kept as a separate flag for forward/backward compat;
-   * optional so an older desktop build that predates it treats it as off. */
+   * optional so an older client that predates it treats it as off. */
   install_supported?: boolean;
 }
 

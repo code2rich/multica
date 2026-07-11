@@ -30,8 +30,7 @@ retirement below.
 >   `onboarding_runtime_detected`, `feedback_opened`, and the
 >   `source_backfill_*` events.
 > - **What still ships to PostHog (frontend only):** `$exception` autocapture
->   (with `before_send` redaction + dedupe) and the desktop stability events
->   `client_crash` / `client_unresponsive` — error / crash monitoring that has
+>   (with `before_send` redaction + dedupe) — error / crash monitoring that has
 >   no DB equivalent. Identity (`$identify` / `$set`) is retained only to attach
 >   those.
 > - The `multica_signup_source` attribution cookie (`captureSignupSource`,
@@ -553,7 +552,7 @@ in the DB and never broadcast.
 |---|---|---|
 | `message_length_bucket` | string | `0-100` / `100-500` / `500-2000` / `2000+` — coarse bucket of `len(message)` so we can tell "quick note" from "bug report with repro steps" without leaking content. |
 | `has_images` | bool | `true` when the markdown contains at least one `![...](url)` image reference — signals bug reports with visual evidence. |
-| `platform` | string | Client platform from `X-Client-Platform` header (`web` / `desktop`). Omitted when the header is absent. |
+| `platform` | string | Client platform from `X-Client-Platform` header (`web` / `mobile`; legacy values `desktop` / `cli` may still appear in historical data). Omitted when the header is absent. |
 | `app_version` | string | Client version from `X-Client-Version` header. Omitted when absent. |
 
 `distinct_id` is the submitter's user id; `workspace_id` is attached from
@@ -562,9 +561,9 @@ sent from a pre-workspace surface.
 
 ### Frontend-only events
 
-> **Removed in MUL-4127**, except `$exception` (unchanged) and the
-> `client_crash` / `client_unresponsive` desktop stability events (documented in
-> `packages/core/diagnostics`). `$pageview`, `download_intent_expressed`,
+> **Removed in MUL-4127**, except `$exception` (unchanged). The
+> `client_crash` / `client_unresponsive` stability events were removed with the
+> desktop app. `$pageview`, `download_intent_expressed`,
 > `download_page_viewed`, `download_initiated`, `onboarding_runtime_path_selected`,
 > `onboarding_runtime_detected`, the frontend `onboarding_started` mirror,
 > `feedback_opened`, and `source_backfill_*` no longer fire. The descriptions
@@ -572,10 +571,8 @@ sent from a pre-workspace surface.
 
 - `$pageview` — fired by the web tracker
   (`apps/web/components/pageview-tracker.tsx`) on Next.js App Router
-  **pathname** changes, and by the desktop tracker
-  (`apps/desktop/.../pageview-tracker.tsx`) on visible-surface changes.
-  Both mount once at the root and drive the acquisition funnel's
-  `/ → signup` step. posthog-js's automatic pageview capture is
+  **pathname** changes. Mounts once at the root and drives the
+  acquisition funnel's `/ → signup` step. posthog-js's automatic pageview capture is
   disabled in `initAnalytics` so we own the event shape.
   `capturePageview` (`packages/core/analytics`) **section-normalizes** the
   path before emitting: query string / hash are stripped and resource-id

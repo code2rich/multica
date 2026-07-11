@@ -2,7 +2,7 @@
  *
  * Wire shape mirrors `ComposioToolkitResponse` in
  * `server/internal/handler/integrations_composio.go`. New fields the backend
- * adds later MUST stay optional so older desktop builds keep parsing — see
+ * adds later MUST stay optional so older clients keep parsing — see
  * CLAUDE.md → API Response Compatibility. */
 export interface ComposioToolkit {
   slug: string;
@@ -12,8 +12,8 @@ export interface ComposioToolkit {
   /** Whether the project has an enabled auth config for this toolkit. Since
    * MUL-4009 the backend only returns connectable toolkits, so this is always
    * true on the wire; the field is kept for backward compatibility with older
-   * desktop builds that branch on it. The UI still guards the Connect button on
-   * it as a client-side backstop. */
+   * clients that branch on it. The UI still guards the Connect button on it as
+   * a client-side backstop. */
   connectable: boolean;
 }
 
