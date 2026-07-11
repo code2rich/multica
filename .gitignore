@@ -68,3 +68,7 @@ server/server
 data/
 .kilo
 .idea
+.zcode/
+
+# generated docs
+/docs/architecture-overview.md
