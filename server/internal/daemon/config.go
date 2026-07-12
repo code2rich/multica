@@ -110,6 +110,15 @@ type Config struct {
 	// prefers a matching, executable override over resolving the profile's
 	// command_name on PATH. nil/empty means "always resolve via PATH".
 	ProfileCommandOverrides map[string]string
+
+	// AgentWakerEnvDigestKey is the server-shared HMAC key the daemon uses to
+	// compute value digests during an AgentWaker directory scan, so previews
+	// carry digests — never plaintext values — and the server can still detect
+	// "this value changed". When empty, digests are omitted and previews carry
+	// only key names + configured booleans (still value-safe). Wired from the
+	// MULTICA_AGENT_ENV_SECRET_KEY env var by the daemon bootstrap; will be
+	// reused by the M2 encrypted-env-at-rest path.
+	AgentWakerEnvDigestKey []byte
 }
 
 // Overrides allows CLI flags to override environment variables and defaults.

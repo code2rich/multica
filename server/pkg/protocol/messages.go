@@ -3,8 +3,9 @@ package protocol
 import "encoding/json"
 
 const (
-	DaemonCapabilitySkillBundlesV1      = "skill-bundles-v1"
-	DaemonCapabilityCoalescedCommentsV1 = "coalesced-comments-v1"
+	DaemonCapabilitySkillBundlesV1            = "skill-bundles-v1"
+	DaemonCapabilityCoalescedCommentsV1       = "coalesced-comments-v1"
+	DaemonCapabilityAgentWakerDirectorySyncV1 = "agentwaker-directory-sync-v1"
 )
 
 // Message is the envelope for all WebSocket messages.
@@ -184,6 +185,12 @@ type DaemonHeartbeatAckPayload struct {
 	// that don't know this field silently ignore it (standard JSON behavior)
 	// and fall back to the singular PendingLocalSkillImport above.
 	PendingLocalSkillImports []DaemonHeartbeatPendingLocalSkillImport `json:"pending_local_skill_imports,omitempty"`
+	// PendingAgentWakerScan carries a request for the daemon to perform a
+	// read-only AgentWaker directory scan. The daemon validates the absolute
+	// path with the same rules used for runtime-local directories, walks the
+	// tree, and returns a sanitized manifest (env key names + digests only,
+	// never plaintext values). Old daemons that don't know this field ignore it.
+	PendingAgentWakerScan *DaemonHeartbeatPendingAgentWakerScan `json:"pending_agentwaker_scan,omitempty"`
 }
 
 // HeartbeatStatusRuntimeGone is the ack Status used when the runtime row no
@@ -214,4 +221,18 @@ type DaemonHeartbeatPendingLocalSkills struct {
 type DaemonHeartbeatPendingLocalSkillImport struct {
 	ID       string `json:"id"`
 	SkillKey string `json:"skill_key"`
+}
+
+// DaemonHeartbeatPendingAgentWakerScan describes a read-only scan request for
+// one configured AgentWaker source directory. SourceID and AbsPath let the
+// daemon locate and validate the directory; ExpectedSnapshotHash (optional)
+// lets the daemon short-circuit a no-op rescan when the directory hash matches.
+// Mode is "scan" for the M1 read-only preview (apply is a separate, secret-
+// bearing flow landed in M2).
+type DaemonHeartbeatPendingAgentWakerScan struct {
+	ID           string `json:"id"`
+	SourceID     string `json:"source_id"`
+	AbsPath      string `json:"abs_path"`
+	ExpectedHash string `json:"expected_hash,omitempty"`
+	Mode         string `json:"mode,omitempty"`
 }

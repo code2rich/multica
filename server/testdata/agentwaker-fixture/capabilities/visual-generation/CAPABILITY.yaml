@@ -1,0 +1,24 @@
+schema_version: "1.0"
+id: visual-generation
+name: Visual Generation
+version: 1.0.0
+description: Produce platform-native visual assets for a consuming role without taking over the role's editorial decision.
+entrypoint: SKILL.md
+profiles:
+  - id: wechat-article-visuals
+    description: Inspect and produce visuals sized for WeChat official-account articles.
+  - id: xiaohongshu-note-visuals
+    description: Inspect and produce visuals sized for Xiaohongshu notes.
+adapters:
+  - id: image-gen
+    required: true
+    description: Generate or compose raster visuals within policy.
+contracts:
+  input_schema: schemas/visual-request.schema.json
+  output_schema: schemas/visual-manifest.schema.json
+requires:
+  environment: []
+  mcp: []
+permissions:
+  default_mode: local-write
+  supports_account_actions: false

@@ -41,7 +41,8 @@
       "github": "GitHub",
       "integrations": "Integrations",
       "labs": "Labs",
-      "members": "Members"
+      "members": "Members",
+      "agentwaker": "AgentWaker"
     }
   },
   "account": {
@@ -486,5 +487,46 @@
         "description": "Create and work on issues"
       }
     }
+  },
+  "agentwaker": {
+    "section_title": "AgentWaker directory",
+    "section_description": "Configure a daemon-owned AgentWaker repository root. A read-only scan previews the roles, skills, capabilities, and environment declarations it would import. Values are never shown.",
+    "field_daemon": "Daemon runtime",
+    "field_path": "Absolute path",
+    "field_path_hint": "The absolute path to the AgentWaker root on the selected daemon's machine.",
+    "field_sync_mode": "Sync mode",
+    "sync_manual": "Manual",
+    "sync_scheduled": "Scheduled",
+    "sync_watch": "Watch-assisted",
+    "select_daemon": "Select a daemon…",
+    "no_online_daemons": "No online daemons",
+    "add_source": "Add source",
+    "form_required": "Daemon runtime and absolute path are required.",
+    "loading": "Loading sources…",
+    "no_sources": "No AgentWaker sources configured yet.",
+    "scan": "Scan",
+    "scanned_at": "Last scanned",
+    "scan_started": "Scan started…",
+    "scan_complete": "Scan complete.",
+    "scan_failed": "Scan failed.",
+    "scan_failed_hint": "The last scan failed. Check the daemon is online and the path is a valid AgentWaker root.",
+    "create_success": "Source configured.",
+    "create_failed": "Failed to configure source.",
+    "delete_success": "Source removed.",
+    "delete_failed": "Failed to remove source.",
+    "preview_title": "Preview (read-only)",
+    "count_capabilities": "{{count}} capabilities",
+    "count_roles": "{{count}} roles",
+    "count_skills": "{{count}} skills",
+    "count_bindings": "{{count}} bindings",
+    "count_env": "{{count}} env declarations",
+    "count_mcp": "{{count}} MCP servers",
+    "status_pending": "Pending",
+    "status_scanning": "Scanning",
+    "status_ready": "Ready",
+    "status_applying": "Applying",
+    "status_partial": "Partial",
+    "status_failed": "Failed",
+    "status_offline": "Offline"
   }
 }

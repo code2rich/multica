@@ -2013,13 +2013,14 @@ func (d *Daemon) handleHeartbeatActions(ctx context.Context, runtimeID string, r
 	if resp == nil {
 		return
 	}
-	if resp.PendingUpdate != nil || resp.PendingModelList != nil || resp.PendingLocalSkills != nil || resp.PendingLocalSkillImport != nil {
+	if resp.PendingUpdate != nil || resp.PendingModelList != nil || resp.PendingLocalSkills != nil || resp.PendingLocalSkillImport != nil || resp.PendingAgentWakerScan != nil {
 		d.logger.Debug("heartbeat: pending actions",
 			"runtime_id", runtimeID,
 			"update", resp.PendingUpdate != nil,
 			"model_list", resp.PendingModelList != nil,
 			"local_skills", resp.PendingLocalSkills != nil,
 			"local_skill_import", resp.PendingLocalSkillImport != nil,
+			"agentwaker_scan", resp.PendingAgentWakerScan != nil,
 		)
 	}
 	if resp.PendingUpdate != nil {
@@ -2045,6 +2046,13 @@ func (d *Daemon) handleHeartbeatActions(ctx context.Context, runtimeID string, r
 	} else if resp.PendingLocalSkillImport != nil {
 		if rt := d.findRuntime(runtimeID); rt != nil {
 			go d.handleLocalSkillImport(ctx, *rt, *resp.PendingLocalSkillImport)
+		}
+	}
+	// AgentWaker directory scan: read-only, value-free. Old daemons that don't
+	// know this field ignore it (standard JSON behavior).
+	if resp.PendingAgentWakerScan != nil {
+		if rt := d.findRuntime(runtimeID); rt != nil {
+			go d.handleAgentWakerScan(ctx, *rt, *resp.PendingAgentWakerScan)
 		}
 	}
 }
@@ -2204,6 +2212,48 @@ func (d *Daemon) reportLocalSkillImportResult(ctx context.Context, rt Runtime, r
 func (d *Daemon) reportModelListResult(ctx context.Context, rt Runtime, requestID string, payload map[string]any) {
 	d.reportRuntimeResultWithRetry(ctx, "model_list", rt.ID, requestID, func(ctx context.Context) error {
 		return d.client.ReportModelListResult(ctx, rt.ID, requestID, payload)
+	})
+}
+
+// handleAgentWakerScan performs a read-only AgentWaker directory scan and
+// reports the sanitized result. The scan reuses the daemon path validators and
+// the agentwaker parsers; it never executes scripts and never returns plaintext
+// env values. The envDigestKey is the server-shared HMAC key the daemon uses to
+// compute value digests so previews carry digests — never values — and the
+// server can still detect "this value changed".
+func (d *Daemon) handleAgentWakerScan(ctx context.Context, rt Runtime, pending PendingAgentWakerScan) {
+	d.logger.Info("agentwaker scan requested",
+		"runtime_id", rt.ID, "request_id", pending.ID, "source_id", pending.SourceID, "abs_path", pending.AbsPath)
+
+	result, err := ScanDirectory(ctx, pending.AbsPath, d.agentWakerEnvDigestKey())
+	if err != nil {
+		d.logger.Warn("agentwaker scan failed", "runtime_id", rt.ID, "request_id", pending.ID, "error", err)
+		d.reportAgentWakerScanResult(ctx, rt, pending.ID, map[string]any{
+			"status":     "failed",
+			"error":      err.Error(),
+			"source_id":  pending.SourceID,
+		})
+		return
+	}
+	payload := map[string]any{
+		"status":           "completed",
+		"directory_hash":   result.DirectoryHash,
+		"manifest":         result.Manifest,
+		"scanner_version":  result.ScannerVersion,
+		"source_id":        pending.SourceID,
+	}
+	if len(result.Diagnostics) > 0 {
+		// Diagnostics are value-free (severity/code/message/path); safe to send.
+		payload["diagnostics"] = result.Diagnostics
+	}
+	d.reportAgentWakerScanResult(ctx, rt, pending.ID, payload)
+}
+
+// reportAgentWakerScanResult delivers a scan report to the server with retry on
+// transient failures. See reportRuntimeResultWithRetry for semantics.
+func (d *Daemon) reportAgentWakerScanResult(ctx context.Context, rt Runtime, requestID string, payload map[string]any) {
+	d.reportRuntimeResultWithRetry(ctx, "agentwaker_scan", rt.ID, requestID, func(ctx context.Context) error {
+		return d.client.ReportAgentWakerScanResult(ctx, rt.ID, requestID, payload)
 	})
 }
 

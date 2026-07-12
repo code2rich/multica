@@ -8,8 +8,9 @@ import (
 )
 
 const (
-	SourceWorkspace = "workspace"
-	SourceBuiltin   = "builtin"
+	SourceWorkspace        = "workspace"
+	SourceBuiltin          = "builtin"
+	SourceSharedCapability = "shared_capability"
 )
 
 type File struct {

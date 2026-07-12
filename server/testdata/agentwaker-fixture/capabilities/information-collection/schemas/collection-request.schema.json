@@ -1,0 +1,12 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agentwaker.local/schemas/collection-request.schema.json",
+  "title": "Collection Request",
+  "type": "object",
+  "required": ["topic", "profiles"],
+  "properties": {
+    "topic": { "type": "string", "minLength": 1 },
+    "profiles": { "type": "array", "items": { "type": "string" }, "minItems": 1 }
+  },
+  "additionalProperties": false
+}

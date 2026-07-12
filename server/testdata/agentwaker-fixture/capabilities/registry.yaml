@@ -1,0 +1,8 @@
+schema_version: "1.0"
+capabilities:
+  - id: information-collection
+    version: 1.0.0
+    manifest: information-collection/CAPABILITY.yaml
+  - id: visual-generation
+    version: 1.0.0
+    manifest: visual-generation/CAPABILITY.yaml

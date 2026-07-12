@@ -2729,10 +2729,15 @@ func (s *TaskService) LoadAgentSkills(ctx context.Context, agentID pgtype.UUID) 
 }
 
 // LoadAgentSkillBundles returns every skill visible to an agent, including
-// built-ins, with stable bundle hashes and lightweight refs for slim claims.
+// built-ins and bound shared capabilities, with stable bundle hashes and
+// lightweight refs for slim claims.
 func (s *TaskService) LoadAgentSkillBundles(ctx context.Context, agentID pgtype.UUID) ([]AgentSkillData, []AgentSkillRefData) {
 	skills := s.LoadAgentSkills(ctx, agentID)
 	skills = append(skills, s.BuiltinSkills()...)
+	// M3: materialize bound shared capabilities (content-addressed, single-
+	// instance) so the daemon installs them into the execution sandbox once
+	// per task, alongside the role-owned skills.
+	skills = append(skills, s.LoadBoundSharedCapabilities(ctx, agentID)...)
 	return BuildAgentSkillBundles(skills)
 }
 

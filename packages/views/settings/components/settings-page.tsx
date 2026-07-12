@@ -12,10 +12,12 @@ import {
   Bell,
   Plug,
   MessageCircle,
+  FolderTree,
 } from "lucide-react";
 import { GitHubMark } from "./github-mark";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@multica/ui/components/ui/tabs";
 import { useCurrentWorkspace } from "@multica/core/paths";
+import { useFlag, AGENTWAKER_DIRECTORY_SYNC_FLAG } from "@multica/core/feature-flags";
 import { useNavigation } from "../../navigation";
 import { AccountTab } from "./account-tab";
 import { PreferencesTab } from "./preferences-tab";
@@ -28,6 +30,7 @@ import { GitHubTab } from "./github-tab";
 import { IntegrationsTab } from "./integrations-tab";
 import { LabsTab } from "./labs-tab";
 import { NotificationsTab } from "./notifications-tab";
+import { AgentWakerTab } from "./agentwaker-tab";
 import { useT } from "../../i18n";
 
 const ACCOUNT_TAB_KEYS = ["profile", "preferences", "chat", "notifications", "tokens"] as const;
@@ -44,6 +47,7 @@ const WORKSPACE_TAB_KEYS = [
   "repositories",
   "github",
   "integrations",
+  "agentwaker",
   "labs",
   "members",
 ] as const;
@@ -52,6 +56,7 @@ const WORKSPACE_TAB_VALUES = {
   repositories: "repositories",
   github: "github",
   integrations: "integrations",
+  agentwaker: "agentwaker",
   labs: "labs",
   members: "members",
 } as const;
@@ -60,6 +65,7 @@ const WORKSPACE_TAB_ICONS = {
   repositories: FolderGit2,
   github: GitHubMark,
   integrations: Plug,
+  agentwaker: FolderTree,
   labs: FlaskConical,
   members: Users,
 } as const;
@@ -79,6 +85,7 @@ export function SettingsPage() {
   const { t } = useT("settings");
   const workspaceName = useCurrentWorkspace()?.name;
   const navigation = useNavigation();
+  const agentwakerEnabled = useFlag(AGENTWAKER_DIRECTORY_SYNC_FLAG, false);
 
   // Whitelist of valid tab values; unknown ?tab=… values silently fall back to
   // the default. Whitelisting also blocks junk like ?tab=<script> from
@@ -133,6 +140,9 @@ export function SettingsPage() {
             {workspaceName ?? t(($) => $.page.workspace_fallback)}
           </span>
           {WORKSPACE_TAB_KEYS.map((key) => {
+            // Feature-gate the AgentWaker tab: hide the trigger when the flag
+            // is off so the experimental surface is invisible by default.
+            if (key === "agentwaker" && !agentwakerEnabled) return null;
             const Icon = WORKSPACE_TAB_ICONS[key];
             return (
               <TabsTrigger key={key} value={WORKSPACE_TAB_VALUES[key]}>
@@ -156,6 +166,9 @@ export function SettingsPage() {
           <TabsContent value="repositories"><RepositoriesTab /></TabsContent>
           <TabsContent value="github"><GitHubTab /></TabsContent>
           <TabsContent value="integrations"><IntegrationsTab /></TabsContent>
+          {agentwakerEnabled && (
+            <TabsContent value="agentwaker"><AgentWakerTab /></TabsContent>
+          )}
           <TabsContent value="labs"><LabsTab /></TabsContent>
           <TabsContent value="members"><MembersTab /></TabsContent>
         </div>

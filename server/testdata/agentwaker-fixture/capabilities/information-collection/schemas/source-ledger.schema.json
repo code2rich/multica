@@ -1,0 +1,10 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agentwaker.local/schemas/source-ledger.schema.json",
+  "title": "Source Ledger",
+  "type": "object",
+  "required": ["sources"],
+  "properties": {
+    "sources": { "type": "array", "items": { "type": "object" } }
+  }
+}

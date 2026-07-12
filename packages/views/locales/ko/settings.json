@@ -41,7 +41,8 @@
       "github": "GitHub",
       "integrations": "연동",
       "labs": "실험실",
-      "members": "멤버"
+      "members": "멤버",
+      "agentwaker": "AgentWaker"
     }
   },
   "account": {
@@ -486,5 +487,46 @@
     "install_error_session_lost": "설치 세션이 손실되었어요(서버가 재시작했을 수 있어요). 다시 스캔해 주세요.",
     "install_error_forbidden": "이제 이 설치를 완료할 권한이 없어요.",
     "install_error_generic": "문제가 발생했어요. 다시 시도하고, 계속되면 워크스페이스 관리자에게 문의하세요."
+  },
+  "agentwaker": {
+    "section_title": "AgentWaker 디렉터리",
+    "section_description": "데몬이 소유한 AgentWaker 저장소 루트를 설정합니다. 읽기 전용 스캔이 가져올 역할·스킬·기능·환경 선언을 미리 보여줍니다. 값은 절대 표시되지 않습니다.",
+    "field_daemon": "데몬 런타임",
+    "field_path": "절대 경로",
+    "field_path_hint": "선택한 데몬 머신의 AgentWaker 루트에 대한 절대 경로입니다.",
+    "field_sync_mode": "동기화 모드",
+    "sync_manual": "수동",
+    "sync_scheduled": "예약",
+    "sync_watch": "감시 보조",
+    "select_daemon": "데몬 선택…",
+    "no_online_daemons": "온라인 데몬 없음",
+    "add_source": "소스 추가",
+    "form_required": "데몬 런타임과 절대 경로는 필수입니다.",
+    "loading": "소스를 불러오는 중…",
+    "no_sources": "아직 구성된 AgentWaker 소스가 없습니다.",
+    "scan": "스캔",
+    "scanned_at": "마지막 스캔",
+    "scan_started": "스캔을 시작했습니다…",
+    "scan_complete": "스캔이 완료되었습니다.",
+    "scan_failed": "스캔에 실패했습니다.",
+    "scan_failed_hint": "마지막 스캔이 실패했습니다. 데몬이 온라인 상태이고 경로가 유효한 AgentWaker 루트인지 확인하세요.",
+    "create_success": "소스를 구성했습니다.",
+    "create_failed": "소스 구성에 실패했습니다.",
+    "delete_success": "소스를 제거했습니다.",
+    "delete_failed": "소스 제거에 실패했습니다.",
+    "preview_title": "미리보기(읽기 전용)",
+    "count_capabilities": "기능 {{count}}개",
+    "count_roles": "역할 {{count}}개",
+    "count_skills": "스킬 {{count}}개",
+    "count_bindings": "바인딩 {{count}}개",
+    "count_env": "환경 선언 {{count}}개",
+    "count_mcp": "MCP 서버 {{count}}개",
+    "status_pending": "대기 중",
+    "status_scanning": "스캔 중",
+    "status_ready": "준비됨",
+    "status_applying": "적용 중",
+    "status_partial": "부분",
+    "status_failed": "실패",
+    "status_offline": "오프라인"
   }
 }

@@ -344,6 +344,7 @@ type (
 	PendingModelList        = protocol.DaemonHeartbeatPendingModelList
 	PendingLocalSkills      = protocol.DaemonHeartbeatPendingLocalSkills
 	PendingLocalSkillImport = protocol.DaemonHeartbeatPendingLocalSkillImport
+	PendingAgentWakerScan   = protocol.DaemonHeartbeatPendingAgentWakerScan
 )
 
 func (c *Client) SendHeartbeat(ctx context.Context, runtimeID string) (*HeartbeatResponse, error) {
@@ -375,6 +376,14 @@ func (c *Client) ReportLocalSkillListResult(ctx context.Context, runtimeID, requ
 // ReportLocalSkillImportResult sends a runtime-local-skill bundle back to the server.
 func (c *Client) ReportLocalSkillImportResult(ctx context.Context, runtimeID, requestID string, result map[string]any) error {
 	return c.postJSON(ctx, fmt.Sprintf("/api/daemon/runtimes/%s/local-skills/import/%s/result", runtimeID, requestID), result, nil)
+}
+
+// ReportAgentWakerScanResult sends a sanitized AgentWaker directory-scan report
+// back to the server. The payload carries the value-free manifest, the canonical
+// directory hash, diagnostics, and the scanner version. Plaintext env values
+// never appear here — the server also defense-checks the payload.
+func (c *Client) ReportAgentWakerScanResult(ctx context.Context, runtimeID, requestID string, result map[string]any) error {
+	return c.postJSON(ctx, fmt.Sprintf("/api/daemon/runtimes/%s/agent-sources/scan/%s/result", runtimeID, requestID), result, nil)
 }
 
 // WorkspaceInfo holds minimal workspace metadata returned by the API.

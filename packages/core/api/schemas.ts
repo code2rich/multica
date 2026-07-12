@@ -1,6 +1,8 @@
 import { z } from "zod";
 import type {
   Agent,
+  AgentSource,
+  AgentSourceSnapshot,
   AgentTemplate,
   AgentTemplateSummary,
   Attachment,
@@ -1173,3 +1175,93 @@ export const CreateBillingPortalSessionResponseSchema = z.object({
 export const EMPTY_CREATE_BILLING_PORTAL_SESSION_RESPONSE: CreateBillingPortalSessionResponse = {
   url: "",
 };
+
+// --- AgentWaker directory integration ---
+// The manifest is intentionally loose/unknown-typed: it is value-free and
+// shape-stable, but individual fields evolve across scanner versions. We
+// schema-guard the envelope (source / snapshot / scan request) and treat the
+// manifest as opaque JSON for transport; preview components parse defensively.
+
+export const AgentSourceSchema = z
+  .object({
+    id: z.string(),
+    workspace_id: z.string(),
+    kind: z.string(),
+    daemon_runtime_id: z.string(),
+    local_path: z.string(),
+    sync_mode: z.string(),
+    status: z.string(),
+    last_snapshot_hash: z.string().optional(),
+    last_scanned_at: z.string().optional(),
+    last_applied_at: z.string().optional(),
+    created_at: z.string(),
+    updated_at: z.string(),
+  })
+  .loose();
+
+export const AgentSourceListSchema = z.array(AgentSourceSchema);
+
+export const EMPTY_AGENT_SOURCE_LIST: AgentSource[] = [];
+
+export const AgentSourceSnapshotSchema = z
+  .object({
+    id: z.string(),
+    source_id: z.string(),
+    directory_hash: z.string(),
+    schema_versions: z.record(z.string(), z.unknown()).default({}),
+    // manifest is value-free sanitized JSON; keep as passthrough.
+    manifest: z.unknown(),
+    status: z.string(),
+    diagnostics: z
+      .array(
+        z
+          .object({
+            severity: z.string(),
+            code: z.string(),
+            message: z.string(),
+            path: z.string().optional(),
+          })
+          .loose(),
+      )
+      .default([]),
+    lock_yaml: z.string().optional(),
+    scanner_version: z.string().optional(),
+    created_at: z.string(),
+    applied_at: z.string().optional(),
+  })
+  .loose();
+
+export const AgentSourceSnapshotListSchema = z.array(AgentSourceSnapshotSchema);
+
+export const EMPTY_AGENT_SOURCE_SNAPSHOT_LIST: AgentSourceSnapshot[] = [];
+
+export const AgentWakerScanRequestSchema = z
+  .object({
+    id: z.string(),
+    source_id: z.string(),
+    runtime_id: z.string(),
+    status: z.string(),
+    directory_hash: z.string().optional(),
+    manifest: z.unknown().optional(),
+    diagnostics: z
+      .array(
+        z
+          .object({
+            severity: z.string(),
+            code: z.string(),
+            message: z.string(),
+            path: z.string().optional(),
+          })
+          .loose(),
+      )
+      .optional()
+      .default([]),
+    scanner_version: z.string().optional(),
+    error: z.string().optional(),
+    created_at: z.string(),
+    updated_at: z.string(),
+  })
+  .loose();
+
+export const EMPTY_AGENTWAKER_SCAN_REQUEST = null;
+

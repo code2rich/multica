@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "platform-api": {
+      "command": "npx",
+      "args": ["-y", "platform-mcp-server"],
+      "env": {
+        "PLATFORM_API_KEY": "${PLATFORM_API_KEY}",
+        "PLATFORM_API_BASE": "${PLATFORM_API_BASE}"
+      }
+    }
+  }
+}

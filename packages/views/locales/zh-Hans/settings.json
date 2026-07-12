@@ -41,7 +41,8 @@
       "github": "GitHub",
       "integrations": "集成",
       "labs": "实验室",
-      "members": "成员"
+      "members": "成员",
+      "agentwaker": "AgentWaker"
     }
   },
   "account": {
@@ -486,5 +487,46 @@
         "description": "创建并处理 issue"
       }
     }
+  },
+  "agentwaker": {
+    "section_title": "AgentWaker 目录",
+    "section_description": "配置一个由守护进程拥有的 AgentWaker 仓库根目录。只读扫描会预览将导入的角色、技能、能力与环境声明。绝不显示任何值。",
+    "field_daemon": "守护进程运行时",
+    "field_path": "绝对路径",
+    "field_path_hint": "所选守护进程机器上 AgentWaker 根目录的绝对路径。",
+    "field_sync_mode": "同步模式",
+    "sync_manual": "手动",
+    "sync_scheduled": "定时",
+    "sync_watch": "监听辅助",
+    "select_daemon": "选择守护进程…",
+    "no_online_daemons": "没有在线守护进程",
+    "add_source": "添加来源",
+    "form_required": "守护进程运行时和绝对路径为必填项。",
+    "loading": "正在加载来源…",
+    "no_sources": "尚未配置 AgentWaker 来源。",
+    "scan": "扫描",
+    "scanned_at": "上次扫描",
+    "scan_started": "扫描已开始…",
+    "scan_complete": "扫描完成。",
+    "scan_failed": "扫描失败。",
+    "scan_failed_hint": "上次扫描失败。请检查守护进程是否在线，且路径是有效的 AgentWaker 根目录。",
+    "create_success": "来源已配置。",
+    "create_failed": "配置来源失败。",
+    "delete_success": "来源已移除。",
+    "delete_failed": "移除来源失败。",
+    "preview_title": "预览(只读)",
+    "count_capabilities": "{{count}} 个能力",
+    "count_roles": "{{count}} 个角色",
+    "count_skills": "{{count}} 个技能",
+    "count_bindings": "{{count}} 个绑定",
+    "count_env": "{{count}} 个环境声明",
+    "count_mcp": "{{count}} 个 MCP 服务器",
+    "status_pending": "待处理",
+    "status_scanning": "扫描中",
+    "status_ready": "就绪",
+    "status_applying": "应用中",
+    "status_partial": "部分",
+    "status_failed": "失败",
+    "status_offline": "离线"
   }
 }

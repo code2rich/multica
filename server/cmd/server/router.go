@@ -559,6 +559,27 @@ func NewRouterWithOptions(pool *pgxpool.Pool, hub *realtime.Hub, bus *events.Bus
 		slog.Info("wechat integration disabled (MULTICA_WECHAT_SECRET_KEY not set)")
 	}
 
+	// AgentWaker directory integration: encrypted env-at-rest. The env secret
+	// service gates the M2+ apply path's ability to synchronize .env values.
+	// When the key is absent, apply still works for capabilities/roles/skills/
+	// bindings but skips env-value synchronization (and reports it as a
+	// diagnostic). Sourced from MULTICA_AGENT_ENV_SECRET_KEY.
+	if envKey, err := secretbox.LoadKey("MULTICA_AGENT_ENV_SECRET_KEY"); err == nil {
+		envBox, err := secretbox.New(envKey)
+		if err != nil {
+			slog.Error("agentwaker: secretbox.New failed; env sync disabled", "error", err)
+		} else {
+			envSvc, err := service.NewEnvSecretService(envBox)
+			if err != nil {
+				slog.Error("agentwaker: EnvSecretService init failed", "error", err)
+			} else {
+				h.EnvSecret = envSvc
+			}
+		}
+	} else {
+		slog.Info("agentwaker env sync disabled (MULTICA_AGENT_ENV_SECRET_KEY not set)")
+	}
+
 	// Composio integration (MUL-3720). Gated by COMPOSIO_API_KEY plus the
 	// composio_mcp_apps feature flag. The env var is the project-scoped key the
 	// standalone SDK authenticates Composio with (sent as x-api-key; the project
@@ -786,6 +807,7 @@ func NewRouterWithOptions(pool *pgxpool.Pool, hub *realtime.Hub, bus *events.Bus
 		r.Post("/runtimes/{runtimeId}/models/{requestId}/result", h.ReportModelListResult)
 		r.Post("/runtimes/{runtimeId}/local-skills/{requestId}/result", h.ReportLocalSkillListResult)
 		r.Post("/runtimes/{runtimeId}/local-skills/import/{requestId}/result", h.ReportLocalSkillImportResult)
+		r.Post("/runtimes/{runtimeId}/agent-sources/scan/{requestId}/result", h.ReportAgentWakerScanResult)
 
 		r.Get("/tasks/{taskId}/status", h.GetTaskStatus)
 		r.Post("/tasks/{taskId}/start", h.StartTask)
@@ -1214,6 +1236,29 @@ func NewRouterWithOptions(pool *pgxpool.Pool, hub *realtime.Hub, bus *events.Bus
 				})
 			})
 
+			// AgentWaker directory integration: source configuration, scan, and
+			// sanitized snapshot preview. Feature-gated via
+			// agentwaker_directory_sync. All routes require workspace membership;
+			// configuration mutations require owner/admin. M1 is read-only — no
+			// agent/skill/capability/env mutation happens here (apply lands in M2).
+			r.Route("/api/agent-sources", func(r chi.Router) {
+				r.Get("/", h.ListAgentSources)
+				r.Post("/", h.CreateAgentSource)
+				r.Route("/{id}", func(r chi.Router) {
+					r.Get("/", h.GetAgentSource)
+					r.Patch("/", h.UpdateAgentSource)
+					r.Delete("/", h.DeleteAgentSource)
+					r.Post("/scan", h.InitiateAgentSourceScan)
+					r.Get("/scan/{requestId}", h.GetAgentSourceScanRequest)
+					r.Get("/snapshots", h.ListAgentSourceSnapshots)
+					r.Get("/snapshots/{snapshotId}", h.GetAgentSourceSnapshot)
+					// M2: plan (read-only diff), apply (atomic import), rollback.
+					r.Get("/plan", h.GetAgentSourcePlan)
+					r.Post("/apply", h.ApplyAgentSourceSnapshot)
+					r.Post("/rollback", h.RollbackAgentSource)
+				})
+			})
+
 			// Agent templates catalog (browse + detail). The Create flow
 			// lives under /api/agents/from-template above; this route is for
 			// the picker UI to list available templates.
@@ -1307,6 +1352,10 @@ func NewRouterWithOptions(pool *pgxpool.Pool, hub *realtime.Hub, bus *events.Bus
 			// Workspace-wide 30-day run counts per agent for the Agents-list RUNS column.
 			r.Get("/api/agent-run-counts", h.GetWorkspaceAgentRunCounts)
 
+			// Workspace-wide task run history for the global call-chain page.
+			// Supports ?status=, ?agent_id=, ?limit=, ?offset=.
+			r.Get("/api/workspace-task-runs", h.ListWorkspaceTaskRuns)
+
 			r.Route("/api/chat/sessions", func(r chi.Router) {
 				r.Post("/", h.CreateChatSession)
 				r.Get("/", h.ListChatSessions)
@@ -1361,6 +1410,11 @@ func NewRouterWithOptions(pool *pgxpool.Pool, hub *realtime.Hub, bus *events.Bus
 			})
 		})
 	})
+
+	// M4: start the scheduled AgentWaker sync loop when the feature flag is
+	// available. The loop checks for sources with sync_mode='scheduled' every
+	// 5 minutes and enqueues scan requests into the heartbeat-driven store.
+	go h.AgentWakerSyncLoop(context.Background())
 
 	return r, h
 }

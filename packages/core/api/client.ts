@@ -142,6 +142,13 @@ import type {
 import type { OnboardingCompletionPath } from "../onboarding/types";
 import type { CreateFeedbackResponse, FeedbackKind } from "../feedback/types";
 import type {
+  AgentSource,
+  AgentSourceSnapshot,
+  AgentWakerScanRequest,
+  CreateAgentSourceRequest,
+  UpdateAgentSourceRequest,
+} from "../types";
+import type {
   CloudRuntimeNode,
   CreateCloudRuntimeNodeRequest,
   ListCloudRuntimeNodesParams,
@@ -151,6 +158,8 @@ import { createRequestId } from "../utils";
 import { getCurrentSlug } from "../platform/workspace-storage";
 import { parseWithFallback } from "./schema";
 import {
+  AgentSourceListSchema,
+  AgentSourceSnapshotListSchema,
   AgentTaskListSchema,
   AgentTemplateSchema,
   AgentTemplateSummaryListSchema,
@@ -174,6 +183,8 @@ import {
   EMPTY_CLOUD_RUNTIME_NODE,
   EMPTY_CLOUD_RUNTIME_NODE_LIST,
   EMPTY_CREATE_AGENT_FROM_TEMPLATE_RESPONSE,
+  EMPTY_AGENT_SOURCE_LIST,
+  EMPTY_AGENT_SOURCE_SNAPSHOT_LIST,
   EMPTY_GROUPED_ISSUES_RESPONSE,
   EMPTY_LIST_ISSUES_RESPONSE,
   EMPTY_SEARCH_ISSUES_RESPONSE,
@@ -1465,6 +1476,30 @@ export class ApiClient {
     return this.fetch(`/api/agent-run-counts`);
   }
 
+  // Workspace-wide task run history for the global call-chain page. Supports
+  // optional status / agent_id filters and LIMIT/OFFSET paging. Private-agent
+  // filtering is enforced server-side. Workspace resolved from the
+  // X-Workspace-Slug header.
+  async listWorkspaceTaskRuns(params?: {
+    status?: string;
+    agentId?: string;
+    limit?: number;
+    offset?: number;
+  }): Promise<AgentTask[]> {
+    const qs = new URLSearchParams();
+    if (params?.status) qs.set("status", params.status);
+    if (params?.agentId) qs.set("agent_id", params.agentId);
+    if (params?.limit) qs.set("limit", String(params.limit));
+    if (params?.offset) qs.set("offset", String(params.offset));
+    const query = qs.toString();
+    const raw = await this.fetch<unknown>(
+      `/api/workspace-task-runs${query ? `?${query}` : ""}`,
+    );
+    return parseWithFallback<AgentTask[]>(raw, AgentTaskListSchema, [], {
+      endpoint: "GET /api/workspace-task-runs",
+    });
+  }
+
   async getActiveTasksForIssue(issueId: string): Promise<{ tasks: AgentTask[] }> {
     return this.fetch(`/api/issues/${issueId}/active-task`);
   }
@@ -2455,5 +2490,73 @@ export class ApiClient {
       method: "POST",
       body: JSON.stringify({ token }),
     });
+  }
+
+  // --- AgentWaker directory integration (M1: configure + scan + preview) ---
+  // All responses are value-free: env declarations carry key names, configured
+  // booleans, and value digests — never plaintext values.
+
+  async listAgentSources(): Promise<AgentSource[]> {
+    const raw = await this.fetch<unknown>(`/api/agent-sources`);
+    return parseWithFallback(raw, AgentSourceListSchema, EMPTY_AGENT_SOURCE_LIST, {
+      endpoint: "GET /api/agent-sources",
+    });
+  }
+
+  async getAgentSource(sourceId: string): Promise<AgentSource> {
+    return this.fetch(`/api/agent-sources/${sourceId}`);
+  }
+
+  async createAgentSource(data: CreateAgentSourceRequest): Promise<AgentSource> {
+    return this.fetch(`/api/agent-sources`, {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+  }
+
+  async updateAgentSource(
+    sourceId: string,
+    data: UpdateAgentSourceRequest,
+  ): Promise<AgentSource> {
+    return this.fetch(`/api/agent-sources/${sourceId}`, {
+      method: "PATCH",
+      body: JSON.stringify(data),
+    });
+  }
+
+  async deleteAgentSource(sourceId: string): Promise<void> {
+    await this.fetch(`/api/agent-sources/${sourceId}`, { method: "DELETE" });
+  }
+
+  /** Initiate a read-only scan; returns the in-flight request to poll. */
+  async initiateAgentSourceScan(sourceId: string): Promise<AgentWakerScanRequest> {
+    return this.fetch(`/api/agent-sources/${sourceId}/scan`, { method: "POST" });
+  }
+
+  /** Poll an in-flight scan request until the client observes a terminal status. */
+  async getAgentSourceScanRequest(
+    sourceId: string,
+    requestId: string,
+  ): Promise<AgentWakerScanRequest> {
+    return this.fetch(`/api/agent-sources/${sourceId}/scan/${requestId}`);
+  }
+
+  async listAgentSourceSnapshots(sourceId: string): Promise<AgentSourceSnapshot[]> {
+    const raw = await this.fetch<unknown>(
+      `/api/agent-sources/${sourceId}/snapshots`,
+    );
+    return parseWithFallback(
+      raw,
+      AgentSourceSnapshotListSchema,
+      EMPTY_AGENT_SOURCE_SNAPSHOT_LIST,
+      { endpoint: "GET /api/agent-sources/snapshots" },
+    );
+  }
+
+  async getAgentSourceSnapshot(
+    sourceId: string,
+    snapshotId: string,
+  ): Promise<AgentSourceSnapshot> {
+    return this.fetch(`/api/agent-sources/${sourceId}/snapshots/${snapshotId}`);
   }
 }

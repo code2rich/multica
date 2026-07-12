@@ -1,0 +1,27 @@
+schema_version: "1.0"
+id: information-collection
+name: Information Collection
+version: 1.0.0
+description: Collect, normalize, deduplicate, and preserve evidence from authorized information sources without deciding a consuming role's editorial or product policy.
+entrypoint: SKILL.md
+profiles:
+  - id: editorial-ai-research
+    description: Discover current AI signals while preserving primary-source evidence and uncertainty.
+  - id: trend-research
+    description: Collect platform and audience signals for role-specific trend evaluation.
+adapters:
+  - id: web
+    required: true
+    description: Search or read authorized public pages.
+  - id: rss
+    required: false
+    description: Read and normalize RSS or Atom feeds.
+contracts:
+  input_schema: schemas/collection-request.schema.json
+  output_schema: schemas/source-ledger.schema.json
+requires:
+  environment: []
+  mcp: []
+permissions:
+  default_mode: read-only
+  supports_account_actions: false

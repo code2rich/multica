@@ -1,0 +1,19 @@
+---
+schema_version: "2.1"
+id: plain-operator
+display_name: Pat
+role_type: common-operator
+title: Plain Operator
+version: 1.0.0
+lifecycle: active
+mission: A role with no shared-capability dependencies, used to exercise the empty-binding path.
+skills:
+  directory: plain-operator-skills/
+  meta_entrypoint: plain-operator-skills/SKILL.md
+  env_example: env/.env.example
+  items:
+    - id: basic-skill
+      name: Basic skill
+      use_when: Exercise the no-dependency import path.
+      entrypoint: plain-operator-skills/basic-skill/SKILL.md
+      status: implemented

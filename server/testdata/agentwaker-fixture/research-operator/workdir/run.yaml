@@ -1,0 +1,3 @@
+run_id: 2026-07-12-fixture
+status: completed
+# Runtime artifact: must be skipped by the scanner, never hashed into a snapshot.

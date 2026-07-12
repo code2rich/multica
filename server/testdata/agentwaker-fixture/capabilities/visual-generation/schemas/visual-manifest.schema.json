@@ -1,0 +1,10 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agentwaker.local/schemas/visual-manifest.schema.json",
+  "title": "Visual Manifest",
+  "type": "object",
+  "required": ["assets"],
+  "properties": {
+    "assets": { "type": "array", "items": { "type": "object" } }
+  }
+}

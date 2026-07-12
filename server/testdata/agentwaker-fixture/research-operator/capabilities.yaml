@@ -1,0 +1,27 @@
+schema_version: "1.0"
+role: research-operator
+capabilities:
+  - id: information-collection
+    version: ^1.0.0
+    required: true
+    used_by:
+      - skill: trend-research
+        profile: trend-research
+    permissions:
+      mode: read-only
+      account_actions: false
+    fallback:
+      behavior: partial
+      message: Continue with available authorized sources and label missing platform evidence.
+  - id: visual-generation
+    version: ^1.0.0
+    required: true
+    used_by:
+      - skill: trend-research
+        profile: xiaohongshu-note-visuals
+    permissions:
+      mode: local-write
+      account_actions: false
+    fallback:
+      behavior: blocked
+      message: Do not complete the note package without actual inspected platform-native visual assets.

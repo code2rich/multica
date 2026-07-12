@@ -41,7 +41,8 @@
       "github": "GitHub",
       "integrations": "連携",
       "labs": "ラボ",
-      "members": "メンバー"
+      "members": "メンバー",
+      "agentwaker": "AgentWaker"
     }
   },
   "account": {
@@ -486,5 +487,46 @@
         "description": "イシューの作成と作業"
       }
     }
+  },
+  "agentwaker": {
+    "section_title": "AgentWaker ディレクトリ",
+    "section_description": "デーモンが所有する AgentWaker リポジトリのルートを設定します。読み取り専用スキャンが、インポート対象のロール・スキル・機能・環境宣言をプレビューします。値は一切表示されません。",
+    "field_daemon": "デーモンランタイム",
+    "field_path": "絶対パス",
+    "field_path_hint": "選択したデーモンマシン上の AgentWaker ルートへの絶対パス。",
+    "field_sync_mode": "同期モード",
+    "sync_manual": "手動",
+    "sync_scheduled": "スケジュール",
+    "sync_watch": "監視支援",
+    "select_daemon": "デーモンを選択…",
+    "no_online_daemons": "オンラインのデーモンがありません",
+    "add_source": "ソースを追加",
+    "form_required": "デーモンランタイムと絶対パスは必須です。",
+    "loading": "ソースを読み込み中…",
+    "no_sources": "AgentWaker ソースはまだ設定されていません。",
+    "scan": "スキャン",
+    "scanned_at": "最終スキャン",
+    "scan_started": "スキャンを開始しました…",
+    "scan_complete": "スキャンが完了しました。",
+    "scan_failed": "スキャンに失敗しました。",
+    "scan_failed_hint": "前回のスキャンが失敗しました。デーモンがオンラインで、パスが有効な AgentWaker ルートであることを確認してください。",
+    "create_success": "ソースを設定しました。",
+    "create_failed": "ソースの設定に失敗しました。",
+    "delete_success": "ソースを削除しました。",
+    "delete_failed": "ソースの削除に失敗しました。",
+    "preview_title": "プレビュー（読み取り専用）",
+    "count_capabilities": "{{count}} 個の機能",
+    "count_roles": "{{count}} 個のロール",
+    "count_skills": "{{count}} 個のスキル",
+    "count_bindings": "{{count}} 個のバインディング",
+    "count_env": "{{count}} 個の環境宣言",
+    "count_mcp": "{{count}} 個の MCP サーバー",
+    "status_pending": "保留中",
+    "status_scanning": "スキャン中",
+    "status_ready": "準備完了",
+    "status_applying": "適用中",
+    "status_partial": "部分",
+    "status_failed": "失敗",
+    "status_offline": "オフライン"
   }
 }

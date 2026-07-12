@@ -47,8 +47,41 @@ type Agent struct {
 	// Composio toolkit slugs this agent is allowed to mount as MCP. NULL or empty array = no MCP overlay. Mounted for any run that passes the agent invocation-permission gate (MUL-3963); the overlay uses the agent OWNER's active Composio connection, so sharing the agent (public_to) shares these apps with whoever may invoke it. No longer gated on originator == owner. Stored as TEXT[] so the dispatch path can intersect against the owner's active connections with a single SQL ANY() filter.
 	ComposioToolkitAllowlist []string `json:"composio_toolkit_allowlist"`
 	// Agent invocation permission mode (MUL-3963). private = owner only; public_to = allow-list in agent_invocation_target. Replaces visibility as the authorization source for triggering runs; visibility is now a derived legacy field. Default private = deny-by-default.
-	PermissionMode string      `json:"permission_mode"`
-	ProfileHtml    pgtype.Text `json:"profile_html"`
+	PermissionMode     string      `json:"permission_mode"`
+	ProfileHtml        pgtype.Text `json:"profile_html"`
+	CustomEnvEncrypted []byte      `json:"custom_env_encrypted"`
+}
+
+type AgentCapabilityBinding struct {
+	ID                 pgtype.UUID        `json:"id"`
+	WorkspaceID        pgtype.UUID        `json:"workspace_id"`
+	AgentID            pgtype.UUID        `json:"agent_id"`
+	RoleSkillID        pgtype.UUID        `json:"role_skill_id"`
+	CapabilityID       pgtype.UUID        `json:"capability_id"`
+	SourceID           pgtype.UUID        `json:"source_id"`
+	Profile            string             `json:"profile"`
+	VersionRequirement string             `json:"version_requirement"`
+	Required           bool               `json:"required"`
+	Permissions        []byte             `json:"permissions"`
+	Fallback           []byte             `json:"fallback"`
+	SourceSnapshotID   pgtype.UUID        `json:"source_snapshot_id"`
+	CreatedAt          pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt          pgtype.Timestamptz `json:"updated_at"`
+}
+
+type AgentEnvDeclaration struct {
+	ID            pgtype.UUID        `json:"id"`
+	AgentID       pgtype.UUID        `json:"agent_id"`
+	SourceID      pgtype.UUID        `json:"source_id"`
+	SourceRoleID  pgtype.Text        `json:"source_role_id"`
+	VarName       string             `json:"var_name"`
+	Required      bool               `json:"required"`
+	Description   string             `json:"description"`
+	Configured    bool               `json:"configured"`
+	Secret        bool               `json:"secret"`
+	SourceManaged bool               `json:"source_managed"`
+	CreatedAt     pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt     pgtype.Timestamptz `json:"updated_at"`
 }
 
 // Allow-list of who may invoke a public_to agent (MUL-3963). One row per (agent, target_type, target); targets stack and canInvokeAgent OR-matches. workspace rows store the agent workspace_id in target_id; member rows store the user id; team rows are reserved and inert in V1. Rows only matter when agent.permission_mode = public_to. No DB foreign keys: agent_id / created_by / member target_id relationships are maintained in the application layer (see migration comment).
@@ -85,6 +118,58 @@ type AgentSkill struct {
 	AgentID   pgtype.UUID        `json:"agent_id"`
 	SkillID   pgtype.UUID        `json:"skill_id"`
 	CreatedAt pgtype.Timestamptz `json:"created_at"`
+	Origin    string             `json:"origin"`
+}
+
+type AgentSource struct {
+	ID                pgtype.UUID        `json:"id"`
+	WorkspaceID       pgtype.UUID        `json:"workspace_id"`
+	Kind              string             `json:"kind"`
+	DaemonRuntimeID   pgtype.UUID        `json:"daemon_runtime_id"`
+	LocalPath         string             `json:"local_path"`
+	CanonicalPathHash string             `json:"canonical_path_hash"`
+	SyncMode          string             `json:"sync_mode"`
+	Status            string             `json:"status"`
+	LastSnapshotHash  pgtype.Text        `json:"last_snapshot_hash"`
+	LastScannedAt     pgtype.Timestamptz `json:"last_scanned_at"`
+	LastAppliedAt     pgtype.Timestamptz `json:"last_applied_at"`
+	CreatedBy         pgtype.UUID        `json:"created_by"`
+	CreatedAt         pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt         pgtype.Timestamptz `json:"updated_at"`
+}
+
+type AgentSourceRole struct {
+	SourceID       pgtype.UUID        `json:"source_id"`
+	SourceRoleID   string             `json:"source_role_id"`
+	AgentID        pgtype.UUID        `json:"agent_id"`
+	LastImportHash pgtype.Text        `json:"last_import_hash"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
+}
+
+type AgentSourceSkill struct {
+	SourceID      pgtype.UUID        `json:"source_id"`
+	SourceRoleID  string             `json:"source_role_id"`
+	SourceSkillID string             `json:"source_skill_id"`
+	SkillID       pgtype.UUID        `json:"skill_id"`
+	IsMeta        bool               `json:"is_meta"`
+	ContentHash   pgtype.Text        `json:"content_hash"`
+	CreatedAt     pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt     pgtype.Timestamptz `json:"updated_at"`
+}
+
+type AgentSourceSnapshot struct {
+	ID             pgtype.UUID        `json:"id"`
+	SourceID       pgtype.UUID        `json:"source_id"`
+	DirectoryHash  string             `json:"directory_hash"`
+	SchemaVersions []byte             `json:"schema_versions"`
+	Manifest       []byte             `json:"manifest"`
+	Status         string             `json:"status"`
+	Diagnostics    []byte             `json:"diagnostics"`
+	LockYaml       pgtype.Text        `json:"lock_yaml"`
+	ScannerVersion pgtype.Text        `json:"scanner_version"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+	AppliedAt      pgtype.Timestamptz `json:"applied_at"`
 }
 
 type AgentTaskQueue struct {
@@ -734,6 +819,44 @@ type RuntimeProfile struct {
 	Enabled        bool               `json:"enabled"`
 	CreatedAt      pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
+}
+
+type SharedCapability struct {
+	ID              pgtype.UUID        `json:"id"`
+	WorkspaceID     pgtype.UUID        `json:"workspace_id"`
+	SourceID        pgtype.UUID        `json:"source_id"`
+	SourceKey       string             `json:"source_key"`
+	Name            string             `json:"name"`
+	Version         string             `json:"version"`
+	Description     string             `json:"description"`
+	ContentHash     string             `json:"content_hash"`
+	Manifest        []byte             `json:"manifest"`
+	ActiveVersionID pgtype.UUID        `json:"active_version_id"`
+	CreatedAt       pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt       pgtype.Timestamptz `json:"updated_at"`
+}
+
+type SharedCapabilityFile struct {
+	Sha256    string             `json:"sha256"`
+	Body      string             `json:"body"`
+	SizeBytes int64              `json:"size_bytes"`
+	CreatedAt pgtype.Timestamptz `json:"created_at"`
+}
+
+type SharedCapabilityVersion struct {
+	ID           pgtype.UUID        `json:"id"`
+	CapabilityID pgtype.UUID        `json:"capability_id"`
+	Version      string             `json:"version"`
+	ContentHash  string             `json:"content_hash"`
+	Manifest     []byte             `json:"manifest"`
+	CreatedAt    pgtype.Timestamptz `json:"created_at"`
+}
+
+type SharedCapabilityVersionFile struct {
+	CapabilityVersionID pgtype.UUID `json:"capability_version_id"`
+	Sha256              string      `json:"sha256"`
+	Path                string      `json:"path"`
+	IsEntrypoint        bool        `json:"is_entrypoint"`
 }
 
 type Skill struct {

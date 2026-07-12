@@ -13,6 +13,12 @@ const (
 	// The access model exists to gate Composio sharing, so the two ship on the
 	// same switch.
 	ComposioMCPApps = "composio_mcp_apps"
+
+	// AgentWakerDirectorySync gates the AgentWaker directory integration:
+	// source configuration, the daemon scan protocol, sanitized snapshot
+	// previews, atomic import (M2), runtime capability injection (M3), and
+	// continuous resync (M4). Ships dark; flip per workspace to enable.
+	AgentWakerDirectorySync = "agentwaker_directory_sync"
 )
 
 var frontendPublicFlags = []string{
@@ -21,6 +27,12 @@ var frontendPublicFlags = []string{
 
 func ComposioMCPAppsEnabled(ctx context.Context, flags *featureflag.Service) bool {
 	return flags.IsEnabled(ctx, ComposioMCPApps, false)
+}
+
+// AgentWakerDirectorySyncEnabled reports whether the AgentWaker directory
+// integration is on for the current context. Defaults off.
+func AgentWakerDirectorySyncEnabled(ctx context.Context, flags *featureflag.Service) bool {
+	return flags.IsEnabled(ctx, AgentWakerDirectorySync, false)
 }
 
 func EvaluateFrontendPublicFlags(ctx context.Context, flags *featureflag.Service) map[string]bool {

@@ -990,6 +990,9 @@ func (h *Handler) DaemonHeartbeat(w http.ResponseWriter, r *http.Request) {
 	if len(ack.PendingLocalSkillImports) > 0 {
 		resp["pending_local_skill_imports"] = ack.PendingLocalSkillImports
 	}
+	if ack.PendingAgentWakerScan != nil {
+		resp["pending_agentwaker_scan"] = ack.PendingAgentWakerScan
+	}
 	writeJSON(w, http.StatusOK, resp)
 }
 
@@ -1229,17 +1232,48 @@ func (h *Handler) processHeartbeat(ctx context.Context, rt db.AgentRuntime, supp
 				}
 			}
 		}
-	case probeErr != nil:
-		if errors.Is(probeErr, context.DeadlineExceeded) || errors.Is(probeErr, context.Canceled) {
-			m.ProbeImportTimedOut = true
-			slog.Warn("local skill import HasPending timed out", "runtime_id", runtimeID, "elapsed_ms", m.ProbeImportMs)
-		} else {
-			slog.Warn("local skill import HasPending failed", "error", probeErr, "runtime_id", runtimeID)
+		case probeErr != nil:
+			if errors.Is(probeErr, context.DeadlineExceeded) || errors.Is(probeErr, context.Canceled) {
+				m.ProbeImportTimedOut = true
+				slog.Warn("local skill import HasPending timed out", "runtime_id", runtimeID, "elapsed_ms", m.ProbeImportMs)
+			} else {
+				slog.Warn("local skill import HasPending failed", "error", probeErr, "runtime_id", runtimeID)
+			}
 		}
-	}
 
-	return ack, m, nil
-}
+		// Probe then claim the AgentWaker directory-scan queue. Same bounded-
+		// probe / unbounded-pop two-step as the local-skill queues: a slow
+		// shared store cannot stall the heartbeat on empty-queue ticks, but the
+		// claim itself runs unbounded because its Lua side effects cannot be
+		// safely aborted mid-script. The scan is read-only and value-free.
+		if h.AgentWakerScanStore != nil {
+			probeScanCtx, cancelProbeScan := context.WithTimeout(ctx, heartbeatHasPendingTimeout)
+			hasScan, probeScanErr := h.AgentWakerScanStore.HasPending(probeScanCtx, runtimeID)
+			cancelProbeScan()
+			switch {
+			case probeScanErr == nil && hasScan:
+				pendingScan, popScanErr := h.AgentWakerScanStore.PopPending(ctx, runtimeID)
+				if popScanErr != nil {
+					slog.Warn("agentwaker scan PopPending failed", "error", popScanErr, "runtime_id", runtimeID)
+				} else if pendingScan != nil {
+					ack.PendingAgentWakerScan = &protocol.DaemonHeartbeatPendingAgentWakerScan{
+						ID:       pendingScan.ID,
+						SourceID: pendingScan.SourceID,
+						AbsPath:  pendingScan.AbsPath,
+						Mode:     "scan",
+					}
+				}
+			case probeScanErr != nil:
+				if errors.Is(probeScanErr, context.DeadlineExceeded) || errors.Is(probeScanErr, context.Canceled) {
+					slog.Warn("agentwaker scan HasPending timed out", "runtime_id", runtimeID)
+				} else {
+					slog.Warn("agentwaker scan HasPending failed", "error", probeScanErr, "runtime_id", runtimeID)
+				}
+			}
+		}
+
+		return ack, m, nil
+	}
 
 // logHeartbeatEndpointSlow emits one structured log when /api/daemon/heartbeat
 // exceeds 500ms, splitting auth / update / probe / pop phases for both queues
