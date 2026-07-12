@@ -404,6 +404,7 @@
     "toast_disconnected": "已断开微信机器人",
     "toast_disconnect_failed": "断开失败",
     "agent_bind_button": "连接微信",
+    "rebind_button": "重新扫码 / 换号",
     "connected_as": "已连接到",
     "install_dialog_title": "连接微信机器人",
     "install_dialog_description": "用微信扫描二维码以绑定此机器人。",

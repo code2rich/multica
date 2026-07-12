@@ -404,6 +404,7 @@
     "toast_disconnected": "Disconnected WeChat bot",
     "toast_disconnect_failed": "Disconnect failed",
     "agent_bind_button": "Connect WeChat",
+    "rebind_button": "Re-scan / change account",
     "connected_as": "Connected as",
     "install_dialog_title": "Connect a WeChat bot",
     "install_dialog_description": "Scan the QR code with your WeChat to link this bot.",

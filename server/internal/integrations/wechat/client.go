@@ -4,8 +4,10 @@ import (
 	"bytes"
 	"context"
 	"crypto/rand"
+	"crypto/sha256"
 	"encoding/base64"
 	"encoding/binary"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -201,12 +203,22 @@ func (c *iLinkClient) getUpdates(ctx context.Context, botToken, baseURL, cursor 
 		body["get_updates_buf"] = cursor
 	}
 	var resp struct {
-		Ret           int             `json:"ret"`
-		GetUpdatesBuf string          `json:"get_updates_buf"`
-		Msgs          []rawIlinkMsg   `json:"msgs"`
-		Message       string          `json:"errmsg"`
+		Ret           int           `json:"ret"`
+		GetUpdatesBuf string        `json:"get_updates_buf"`
+		Msgs          []rawIlinkMsg `json:"msgs"`
+		Message       string        `json:"errmsg"`
 	}
 	if err := c.postJSONAuthedWithClient(ctx, &http.Client{Timeout: longPollTimeout}, baseURL, "/ilink/bot/getupdates", body, botToken, &resp); err != nil {
+		// A client timeout on getupdates is the NORMAL long-poll expiry (no
+		// messages arrived during the hold window). Surfacing it as an error
+		// would make the supervisor tear down + reconnect on every empty poll
+		// cycle. Treat it as an empty result and let the caller poll again.
+		if ctx.Err() != nil {
+			return getUpdatesResult{}, err
+		}
+		if isTimeout(err) {
+			return getUpdatesResult{NextCursor: cursor, Messages: nil}, nil
+		}
 		return getUpdatesResult{}, err
 	}
 	out := getUpdatesResult{NextCursor: resp.GetUpdatesBuf}
@@ -217,15 +229,19 @@ func (c *iLinkClient) getUpdates(ctx context.Context, botToken, baseURL, cursor 
 }
 
 // rawIlinkMsg mirrors one entry of the iLink getupdates msgs array before
-// flattening.
+// flattening. iLink does NOT expose a message id; dedup is by the server-driven
+// get_updates_buf cursor (each message is delivered once per cursor advance).
+// flatten synthesizes a stable id from the message's invariant fields so the
+// engine's two-phase dedup (which keys on (installation, message_id)) still
+// works as a reconnect-safety net.
 type rawIlinkMsg struct {
-	MsgID        string          `json:"msg_id"`
-	FromUserID   string          `json:"from_user_id"`
-	ToUserID     string          `json:"to_user_id"`
-	GroupID      string          `json:"group_id"`
+	FromUserID   string `json:"from_user_id"`
+	ToUserID     string `json:"to_user_id"`
+	GroupID      string `json:"group_id"`
 	MessageType  json.RawMessage `json:"message_type"` // numeric or string
 	ContextToken string          `json:"context_token"`
 	ItemList     []struct {
+		Type     int `json:"type"`
 		TextItem struct {
 			Text string `json:"text"`
 		} `json:"text_item"`
@@ -234,7 +250,8 @@ type rawIlinkMsg struct {
 }
 
 // flatten normalizes a raw iLink msg into iLinkMessage: joins the text body from
-// item_list and maps the numeric message_type to a readable string (text=1).
+// item_list, maps the numeric message_type to a readable string (1=text), and
+// synthesizes a stable message id from the invariant fields.
 func (m rawIlinkMsg) flatten() iLinkMessage {
 	var body string
 	for _, it := range m.ItemList {
@@ -246,7 +263,7 @@ func (m rawIlinkMsg) flatten() iLinkMessage {
 		}
 	}
 	return iLinkMessage{
-		MsgID:        m.MsgID,
+		MsgID:        synthesizeMsgID(m),
 		FromUserID:   m.FromUserID,
 		ToUserID:     m.ToUserID,
 		GroupID:      m.GroupID,
@@ -255,6 +272,25 @@ func (m rawIlinkMsg) flatten() iLinkMessage {
 		ContextToken: m.ContextToken,
 		CreateTime:   m.CreateTime,
 	}
+}
+
+// synthesizeMsgID builds a stable identifier for an iLink message from its
+// invariant fields. iLink exposes no message id, so this hash of (from, to,
+// context_token, create_time, body) serves as the dedup key. create_time gives
+// per-message uniqueness; context_token binds it to the conversation. Two
+// genuinely identical messages in the same second would collide, which is
+// acceptable (dedup treats the second as a duplicate — a rare false positive
+// preferable to the false negative of skipping real messages).
+func synthesizeMsgID(m rawIlinkMsg) string {
+	h := sha256.New()
+	fmt.Fprintf(h, "%s\x00%s\x00%s\x00%d", m.FromUserID, m.ToUserID, m.ContextToken, m.CreateTime)
+	for _, it := range m.ItemList {
+		fmt.Fprintf(h, "\x00%s", it.TextItem.Text)
+	}
+	sum := h.Sum(nil)
+	// First 16 bytes hex = 32 chars, plenty of entropy for a dedup key and short
+	// enough to fit comfortably in the dedup table's message_id column.
+	return hex.EncodeToString(sum[:16])
 }
 
 // normalizeMsgType maps the iLink numeric message_type to a readable string.
@@ -284,31 +320,48 @@ func normalizeMsgType(raw json.RawMessage) string {
 // sendMessage posts a text reply. contextToken MUST be the context_token of the
 // inbound message being replied to, or the reply is not associated with the
 // conversation (the core iLink quirk). toUserID is the destination WeChat user
-// id ("xxx@im.wechat"). Returns the platform message id of the delivered reply.
+// id ("xxx@im.wechat"). Returns the client_id of the delivered reply.
 //
-// iLink sendmessage body: { context_token, to_user_id, message_type: 1,
-// item_list: [ { text_item: { text } } ] }.
+// iLink sendmessage body (per the community bridge source): the message is
+// wrapped in a "msg" object with from_user_id empty (the bot), message_type=2
+// (BOT-originated), message_state=2 (FINISH), a per-call client_id, and the
+// item_list carrying type=1 (TEXT). Missing the msg wrapper / client_id /
+// message_state yields ret=-2 (server rejects the malformed body).
 func (c *iLinkClient) sendMessage(ctx context.Context, botToken, baseURL, contextToken, toUserID, text string) (string, error) {
 	if contextToken == "" {
 		return "", errors.New("wechat: sendmessage requires a non-empty context_token")
 	}
+	clientID := "multica-" + randomID()
 	body := map[string]any{
-		"context_token": contextToken,
-		"to_user_id":    toUserID,
-		"message_type":  1, // 1 = text
-		"item_list": []map[string]any{
-			{"text_item": map[string]any{"text": text}},
+		"msg": map[string]any{
+			"from_user_id":  "",
+			"to_user_id":    toUserID,
+			"client_id":     clientID,
+			"message_type":  2, // 2 = BOT-originated
+			"message_state": 2, // 2 = FINISH
+			"context_token": contextToken,
+			"item_list": []map[string]any{
+				{"type": 1, "text_item": map[string]any{"text": text}}, // type 1 = TEXT
+			},
 		},
 	}
 	var resp struct {
-		Ret      int    `json:"ret"`
+		Ret       int    `json:"ret"`
 		MessageID string `json:"msg_id"`
-		Message  string `json:"errmsg"`
+		Message   string `json:"errmsg"`
 	}
 	if err := c.postJSONAuthed(ctx, baseURL, "/ilink/bot/sendmessage", body, botToken, &resp); err != nil {
 		return "", err
 	}
-	return resp.MessageID, nil
+	if resp.Ret != 0 {
+		c.logger.WarnContext(ctx, "wechat sendmessage rejected",
+			"ret", resp.Ret, "errmsg", resp.Message,
+			"to_user_id", toUserID, "base_url", baseURL)
+		return clientID, fmt.Errorf("wechat: sendmessage rejected (ret=%d errmsg=%q)", resp.Ret, resp.Message)
+	}
+	c.logger.InfoContext(ctx, "wechat sendmessage ok",
+		"ret", resp.Ret, "client_id", clientID, "to_user_id", toUserID)
+	return clientID, nil
 }
 
 // getJSON is an unauthenticated GET (used by the QR-login flow, which runs
@@ -433,4 +486,13 @@ func truncate(s string, n int) string {
 		return s
 	}
 	return s[:n] + "..."
+}
+
+// randomID returns a hex string suitable for a per-call client_id (16 random
+// bytes). It uses crypto/rand so it is not guessable, matching the bridge's
+// crypto.randomUUID() intent.
+func randomID() string {
+	var b [16]byte
+	_, _ = rand.Read(b[:])
+	return hex.EncodeToString(b[:])
 }

@@ -246,8 +246,27 @@ export function WechatAgentBindButton({
   const { t } = useT("settings");
   const [open, setOpen] = useState(false);
 
+  // When already connected, show the connected badge alongside a "rebind"
+  // button so the user can scan a new WeChat to replace the current bot. The
+  // backend UpsertChannelInstallation overwrites the same (workspace, agent,
+  // channel_type) row, so the new bot_token replaces the old one in place.
   if (existing && existing.status === "active") {
-    return <WechatAgentBotConnectedBadge installation={existing} />;
+    return (
+      <>
+        <WechatAgentBotConnectedBadge installation={existing} />
+        <Button variant="outline" size="sm" onClick={() => setOpen(true)}>
+          {t(($) => $.wechat.rebind_button)}
+        </Button>
+        {open && (
+          <WechatInstallDialog
+            wsId={wsId}
+            agentId={agentId}
+            agentName={agentName}
+            onClose={() => setOpen(false)}
+          />
+        )}
+      </>
+    );
   }
 
   return (

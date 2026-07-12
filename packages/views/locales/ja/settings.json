@@ -404,6 +404,7 @@
     "toast_disconnected": "WeChat ボットを切断しました",
     "toast_disconnect_failed": "切断に失敗しました",
     "agent_bind_button": "WeChat を接続",
+    "rebind_button": "再スキャン / アカウント変更",
     "connected_as": "接続先:",
     "install_dialog_title": "WeChat ボットを接続",
     "install_dialog_description": "WeChat で QR コードをスキャンしてこのボットをリンクします。",

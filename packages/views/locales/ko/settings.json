@@ -465,6 +465,7 @@
     "toast_disconnected": "WeChat 봇을 연결 해제했어요",
     "toast_disconnect_failed": "연결 해제에 실패했어요",
     "agent_bind_button": "WeChat 연결",
+    "rebind_button": "다시 스캔 / 계정 변경",
     "connected_as": "연결됨:",
     "install_dialog_title": "WeChat 봇 연결",
     "install_dialog_description": "WeChat로 이 QR 코드를 스캔해 이 봇을 연결하세요.",

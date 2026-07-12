@@ -96,6 +96,9 @@ func NewOutboundReplier(cfg OutboundReplierConfig) *OutboundReplier {
 // Reply routes each outcome to its user-visible message. Errors are logged, not
 // propagated: the replier runs detached from the inbound ACK path.
 func (r *OutboundReplier) Reply(ctx context.Context, inst engine.ResolvedInstallation, msg channel.InboundMessage, res engine.Result) {
+	r.logger.InfoContext(ctx, "wechat replier: dispatching",
+		"outcome", res.Outcome, "installation_id", util.UUIDToString(inst.ID),
+		"sender", res.Sender, "has_binding", r.binding != nil, "app_url_set", r.appURL != "")
 	switch res.Outcome {
 	case engine.OutcomeNeedsBinding:
 		if err := r.sendBindingPrompt(ctx, inst, msg, res); err != nil {
@@ -147,7 +150,11 @@ func (r *OutboundReplier) sendBindingPrompt(ctx context.Context, inst engine.Res
 	// line so the WeChat client linkifies it. Chinese copy matches the WeChat
 	// audience.
 	text := "👋 为了让我能回复你，请先绑定你的 Multica 账号：\n" + bindURL + "\n（此链接 15 分钟内有效）"
-	return r.post(ctx, inst, msg, text)
+	if err := r.post(ctx, inst, msg, text); err != nil {
+		return err
+	}
+	r.logger.InfoContext(ctx, "wechat replier: binding prompt sent", "sender", sender)
+	return nil
 }
 
 // post resolves the installation's bot token + base_url from the carried
