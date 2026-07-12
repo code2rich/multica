@@ -117,6 +117,14 @@ func (h *Handler) ApplySnapshot(ctx context.Context, input ApplySnapshotInput) (
 	}()
 	qtx := h.Queries.WithTx(tx)
 
+	// Load the source's daemon runtime ID so we can assign it to newly created
+	// agents (the agent.runtime_id column is NOT NULL).
+	src, srcErr := h.Queries.GetAgentSource(ctx, input.SourceID)
+	if srcErr != nil {
+		return nil, fmt.Errorf("apply: load source: %w", srcErr)
+	}
+	agentRuntimeID := src.DaemonRuntimeID
+
 	// 1. Shared capabilities: resolve/create identities + new immutable versions.
 	capIDBySourceKey, capDiags, err := applyCapabilities(ctx, qtx, input, manifest, &summary)
 	if err != nil {
@@ -125,7 +133,7 @@ func (h *Handler) ApplySnapshot(ctx context.Context, input ApplySnapshotInput) (
 	summary.Diagnostics = append(summary.Diagnostics, capDiags...)
 
 	// 2. Roles → agents (find-or-create by source identity), skills, bindings, env.
-	if err := applyRoles(ctx, qtx, h, input, manifest, capIDBySourceKey, &summary); err != nil {
+	if err := applyRoles(ctx, qtx, h, input, manifest, capIDBySourceKey, agentRuntimeID, &summary); err != nil {
 		return nil, err
 	}
 
@@ -261,7 +269,7 @@ func applyCapabilities(ctx context.Context, qtx *db.Queries, input ApplySnapshot
 // applyRoles processes each role: find-or-create agent by source identity,
 // materialize/update skills (origin='source'), re-bind source-managed skills,
 // write capability bindings, declare env, and seal env values at rest.
-func applyRoles(ctx context.Context, qtx *db.Queries, h *Handler, input ApplySnapshotInput, manifest map[string]any, capIDBySourceKey map[string]pgtype.UUID, summary *AgentSourceApplySummary) error {
+func applyRoles(ctx context.Context, qtx *db.Queries, h *Handler, input ApplySnapshotInput, manifest map[string]any, capIDBySourceKey map[string]pgtype.UUID, agentRuntimeID pgtype.UUID, summary *AgentSourceApplySummary) error {
 	rolesRaw, _ := manifest["roles"].([]any)
 	for _, rRaw := range rolesRaw {
 		role, ok := rRaw.(map[string]any)
@@ -294,6 +302,7 @@ func applyRoles(ctx context.Context, qtx *db.Queries, h *Handler, input ApplySna
 				Description:    truncate(missionOf(role), 255),
 				RuntimeMode:    "local",
 				RuntimeConfig:  []byte("{}"),
+				RuntimeID:      agentRuntimeID,
 				Visibility:     "workspace",
 				PermissionMode: "private",
 				Instructions:   instructionsOf(role),
