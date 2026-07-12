@@ -12,6 +12,7 @@ import (
 	"io"
 	"log/slog"
 	"net/http"
+	"strconv"
 	"time"
 )
 
@@ -27,8 +28,8 @@ const defaultWechatBaseURL = "https://ilinkai.weixin.qq.com"
 // qrcode/status, sendmessage. getupdates is a long poll (server holds ~35s) and
 // uses its own longer timeout.
 const (
-	requestTimeout     = 15 * time.Second
-	longPollTimeout    = 45 * time.Second // getupdates server hold (~35s) + margin
+	requestTimeout  = 15 * time.Second
+	longPollTimeout = 45 * time.Second // getupdates server hold (~35s) + margin
 )
 
 // iLinkClient talks to the WeChat ClawBot (iLink) HTTP API. It is stateless
@@ -41,13 +42,13 @@ const (
 // PROTOCOL CAVEAT: the iLink API is not fully documented publicly; the request
 // shapes below are derived from the official ClawBot doc
 // (developers.weixin.qq.com/doc/aispeech/knowledge/openapi/Clawbotrelated.html)
-// and community reverse-engineering. Field names / paths may need calibration
-// against live traffic (Phase 6); they are concentrated here so a fix touches
-// one file.
+// and community reverse-engineering (hao-ji-xing/openclaw-weixin). Field names /
+// paths may need calibration against live traffic; they are concentrated here so
+// a fix touches one file.
 type iLinkClient struct {
-	baseURL  string       // default host for the QR-login flow (before per-account base_url is known)
+	baseURL    string        // default host for the QR-login flow (before per-account base_url is known)
 	httpClient *http.Client // shared short-call client; long polls build their own
-	logger   *slog.Logger
+	logger     *slog.Logger
 }
 
 // newILinkClient builds an iLink HTTP client. A non-empty baseURL overrides the
@@ -76,111 +77,217 @@ type QRLoginResponse struct {
 	IlinkUserID string // human-readable id of the account that scanned
 }
 
-// getQRCode starts a QR-login session. It returns the QR code URL the user
-// scans and a session token to poll status with. bot_type=3 selects the
-// ClawBot/iLink bot kind.
-func (c *iLinkClient) getQRCode(ctx context.Context) (qrCodeURL, sessionToken string, err error) {
-	body := map[string]any{"bot_type": 3}
+// getQRCode starts a QR-login session. Per the iLink protocol it is a GET to
+// /ilink/bot/get_bot_qrcode?bot_type=3. The response carries TWO values:
+//   - qrcode: an opaque token used to poll status (getQRStatus re-queries by it)
+//   - qrcode_img_content: the actual content URL (https://liteapp.weixin.qq.com/...)
+//     that must be rendered as the QR image the user scans.
+//
+// Callers must NOT render the `qrcode` token as the QR — that yields an
+// unscannable text QR. Only qrcode_img_content is scannable.
+func (c *iLinkClient) getQRCode(ctx context.Context) (qrcode, qrImageContent string, err error) {
 	var resp struct {
-		QrcodeURL    string `json:"qrcode_url"`
-		SessionToken string `json:"session_token"`
-		Code         int    `json:"code"`
-		Message      string `json:"message"`
+		Ret             int    `json:"ret"`
+		Qrcode          string `json:"qrcode"`
+		QrcodeImgContent string `json:"qrcode_img_content"`
+		Message         string `json:"errmsg"`
 	}
-	if err := c.postJSON(ctx, c.baseURL, "/api/v1/wechat/qrcode", body, &resp); err != nil {
+	if err := c.getJSON(ctx, c.baseURL, "/ilink/bot/get_bot_qrcode?bot_type=3", &resp); err != nil {
 		return "", "", err
 	}
-	if resp.QrcodeURL == "" || resp.SessionToken == "" {
-		return "", "", fmt.Errorf("wechat: qrcode response missing fields (code=%d msg=%q)", resp.Code, resp.Message)
+	if resp.Qrcode == "" {
+		return "", "", fmt.Errorf("wechat: qrcode response missing field (ret=%d errmsg=%q)", resp.Ret, resp.Message)
 	}
-	return resp.QrcodeURL, resp.SessionToken, nil
+	return resp.Qrcode, resp.QrcodeImgContent, nil
 }
 
-// pollQRStatus checks a QR-login session. status is one of "pending",
-// "scanned", "confirmed", "expired", "error". On "confirmed" the QRLoginResponse
-// is populated; on other statuses it is zero-valued.
-func (c *iLinkClient) pollQRStatus(ctx context.Context, sessionToken string) (status string, login QRLoginResponse, err error) {
-	body := map[string]any{"session_token": sessionToken}
+// pollQRStatus checks a QR-login session by the qrcode token. Per the iLink
+// protocol it is a GET to /ilink/bot/get_qrcode_status?qrcode=<token> that
+// BLOCKS (long-poll style) until the user scans+confirms in WeChat, then returns
+// {status:"confirmed", bot_token, baseurl, ilink_bot_id, ilink_user_id}. Before
+// the scan it holds the connection open, so this call uses a long timeout (it is
+// driven from the install service's lazy poll, not a tight loop). The response's
+// `status` string discriminates the state ("confirmed" on success). On timeout
+// while still waiting it returns ("pending", …) so the caller polls again.
+func (c *iLinkClient) pollQRStatus(ctx context.Context, qrcode string) (status string, login QRLoginResponse, err error) {
+	// Long-poll: the server holds until scan/confirm or its own timeout. Use an
+	// isolated client with a long timeout but still bound by the caller's ctx.
+	lpClient := &http.Client{Timeout: longPollTimeout}
 	var resp struct {
-		Status       string `json:"status"`
-		BotToken     string `json:"bot_token"`
-		BaseURL      string `json:"baseurl"`
-		IlinkBotID   string `json:"ilink_bot_id"`
-		IlinkUserID  string `json:"ilink_user_id"`
-		Code         int    `json:"code"`
-		Message      string `json:"message"`
+		Status      string `json:"status"` // "confirmed" on success
+		Ret         int    `json:"ret"`
+		BotToken    string `json:"bot_token"`
+		BaseURL     string `json:"baseurl"`
+		IlinkBotID  string `json:"ilink_bot_id"`
+		IlinkUserID string `json:"ilink_user_id"`
+		Message     string `json:"errmsg"`
 	}
-	if err := c.postJSON(ctx, c.baseURL, "/api/v1/wechat/qrcode/status", body, &resp); err != nil {
+	if err := c.getJSONWithClient(ctx, lpClient, c.baseURL, "/ilink/bot/get_qrcode_status?qrcode="+qrcode, &resp); err != nil {
+		// A timeout while waiting for the scan is the normal "still pending"
+		// signal for a blocking poll — surface it as pending, not an error, so
+		// the install service keeps polling instead of aborting.
+		if ctx.Err() != nil {
+			return "", QRLoginResponse{}, ctx.Err()
+		}
+		if isTimeout(err) {
+			return "pending", QRLoginResponse{}, nil
+		}
 		return "", QRLoginResponse{}, err
 	}
-	login = QRLoginResponse{
-		BotToken:    resp.BotToken,
-		BaseURL:     resp.BaseURL,
-		IlinkBotID:  resp.IlinkBotID,
-		IlinkUserID: resp.IlinkUserID,
+	if resp.Status == "confirmed" || resp.BotToken != "" {
+		login = QRLoginResponse{
+			BotToken:    resp.BotToken,
+			BaseURL:     resp.BaseURL,
+			IlinkBotID:  resp.IlinkBotID,
+			IlinkUserID: resp.IlinkUserID,
+		}
+		return "confirmed", login, nil
 	}
-	return resp.Status, login, nil
+	return "pending", QRLoginResponse{}, nil
+}
+
+// isTimeout reports whether err is an HTTP client timeout (client.Timeout
+// exceeded). net/http wraps this as a *url.Error whose Timeout() is true.
+func isTimeout(err error) bool {
+	var timeoutErr interface{ Timeout() bool }
+	if errors.As(err, &timeoutErr) {
+		return timeoutErr.Timeout()
+	}
+	return false
 }
 
 // resetChannel asks the iLink backend to reset the bot's IM channel (used when
-// the bot token is suspected stale / the account needs re-linking). It returns
-// nil on a successful reset; callers surface the need to re-scan in the UI.
+// the bot token is suspected stale / the account needs re-linking).
 func (c *iLinkClient) resetChannel(ctx context.Context, botToken, baseURL string) error {
 	body := map[string]any{}
 	var resp struct {
-		Code    int    `json:"code"`
-		Message string `json:"message"`
+		Ret     int    `json:"ret"`
+		Message string `json:"errmsg"`
 	}
-	return c.postJSONAuthed(ctx, baseURL, "/api/v1/wechat/channel_reset", body, botToken, &resp)
+	return c.postJSONAuthed(ctx, baseURL, "/ilink/bot/channel_reset", body, botToken, &resp)
 }
 
-// iLinkMessage is one inbound message as delivered by getupdates.
+// iLinkMessage is one inbound message as delivered by getupdates. The iLink
+// payload nests content under item_list[].text_item.text and uses a numeric
+// message_type; these are flattened here by parseUpdates.
 type iLinkMessage struct {
-	MsgID        string `json:"msg_id"`
-	FromUserID   string `json:"from_user_id"`   // e.g. "xxx@im.wechat"
-	ToUserID     string `json:"to_user_id"`     // the bot id, e.g. "xxx@im.bot"
-	GroupID      string `json:"group_id,omitempty"`
-	MsgType      string `json:"msg_type"`       // "text", "image", ...
-	Content      string `json:"content"`        // text body for text messages
-	ContextToken string `json:"context_token"`  // MUST be echoed back on sendmessage
-	CreateTime   int64  `json:"create_time,omitempty"`
+	MsgID        string // the message id (msg_id)
+	FromUserID   string // sender, e.g. "xxx@im.wechat"
+	ToUserID     string // the bot id, e.g. "xxx@im.bot"
+	GroupID      string // group id, when from a group
+	MsgType      string // normalized: "text" or the raw numeric as string
+	Content      string // text body
+	ContextToken string // MUST be echoed back on sendmessage
+	CreateTime   int64
 }
 
 // getUpdatesResult is the outcome of one getupdates long poll.
 type getUpdatesResult struct {
-	Messages       []iLinkMessage
-	NextCursor     string // get_updates_buf to use on the next call
+	Messages   []iLinkMessage
+	NextCursor string // get_updates_buf to use on the next call
 }
 
 // getUpdates long-polls the iLink backend for new messages. The server holds the
 // connection open for ~35s when there are no messages; the caller's context
 // MUST be honoured so lease loss / shutdown can interrupt the poll. cursor is the
 // opaque get_updates_buf from the prior call (empty for the first call).
+//
+// iLink getupdates response shape: { ret, get_updates_buf, msgs: [ { msg_id,
+// from_user_id, to_user_id, group_id (optional), message_type (numeric),
+// context_token, item_list: [ { text_item: { text } } ], create_time } ] }.
 func (c *iLinkClient) getUpdates(ctx context.Context, botToken, baseURL, cursor string) (getUpdatesResult, error) {
 	body := map[string]any{}
 	if cursor != "" {
 		body["get_updates_buf"] = cursor
 	}
-	// Long poll: use an isolated client with a longer timeout but still bound by
-	// the caller's ctx (the per-request deadline is the earlier of ctx and this
-	// timeout).
-	lpClient := &http.Client{Timeout: longPollTimeout}
 	var resp struct {
-		Messages     []iLinkMessage `json:"messages"`
-		GetUpdatesBuf string        `json:"get_updates_buf"`
-		Code         int            `json:"code"`
-		Message      string         `json:"message"`
+		Ret           int             `json:"ret"`
+		GetUpdatesBuf string          `json:"get_updates_buf"`
+		Msgs          []rawIlinkMsg   `json:"msgs"`
+		Message       string          `json:"errmsg"`
 	}
-	if err := c.postJSONAuthedWithClient(ctx, lpClient, baseURL, "/ilink/bot/getupdates", body, botToken, &resp); err != nil {
+	if err := c.postJSONAuthedWithClient(ctx, &http.Client{Timeout: longPollTimeout}, baseURL, "/ilink/bot/getupdates", body, botToken, &resp); err != nil {
 		return getUpdatesResult{}, err
 	}
-	return getUpdatesResult{Messages: resp.Messages, NextCursor: resp.GetUpdatesBuf}, nil
+	out := getUpdatesResult{NextCursor: resp.GetUpdatesBuf}
+	for _, m := range resp.Msgs {
+		out.Messages = append(out.Messages, m.flatten())
+	}
+	return out, nil
+}
+
+// rawIlinkMsg mirrors one entry of the iLink getupdates msgs array before
+// flattening.
+type rawIlinkMsg struct {
+	MsgID        string          `json:"msg_id"`
+	FromUserID   string          `json:"from_user_id"`
+	ToUserID     string          `json:"to_user_id"`
+	GroupID      string          `json:"group_id"`
+	MessageType  json.RawMessage `json:"message_type"` // numeric or string
+	ContextToken string          `json:"context_token"`
+	ItemList     []struct {
+		TextItem struct {
+			Text string `json:"text"`
+		} `json:"text_item"`
+	} `json:"item_list"`
+	CreateTime int64 `json:"create_time"`
+}
+
+// flatten normalizes a raw iLink msg into iLinkMessage: joins the text body from
+// item_list and maps the numeric message_type to a readable string (text=1).
+func (m rawIlinkMsg) flatten() iLinkMessage {
+	var body string
+	for _, it := range m.ItemList {
+		if it.TextItem.Text != "" {
+			if body != "" {
+				body += "\n"
+			}
+			body += it.TextItem.Text
+		}
+	}
+	return iLinkMessage{
+		MsgID:        m.MsgID,
+		FromUserID:   m.FromUserID,
+		ToUserID:     m.ToUserID,
+		GroupID:      m.GroupID,
+		MsgType:      normalizeMsgType(m.MessageType),
+		Content:      body,
+		ContextToken: m.ContextToken,
+		CreateTime:   m.CreateTime,
+	}
+}
+
+// normalizeMsgType maps the iLink numeric message_type to a readable string.
+// iLink uses 1=text; other numbers (image/voice/…) are kept as their numeric
+// string so non-text is visible without a full enum table (the inbound path
+// maps anything non-"text" to MsgTypeUnknown anyway).
+func normalizeMsgType(raw json.RawMessage) string {
+	if len(raw) == 0 {
+		return ""
+	}
+	// Try number first (the documented form).
+	var n int
+	if err := json.Unmarshal(raw, &n); err == nil {
+		if n == 1 {
+			return "text"
+		}
+		return strconv.Itoa(n)
+	}
+	// Fall back to a string value.
+	var s string
+	if err := json.Unmarshal(raw, &s); err == nil {
+		return s
+	}
+	return ""
 }
 
 // sendMessage posts a text reply. contextToken MUST be the context_token of the
 // inbound message being replied to, or the reply is not associated with the
 // conversation (the core iLink quirk). toUserID is the destination WeChat user
 // id ("xxx@im.wechat"). Returns the platform message id of the delivered reply.
+//
+// iLink sendmessage body: { context_token, to_user_id, message_type: 1,
+// item_list: [ { text_item: { text } } ] }.
 func (c *iLinkClient) sendMessage(ctx context.Context, botToken, baseURL, contextToken, toUserID, text string) (string, error) {
 	if contextToken == "" {
 		return "", errors.New("wechat: sendmessage requires a non-empty context_token")
@@ -188,13 +295,15 @@ func (c *iLinkClient) sendMessage(ctx context.Context, botToken, baseURL, contex
 	body := map[string]any{
 		"context_token": contextToken,
 		"to_user_id":    toUserID,
-		"msg_type":      "text",
-		"content":       text,
+		"message_type":  1, // 1 = text
+		"item_list": []map[string]any{
+			{"text_item": map[string]any{"text": text}},
+		},
 	}
 	var resp struct {
+		Ret      int    `json:"ret"`
 		MessageID string `json:"msg_id"`
-		Code      int    `json:"code"`
-		Message   string `json:"message"`
+		Message  string `json:"errmsg"`
 	}
 	if err := c.postJSONAuthed(ctx, baseURL, "/ilink/bot/sendmessage", body, botToken, &resp); err != nil {
 		return "", err
@@ -202,8 +311,49 @@ func (c *iLinkClient) sendMessage(ctx context.Context, botToken, baseURL, contex
 	return resp.MessageID, nil
 }
 
-// postJSON is an unauthenticated POST (used by the QR-login flow, which runs
+// getJSON is an unauthenticated GET (used by the QR-login flow, which runs
 // before a bot_token exists).
+func (c *iLinkClient) getJSON(ctx context.Context, baseURL, path string, out any) error {
+	return c.getJSONWithClient(ctx, c.httpClient, baseURL, path, out)
+}
+
+// getJSONWithClient is an unauthenticated GET using the supplied HTTP client.
+// Used by pollQRStatus which needs a longer timeout than the default short-call
+// client (the status endpoint blocks until the user scans).
+func (c *iLinkClient) getJSONWithClient(ctx context.Context, httpClient *http.Client, baseURL, path string, out any) error {
+	if baseURL == "" {
+		return errors.New("wechat: empty base url")
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, baseURL+path, nil)
+	if err != nil {
+		return fmt.Errorf("wechat: build GET %s: %w", path, err)
+	}
+	resp, err := httpClient.Do(req)
+	if resp != nil {
+		defer resp.Body.Close()
+	}
+	if err != nil {
+		if ctx.Err() != nil {
+			return ctx.Err()
+		}
+		return fmt.Errorf("wechat: %s: %w", path, err)
+	}
+	respBody, err := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
+	if err != nil {
+		return fmt.Errorf("wechat: %s: read body: %w", path, err)
+	}
+	if resp.StatusCode >= 400 {
+		return fmt.Errorf("wechat: %s: HTTP %d: %s", path, resp.StatusCode, truncate(string(respBody), 300))
+	}
+	if out != nil {
+		if err := json.Unmarshal(respBody, out); err != nil {
+			return fmt.Errorf("wechat: %s: decode response: %w", path, err)
+		}
+	}
+	return nil
+}
+
+// postJSON is an unauthenticated POST (legacy helper; QR-login is GET now).
 func (c *iLinkClient) postJSON(ctx context.Context, baseURL, path string, body any, out any) error {
 	return c.postJSONAuthedWithClient(ctx, c.httpClient, baseURL, path, body, "", out)
 }
@@ -216,8 +366,7 @@ func (c *iLinkClient) postJSONAuthed(ctx context.Context, baseURL, path string, 
 
 // postJSONAuthedWithClient is the shared POST worker. It marshals body to JSON,
 // attaches the iLink auth headers when botToken is non-empty, and unmarshals the
-// JSON response into out. baseURL may differ per call (iLink shards accounts
-// across hosts); path selects the endpoint.
+// JSON response into out.
 func (c *iLinkClient) postJSONAuthedWithClient(ctx context.Context, httpClient *http.Client, baseURL, path string, body any, botToken string, out any) error {
 	if baseURL == "" {
 		return errors.New("wechat: empty base url")
@@ -226,30 +375,33 @@ func (c *iLinkClient) postJSONAuthedWithClient(ctx context.Context, httpClient *
 	if err != nil {
 		return fmt.Errorf("wechat: marshal request: %w", err)
 	}
-	url := baseURL + path
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(payload))
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, baseURL+path, bytes.NewReader(payload))
 	if err != nil {
-		return fmt.Errorf("wechat: build request: %w", err)
+		return fmt.Errorf("wechat: build POST %s: %w", path, err)
 	}
 	req.Header.Set("Content-Type", "application/json")
 	if botToken != "" {
 		req.Header.Set("Authorization", "Bearer "+botToken)
-		// iLink requires this exact type discriminator alongside the bearer token.
 		req.Header.Set("AuthorizationType", "ilink_bot_token")
-		// X-WECHAT-UIN is a per-request random uint32 base64-encoded; it is a
-		// replay-guard nonce (derived from reverse-engineering).
 		req.Header.Set("X-WECHAT-UIN", randomUIN())
 	}
-	resp, err := httpClient.Do(req)
+	return c.do(req, path, out)
+}
+
+// do executes a prepared request, decodes the JSON body into out, and maps HTTP
+// errors. ctx cancellation is reported as ctx.Err so the Connect loop can tell
+// graceful shutdown from a real transport failure.
+func (c *iLinkClient) do(req *http.Request, path string, out any) error {
+	resp, err := c.httpClient.Do(req)
+	if resp != nil {
+		defer resp.Body.Close()
+	}
 	if err != nil {
-		// Distinguish ctx cancellation (graceful) from real transport errors so
-		// the Connect loop can decide whether to return nil or reconnect.
-		if ctx.Err() != nil {
+		if ctx := req.Context(); ctx.Err() != nil {
 			return ctx.Err()
 		}
 		return fmt.Errorf("wechat: %s: %w", path, err)
 	}
-	defer resp.Body.Close()
 	respBody, err := io.ReadAll(io.LimitReader(resp.Body, 1<<20)) // 1MiB cap; messages are text
 	if err != nil {
 		return fmt.Errorf("wechat: %s: read body: %w", path, err)
@@ -265,16 +417,15 @@ func (c *iLinkClient) postJSONAuthedWithClient(ctx context.Context, httpClient *
 	return nil
 }
 
-// randomUIN returns a random 32-bit unsigned integer base64-encoded, the value
-// the iLink backend expects in the X-WECHAT-UIN header. rand failure is treated
-// as non-fatal (a zero value), since the header is a nonce, not a credential.
+// randomUIN returns the X-WECHAT-UIN header value: base64 of the DECIMAL string
+// of a random uint32 (per the reverse-engineered protocol — NOT the raw bytes).
+// rand failure yields a zero value ("MA==" for "0"), since the header is a
+// nonce, not a credential.
 func randomUIN() string {
 	var b [4]byte
 	_, _ = rand.Read(b[:])
 	v := binary.BigEndian.Uint32(b[:])
-	var enc [8]byte
-	binary.BigEndian.PutUint32(enc[:4], v)
-	return base64.StdEncoding.EncodeToString(enc[:4])
+	return base64.StdEncoding.EncodeToString([]byte(strconv.FormatUint(uint64(v), 10)))
 }
 
 func truncate(s string, n int) string {

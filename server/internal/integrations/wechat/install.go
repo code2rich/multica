@@ -106,12 +106,14 @@ type RegistrationService struct {
 }
 
 type registrationSession struct {
-	sessionToken string
-	qrCodeURL    string
-	workspaceID  pgtype.UUID
-	agentID      pgtype.UUID
-	installerID  pgtype.UUID
-	createdAt    time.Time
+	// qrcode is the iLink QR token: it is both the value rendered as a QR image
+	// and the correlation key pollQRStatus re-queries by (iLink has no separate
+	// session token). It is also the session map key.
+	qrcode      string
+	workspaceID pgtype.UUID
+	agentID     pgtype.UUID
+	installerID pgtype.UUID
+	createdAt   time.Time
 	// Polled result (set when status reaches success/error).
 	status        RegistrationSessionStatus
 	installation  db.ChannelInstallation
@@ -166,34 +168,88 @@ type BeginInstallParams struct {
 }
 
 // BeginInstall starts a QR-login session: fetches the QR code from iLink and
-// stashes the session token. The frontend renders the QR and polls
-// GetSessionStatus at the returned cadence. The iLink backend polls the scan
-// status lazily (on each GetSessionStatus call), so this method returns
-// immediately after minting the QR.
+// stashes the qrcode token. The frontend renders the QR and polls
+// GetSessionStatus at the returned cadence. The iLink backend resolves the scan
+// status lazily (on each GetSessionStatus call drives one pollQRStatus), so
+// this method returns immediately after minting the QR.
 func (s *RegistrationService) BeginInstall(ctx context.Context, p BeginInstallParams) (BeginInstallResponse, error) {
-	qrURL, sessionToken, err := s.client.getQRCode(ctx)
+	qrToken, qrImage, err := s.client.getQRCode(ctx)
 	if err != nil {
 		return BeginInstallResponse{}, fmt.Errorf("wechat: get qrcode: %w", err)
 	}
 	sess := &registrationSession{
-		sessionToken: sessionToken,
-		qrCodeURL:    qrURL,
-		workspaceID:  p.WorkspaceID,
-		agentID:      p.AgentID,
-		installerID:  p.InitiatorID,
-		createdAt:    s.now(),
-		status:       RegistrationStatusPending,
+		qrcode:      qrToken,
+		workspaceID: p.WorkspaceID,
+		agentID:     p.AgentID,
+		installerID: p.InitiatorID,
+		createdAt:   s.now(),
+		status:      RegistrationStatusPending,
 	}
 	s.mu.Lock()
-	s.sessions[sessionToken] = sess
+	s.sessions[qrToken] = sess
 	s.gcLocked()
 	s.mu.Unlock()
+	// Drive the iLink status long-poll in the background: get_qrcode_status is a
+	// BLOCKING call (holds until the user scans+confirms), so the HTTP status
+	// endpoint must NOT call pollOnce synchronously (it would stack 45s calls on
+	// every 2s frontend poll). This goroutine blocks on the long-poll, advances
+	// the session on confirm, and re-polls on timeout until terminal. It exits
+	// once the session reaches a terminal state or the service is done.
+	go s.runPollLoop(sess)
 	return BeginInstallResponse{
-		SessionID:           sessionToken,
-		QRCodeURL:           qrURL,
-		ExpiresInSeconds:    300, // iLink QR codes are valid ~5 min; refined in Phase 6
+		// The qrcode token doubles as the session id the frontend polls with.
+		SessionID:           qrToken,
+		QRCodeURL:           qrImage, // the scannable content URL (liteapp.weixin.qq.com/...), NOT the token
+		ExpiresInSeconds:    300,     // iLink QR codes are valid ~5 min
 		PollIntervalSeconds: 2,
 	}, nil
+}
+
+// runPollLoop drives the iLink status long-poll for one session in the
+// background. get_qrcode_status blocks until scan/confirm (or its own timeout),
+// so this loop issues one blocking call at a time: on confirm it persists the
+// installation; on timeout it re-polls; on a terminal session it exits. Uses a
+// fresh background context (not tied to the begin HTTP request, which has long
+// returned).
+func (s *RegistrationService) runPollLoop(sess *registrationSession) {
+	for {
+		// Stop if the session already reached a terminal state (another loop,
+		// GC, or a race advanced it).
+		s.mu.Lock()
+		st := sess.status
+		s.mu.Unlock()
+		if st != RegistrationStatusPending {
+			return
+		}
+		ctx, cancel := context.WithTimeout(context.Background(), longPollTimeout+10*time.Second)
+		status, login, err := s.client.pollQRStatus(ctx, sess.qrcode)
+		cancel()
+		if err != nil {
+			// Real error (not a timeout): log and keep the session pending so the
+			// next loop iteration retries. Avoid a tight spin on persistent errors
+			// by sleeping briefly.
+			s.logger.Warn("wechat install: poll status error", "error", err)
+			time.Sleep(3 * time.Second)
+			continue
+		}
+		switch status {
+		case "confirmed":
+			s.completeInstall(context.Background(), sess, login)
+			return
+		case "expired":
+			s.failSession(sess, RegistrationReasonExpired, "QR code expired")
+			return
+		case "denied":
+			s.failSession(sess, RegistrationReasonAccessDenied, "user denied or cancelled")
+			return
+		case "pending":
+			// long-poll timed out without a scan; loop and block again.
+			continue
+		default:
+			s.failSession(sess, RegistrationReasonProtocol, fmt.Sprintf("unexpected status %q", status))
+			return
+		}
+	}
 }
 
 // SessionState is the snapshot the HTTP status endpoint serializes.
@@ -219,10 +275,11 @@ func (s *RegistrationService) GetSession(workspaceID pgtype.UUID, sessionID stri
 	if sess.workspaceID != workspaceID {
 		return SessionState{}, false
 	}
-	// Lazy poll: if still pending, drive one status poll now.
-	if sess.status == RegistrationStatusPending {
-		s.pollOnce(context.Background(), sess)
-	}
+	// NOTE: no synchronous poll here. The iLink get_qrcode_status endpoint is a
+	// BLOCKING long-poll; calling it per HTTP status request would stack 45s
+	// calls on every 2s frontend poll. BeginInstall launched a background
+	// runPollLoop that drives the long-poll and advances this session; this
+	// method just reads the in-memory state that loop updates.
 	return SessionState{
 		Status:         sess.status,
 		InstallationID: sess.installation.ID,
@@ -238,7 +295,7 @@ func (s *RegistrationService) GetSession(workspaceID pgtype.UUID, sessionID stri
 // reads them off the next GetSession), never propagated — the poll runs detached
 // from the HTTP request path.
 func (s *RegistrationService) pollOnce(ctx context.Context, sess *registrationSession) {
-	status, login, err := s.client.pollQRStatus(ctx, sess.sessionToken)
+	status, login, err := s.client.pollQRStatus(ctx, sess.qrcode)
 	if err != nil {
 		// A transient network error leaves the session pending (frontend retries);
 		// do not flip to error on a single transient failure.
@@ -246,13 +303,13 @@ func (s *RegistrationService) pollOnce(ctx context.Context, sess *registrationSe
 		return
 	}
 	switch status {
-	case "pending", "scanned":
-		return // keep polling
+	case "pending":
+		return // keep polling (covers iLink "init" and "scan" states)
 	case "confirmed":
 		s.completeInstall(ctx, sess, login)
 	case "expired":
 		s.failSession(sess, RegistrationReasonExpired, "QR code expired")
-	case "error", "denied", "cancelled":
+	case "denied":
 		s.failSession(sess, RegistrationReasonAccessDenied, "user denied or cancelled")
 	default:
 		// Unknown status — treat as a protocol error rather than silently hanging.
