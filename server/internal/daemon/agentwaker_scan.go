@@ -30,11 +30,11 @@ func (d *Daemon) agentWakerEnvDigestKey() []byte {
 // configured booleans, and value digests. DirectoryHash is the canonical digest
 // of the sanitized manifest.
 type ScanResult struct {
-	DirectoryHash  string                    `json:"directory_hash"`
-	SchemaVersions map[string]string         `json:"schema_versions"`
-	Manifest       map[string]any            `json:"manifest"`
+	DirectoryHash  string                     `json:"directory_hash"`
+	SchemaVersions map[string]string          `json:"schema_versions"`
+	Manifest       map[string]any             `json:"manifest"`
 	Diagnostics    []agentwakerScanDiagnostic `json:"diagnostics"`
-	ScannerVersion string                    `json:"scanner_version"`
+	ScannerVersion string                     `json:"scanner_version"`
 }
 
 // agentwakerScanDiagnostic is the daemon-side diagnostic shape; converted to
@@ -247,7 +247,7 @@ func scanCapability(root, capManifestPath string, regEntry agentwaker.RegistryCa
 		"profile_count": len(manifest.Profiles),
 		"adapter_count": len(manifest.Adapters),
 		"permissions": map[string]any{
-			"default_mode":            manifest.Permissions.DefaultMode,
+			"default_mode":             manifest.Permissions.DefaultMode,
 			"supports_account_actions": manifest.Permissions.SupportsAccountActions,
 		},
 		// Runtime materialization content (M3). The entrypoint body becomes the
@@ -281,15 +281,19 @@ func scanRole(root, roleDir string, envDigestKey []byte) (map[string]any, []agen
 
 	// Instructions (agent-detail.en.md).
 	instructionsHash := ""
+	instructionsContent := ""
 	if content, rerr := readTextFile(filepath.Join(roleDir, "agent-detail.en.md"), maxInstructionsSize); rerr == nil {
+		instructionsContent = content
 		instructionsHash = agentwaker.SkillBundleHash("agentwaker", profile.ID, "instructions", "", content, nil)
 	} else {
 		diags = append(diags, agentwakerScanDiagnostic{Severity: "warning", Code: "instructions_missing", Message: "agent-detail.en.md not found", Path: roleName})
 	}
 
-	// Persona HTML (agent-persona.html) — hash only, content travels at apply.
+	// Persona HTML (agent-persona.html).
 	personaHash := ""
+	personaContent := ""
 	if content, rerr := readTextFile(filepath.Join(roleDir, "agent-persona.html"), maxInstructionsSize); rerr == nil {
+		personaContent = content
 		personaHash = agentwaker.SkillBundleHash("agentwaker", profile.ID, "persona", "", content, nil)
 	} else {
 		diags = append(diags, agentwakerScanDiagnostic{Severity: "warning", Code: "persona_missing", Message: "agent-persona.html not found", Path: roleName})
@@ -317,12 +321,12 @@ func scanRole(root, roleDir string, envDigestKey []byte) (map[string]any, []agen
 					uses = append(uses, map[string]any{"skill": u.Skill, "profile": u.Profile})
 				}
 				bindingsSummary = append(bindingsSummary, map[string]any{
-					"id":           b.ID,
-					"version":      b.Version,
-					"required":     b.Required,
-					"used_by":      uses,
-					"mode":         b.Permissions.Mode,
-					"fallback":     b.Fallback.Behavior,
+					"id":       b.ID,
+					"version":  b.Version,
+					"required": b.Required,
+					"used_by":  uses,
+					"mode":     b.Permissions.Mode,
+					"fallback": b.Fallback.Behavior,
 				})
 			}
 		}
@@ -339,19 +343,21 @@ func scanRole(root, roleDir string, envDigestKey []byte) (map[string]any, []agen
 	diags = append(diags, mcpDiags...)
 
 	entry := map[string]any{
-		"id":                profile.ID,
-		"role_dir":          roleName,
-		"display_name":      profile.DisplayName,
-		"title":             profile.Title,
-		"version":           profile.Version,
-		"lifecycle":         profile.Lifecycle,
-		"mission":           profile.Mission,
-		"instructions_hash": instructionsHash,
-		"persona_hash":      personaHash,
-		"skills":            skills,
-		"capability_bindings": bindingsSummary,
-		"env":               envDecls,
-		"mcp":               mcpSummary,
+		"id":                   profile.ID,
+		"role_dir":             roleName,
+		"display_name":         profile.DisplayName,
+		"title":                profile.Title,
+		"version":              profile.Version,
+		"lifecycle":            profile.Lifecycle,
+		"mission":              profile.Mission,
+		"instructions_content": instructionsContent,
+		"instructions_hash":    instructionsHash,
+		"persona_content":      personaContent,
+		"persona_hash":         personaHash,
+		"skills":               skills,
+		"capability_bindings":  bindingsSummary,
+		"env":                  envDecls,
+		"mcp":                  mcpSummary,
 	}
 	return entry, diags, nil
 }
@@ -366,28 +372,39 @@ func scanRoleSkills(root, roleName, skillsDir string, profile agentwaker.Profile
 		return out, diags, nil // empty skills is valid
 	}
 
-	// Meta entrypoint (e.g. {role}-skills/SKILL.md).
-	metaPath := filepath.Join(skillsDir, "SKILL.md")
-	if content, rerr := readTextFile(metaPath, maxSkillFileSize); rerr == nil {
-		hash := agentwaker.SkillBundleHash("agentwaker", profile.ID+":meta", "meta", "", content, nil)
-		out = append(out, map[string]any{
-			"id":         profile.ID + ":meta",
-			"name":       profile.DisplayName + " (meta)",
-			"is_meta":    true,
-			"entrypoint": "SKILL.md",
-			"content_hash": hash,
-			"file_count": 0,
-		})
-	}
-
 	// Specialist skill dirs: each immediate subdir with its own SKILL.md.
 	entries, err := os.ReadDir(skillsDir)
 	if err != nil {
 		return out, diags, fmt.Errorf("read skills dir: %w", err)
 	}
 	sort.Slice(entries, func(i, j int) bool { return entries[i].Name() < entries[j].Name() })
+	specialistDirs := map[string]bool{}
 	for _, entry := range entries {
 		if !entry.IsDir() {
+			continue
+		}
+		if info, statErr := os.Stat(filepath.Join(skillsDir, entry.Name(), "SKILL.md")); statErr == nil && !info.IsDir() {
+			specialistDirs[entry.Name()] = true
+		}
+	}
+
+	// Meta entrypoint plus shared role-level support files. Specialist skill
+	// subtrees are excluded because each is materialized as its own bundle.
+	metaPath := filepath.Join(skillsDir, "SKILL.md")
+	if content, rerr := readTextFile(metaPath, maxSkillFileSize); rerr == nil {
+		files, skipped, collectErr := collectSkillSupportingFiles(skillsDir, metaPath, specialistDirs)
+		if collectErr != nil {
+			return out, diags, fmt.Errorf("walk meta skill dir: %w", collectErr)
+		}
+		hash := agentwaker.SkillBundleHash("agentwaker", profile.ID+":meta", "meta", "", content, files)
+		out = append(out, skillManifestEntry(profile.ID+":meta", profile.DisplayName+" (meta)", true, content, hash, files))
+		for _, s := range skipped {
+			diags = append(diags, agentwakerScanDiagnostic{Severity: "warning", Code: "file_skipped", Message: "supporting file skipped: " + s, Path: rel(root, skillsDir)})
+		}
+	}
+
+	for _, entry := range entries {
+		if !entry.IsDir() || !specialistDirs[entry.Name()] {
 			continue
 		}
 		skillDir := filepath.Join(skillsDir, entry.Name())
@@ -416,15 +433,34 @@ func scanSpecialistSkill(root, roleName, skillDir string) (map[string]any, []age
 		return nil, diags, fmt.Errorf("read SKILL.md: %w", err)
 	}
 
+	files, skipped, err := collectSkillSupportingFiles(skillDir, contentPath, nil)
+	if err != nil {
+		return nil, diags, fmt.Errorf("walk skill dir: %w", err)
+	}
+
+	hash := agentwaker.SkillBundleHash("agentwaker", skillID, skillID, "", content, files)
+	for _, s := range skipped {
+		diags = append(diags, agentwakerScanDiagnostic{Severity: "warning", Code: "file_skipped", Message: "supporting file skipped: " + s, Path: rel(root, skillDir)})
+	}
+	return skillManifestEntry(skillID, skillID, false, content, hash, files), diags, nil
+}
+
+func collectSkillSupportingFiles(skillDir, contentPath string, skipRootDirs map[string]bool) ([]agentwaker.SkillBundleFile, []string, error) {
 	files := []agentwaker.SkillBundleFile{}
 	skipped := []string{}
 	totalSize := 0
 	fileCount := 0
-	if err := filepath.WalkDir(skillDir, func(path string, d fs.DirEntry, walkErr error) error {
+	err := filepath.WalkDir(skillDir, func(path string, d fs.DirEntry, walkErr error) error {
 		if walkErr != nil {
 			return walkErr
 		}
 		if d.IsDir() {
+			if path != skillDir && filepath.Dir(path) == skillDir && skipRootDirs[d.Name()] {
+				return filepath.SkipDir
+			}
+			if path != skillDir && skipDirNames[d.Name()] {
+				return filepath.SkipDir
+			}
 			return nil
 		}
 		if filepath.Clean(path) == filepath.Clean(contentPath) {
@@ -451,22 +487,25 @@ func scanSpecialistSkill(root, roleName, skillDir string) (map[string]any, []age
 		fileCount++
 		files = append(files, agentwaker.SkillBundleFile{Path: rel(skillDir, path), Content: body})
 		return nil
-	}); err != nil {
-		return nil, diags, fmt.Errorf("walk skill dir: %w", err)
-	}
+	})
+	return files, skipped, err
+}
 
-	hash := agentwaker.SkillBundleHash("agentwaker", skillID, skillID, "", content, files)
-	for _, s := range skipped {
-		diags = append(diags, agentwakerScanDiagnostic{Severity: "warning", Code: "file_skipped", Message: "supporting file skipped: " + s, Path: rel(root, skillDir)})
+func skillManifestEntry(id, name string, isMeta bool, content, hash string, files []agentwaker.SkillBundleFile) map[string]any {
+	supporting := make([]map[string]any, 0, len(files))
+	for _, file := range files {
+		supporting = append(supporting, map[string]any{"path": file.Path, "content": file.Content})
 	}
 	return map[string]any{
-		"id":           skillID,
-		"name":         skillID,
-		"is_meta":      false,
-		"entrypoint":   "SKILL.md",
-		"content_hash": hash,
-		"file_count":   len(files),
-	}, diags, nil
+		"id":                 id,
+		"name":               name,
+		"is_meta":            isMeta,
+		"entrypoint":         "SKILL.md",
+		"entrypoint_content": content,
+		"supporting_files":   supporting,
+		"content_hash":       hash,
+		"file_count":         len(files),
+	}
 }
 
 // scanRoleEnv reads the EXACT env/.env.example for declarations and env/.env for

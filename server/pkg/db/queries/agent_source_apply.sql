@@ -77,3 +77,19 @@ UPDATE agent SET
     custom_env_encrypted = NULL,
     updated_at = now()
 WHERE id = $1;
+
+-- name: SetAgentOwnerIfNull :exec
+-- Backfills imports created before apply propagated the authenticated user.
+-- Existing explicit ownership is preserved across all subsequent syncs.
+UPDATE agent SET
+    owner_id = $2,
+    updated_at = now()
+WHERE id = $1 AND owner_id IS NULL;
+
+-- name: SetSkillCreatorIfNull :exec
+-- Ensures every synchronized skill has an adding user without taking ownership
+-- away from an adopted skill that already records a creator.
+UPDATE skill SET
+    created_by = $2,
+    updated_at = now()
+WHERE id = $1 AND created_by IS NULL;

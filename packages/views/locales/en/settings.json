@@ -527,6 +527,9 @@
     "status_applying": "Applying",
     "status_partial": "Partial",
     "status_failed": "Failed",
-    "status_offline": "Offline"
+    "status_offline": "Offline",
+    "apply": "Apply",
+    "apply_success": "Snapshot applied successfully.",
+    "apply_failed": "Failed to apply snapshot."
   }
 }

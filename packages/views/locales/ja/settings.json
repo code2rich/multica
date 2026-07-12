@@ -527,6 +527,9 @@
     "status_applying": "適用中",
     "status_partial": "部分",
     "status_failed": "失敗",
-    "status_offline": "オフライン"
+    "status_offline": "オフライン",
+    "apply": "適用",
+    "apply_success": "スナップショットを適用しました。",
+    "apply_failed": "スナップショットの適用に失敗しました。"
   }
 }

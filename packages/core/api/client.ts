@@ -2559,4 +2559,26 @@ export class ApiClient {
   ): Promise<AgentSourceSnapshot> {
     return this.fetch(`/api/agent-sources/${sourceId}/snapshots/${snapshotId}`);
   }
+
+  /** Apply a snapshot atomically (M2). Owner/admin only. */
+  async applyAgentSource(
+    sourceId: string,
+    data: { snapshot_id: string; env_merge_mode?: string },
+  ): Promise<unknown> {
+    return this.fetch(`/api/agent-sources/${sourceId}/apply`, {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+  }
+
+  /** Rollback to a prior snapshot. Owner/admin only. */
+  async rollbackAgentSource(
+    sourceId: string,
+    snapshotId: string,
+  ): Promise<unknown> {
+    return this.fetch(`/api/agent-sources/${sourceId}/rollback`, {
+      method: "POST",
+      body: JSON.stringify({ snapshot_id: snapshotId }),
+    });
+  }
 }

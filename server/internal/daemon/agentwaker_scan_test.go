@@ -6,6 +6,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/multica-ai/multica/server/internal/agentwaker"
 )
 
 // fixtureRoot returns the absolute path to the shared AgentWaker test fixture.
@@ -124,6 +126,17 @@ func TestScanDirectory_DiscoversAllContracts(t *testing.T) {
 	researchSkills := research["skills"].([]map[string]any)
 	if len(researchSkills) != 2 {
 		t.Fatalf("research-operator want 2 skills (meta + specialist), got %d", len(researchSkills))
+	}
+	for _, skill := range researchSkills {
+		if content, _ := skill["entrypoint_content"].(string); content == "" {
+			t.Errorf("skill %s missing SKILL.md content", skill["id"])
+		}
+	}
+	if content, _ := research["instructions_content"].(string); content == "" {
+		t.Error("research-operator missing agent-detail.en.md content")
+	}
+	if content, _ := research["persona_content"].(string); content == "" {
+		t.Error("research-operator missing agent-persona.html content")
 	}
 
 	// research-operator has 4 env declarations (from merged example+real).
@@ -246,6 +259,48 @@ func TestScanDirectory_BinaryAssetReportedSkipped(t *testing.T) {
 	// And the raw PNG signature must not be in the manifest.
 	if strings.Contains(string(blob), "PNG") && strings.Contains(string(blob), "IHDR") {
 		t.Errorf("binary PNG content leaked into manifest")
+	}
+}
+
+func TestScanRoleSkills_IgnoresSupportDirsAndGeneratedCaches(t *testing.T) {
+	root := t.TempDir()
+	skillsDir := filepath.Join(root, "example-role", "example-role-skills")
+	mustWrite := func(relPath, content string) {
+		t.Helper()
+		path := filepath.Join(skillsDir, relPath)
+		if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+			t.Fatalf("mkdir %s: %v", relPath, err)
+		}
+		if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+			t.Fatalf("write %s: %v", relPath, err)
+		}
+	}
+
+	// Shared role-level scripts are support files for the meta skill, not a
+	// specialist skill directory and therefore do not require scripts/SKILL.md.
+	mustWrite("scripts/validate-role.rb", "puts 'ok'")
+	// A real specialist skill may contain source scripts, but generated Python
+	// caches must not enter its bundle or produce noisy skipped-file warnings.
+	mustWrite("format-article/SKILL.md", "# Format article")
+	mustWrite("format-article/scripts/render.py", "print('ok')")
+	mustWrite("format-article/scripts/__pycache__/render.cpython-312.pyc", "binary-cache")
+
+	profile := agentwaker.ProfileV2{ID: "example-role", DisplayName: "Example Role"}
+	skills, diags, err := scanRoleSkills(root, "example-role", skillsDir, profile)
+	if err != nil {
+		t.Fatalf("scanRoleSkills: %v", err)
+	}
+	if len(diags) != 0 {
+		t.Fatalf("support dirs and generated caches should be ignored, got diagnostics: %+v", diags)
+	}
+	if len(skills) != 1 {
+		t.Fatalf("want only the real specialist skill, got %d: %+v", len(skills), skills)
+	}
+	if skills[0]["id"] != "format-article" {
+		t.Fatalf("wrong skill discovered: %+v", skills[0])
+	}
+	if skills[0]["file_count"] != 1 {
+		t.Fatalf("want only render.py as supporting file, got %+v", skills[0]["file_count"])
 	}
 }
 

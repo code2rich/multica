@@ -48,24 +48,38 @@ func (h *Handler) BuildPlan(ctx context.Context, sourceID, snapshotID pgtype.UUI
 	plan := &AgentSourcePlan{ToHash: snap.DirectoryHash}
 
 	// Build the current-state index from existing source mappings.
-	existingCaps := map[string]string{}    // source_key → content_hash
+	existingCaps := map[string]string{} // source_key → content_hash
+	capKeyByID := map[string]string{}   // capability UUID → source_key
 	caps, _ := h.Queries.ListSharedCapabilitiesBySource(ctx, sourceID)
 	for _, c := range caps {
 		existingCaps[c.SourceKey] = c.ContentHash
+		capKeyByID[uuidToString(c.ID)] = c.SourceKey
 	}
-	existingRoles := map[string]string{}   // source_role_id → last_import_hash
+	existingRoles := map[string]string{} // source_role_id → last_import_hash
 	roleMappings, _ := h.Queries.ListAgentSourceRolesBySource(ctx, sourceID)
 	for _, r := range roleMappings {
+		existingRoles[r.SourceRoleID] = ""
 		if r.LastImportHash.Valid {
 			existingRoles[r.SourceRoleID] = r.LastImportHash.String
 		}
 	}
-	existingSkills := map[string]string{}  // "roleID:skillID" → content_hash
+	existingSkills := map[string]string{} // "roleID:skillID" → content_hash
+	skillKeyByID := map[string]string{}   // skill UUID → "roleID:skillID"
 	skillMappings, _ := h.Queries.ListAgentSourceSkillsBySource(ctx, sourceID)
 	for _, s := range skillMappings {
 		key := s.SourceRoleID + ":" + s.SourceSkillID
+		skillKeyByID[uuidToString(s.SkillID)] = key
 		if s.ContentHash.Valid {
 			existingSkills[key] = s.ContentHash.String
+		}
+	}
+	existingBindings := map[string]bool{} // "roleID:skillID:capabilityKey"
+	bindings, _ := h.Queries.ListAgentCapabilityBindingsBySource(ctx, sourceID)
+	for _, binding := range bindings {
+		skillKey := skillKeyByID[uuidToString(binding.RoleSkillID)]
+		capKey := capKeyByID[uuidToString(binding.CapabilityID)]
+		if skillKey != "" && capKey != "" {
+			existingBindings[skillKey+":"+capKey] = true
 		}
 	}
 
@@ -131,9 +145,13 @@ func (h *Handler) BuildPlan(ctx context.Context, sourceID, snapshotID pgtype.UUI
 			roleID, _ := r["id"].(string)
 			displayName, _ := r["display_name"].(string)
 			rch := AgentSourceChange{Key: roleID, Name: displayName}
-			if _, has := existingRoles[roleID]; has {
+			existingHash, hasRole := existingRoles[roleID]
+			switch {
+			case hasRole && existingHash == roleImportHash(r):
+				rch.Action = "unchanged"
+			case hasRole:
 				rch.Action = "update"
-			} else {
+			default:
 				rch.Action = "create"
 			}
 			plan.Roles = append(plan.Roles, rch)
@@ -171,6 +189,20 @@ func (h *Handler) BuildPlan(ctx context.Context, sourceID, snapshotID pgtype.UUI
 					bkey, _ := b["id"].(string)
 					required, _ := b["required"].(bool)
 					bch := AgentSourceChange{Key: bkey, Action: "add"}
+					if uses, ok := b["used_by"].([]any); ok && len(uses) > 0 {
+						allPresent := true
+						for _, useRaw := range uses {
+							use, _ := useRaw.(map[string]any)
+							skillKey, _ := use["skill"].(string)
+							if skillKey == "" || !existingBindings[roleID+":"+skillKey+":"+bkey] {
+								allPresent = false
+								break
+							}
+						}
+						if allPresent {
+							bch.Action = "unchanged"
+						}
+					}
 					// Missing required capability = blocking issue.
 					if required {
 						if _, installed := existingCaps[bkey]; !installed {
@@ -277,12 +309,13 @@ func (h *Handler) ApplyAgentSourceSnapshot(w http.ResponseWriter, r *http.Reques
 	if !ok {
 		return
 	}
-	if _, ok := h.requireWorkspaceRole(w, r, uuidToString(src.WorkspaceID), "workspace not found", "owner", "admin"); !ok {
+	member, ok := h.requireWorkspaceRole(w, r, uuidToString(src.WorkspaceID), "workspace not found", "owner", "admin")
+	if !ok {
 		return
 	}
 	var body struct {
-		SnapshotID  string                 `json:"snapshot_id"`
-		EnvMergeMode string                `json:"env_merge_mode"`
+		SnapshotID   string                       `json:"snapshot_id"`
+		EnvMergeMode string                       `json:"env_merge_mode"`
 		EnvValues    map[string]map[string]string `json:"env_values"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
@@ -307,6 +340,7 @@ func (h *Handler) ApplyAgentSourceSnapshot(w http.ResponseWriter, r *http.Reques
 		SourceID:     src.ID,
 		SnapshotID:   snapshotID,
 		WorkspaceID:  src.WorkspaceID,
+		OwnerID:      member.UserID,
 		EnvMergeMode: body.EnvMergeMode,
 		EnvValues:    body.EnvValues,
 	})
@@ -331,7 +365,8 @@ func (h *Handler) RollbackAgentSource(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	if _, ok := h.requireWorkspaceRole(w, r, uuidToString(src.WorkspaceID), "workspace not found", "owner", "admin"); !ok {
+	member, ok := h.requireWorkspaceRole(w, r, uuidToString(src.WorkspaceID), "workspace not found", "owner", "admin")
+	if !ok {
 		return
 	}
 	var body struct {
@@ -371,6 +406,7 @@ func (h *Handler) RollbackAgentSource(w http.ResponseWriter, r *http.Request) {
 		SourceID:    src.ID,
 		SnapshotID:  target.ID,
 		WorkspaceID: src.WorkspaceID,
+		OwnerID:     member.UserID,
 		// No EnvValues on rollback: the encrypted env column is preserved.
 	})
 	if err != nil {

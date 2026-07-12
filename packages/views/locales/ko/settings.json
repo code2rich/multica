@@ -527,6 +527,9 @@
     "status_applying": "적용 중",
     "status_partial": "부분",
     "status_failed": "실패",
-    "status_offline": "오프라인"
+    "status_offline": "오프라인",
+    "apply": "적용",
+    "apply_success": "스냅샷이 적용되었습니다.",
+    "apply_failed": "스냅샷 적용에 실패했습니다."
   }
 }

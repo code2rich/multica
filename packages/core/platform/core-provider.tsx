@@ -14,6 +14,12 @@ import {
 import { WSProvider } from "../realtime";
 import { QueryProvider } from "../provider";
 import { createLogger } from "../logger";
+import { useConfigStore } from "../config";
+import {
+  FeatureFlagService,
+  FeatureFlagsProvider,
+  StaticProvider,
+} from "../feature-flags";
 import { defaultStorage } from "./storage";
 import { AuthInitializer } from "./auth-initializer";
 import type { CoreProviderProps, ClientIdentity } from "./types";
@@ -24,6 +30,24 @@ import type { StorageAdapter } from "../types/storage";
 let initialized = false;
 let authStore: ReturnType<typeof createAuthStore>;
 let chatStore: ReturnType<typeof createChatStore>;
+
+function RuntimeFeatureFlags({ children }: { children: React.ReactNode }) {
+  const flags = useConfigStore((state) => state.featureFlags);
+  const service = useMemo(() => {
+    const rules = Object.fromEntries(
+      Object.entries(flags).map(([key, enabled]) => [
+        key,
+        { default: enabled },
+      ]),
+    );
+    return new FeatureFlagService(new StaticProvider(rules));
+  }, [flags]);
+
+  return (
+    <FeatureFlagsProvider service={service}>{children}</FeatureFlagsProvider>
+  );
+}
+
 function initCore(
   apiBaseUrl: string,
   storage: StorageAdapter,
@@ -92,23 +116,25 @@ export function CoreProvider({
   // through window.location.reload(), never client-side changeLanguage.
   const tree = (
     <QueryProvider>
-      <AuthInitializer
-        onLogin={onLogin}
-        onLogout={onLogout}
-        storage={storage}
-        cookieAuth={cookieAuth}
-        identity={identity}
-      >
-        <WSProvider
-          wsUrl={wsUrl}
-          authStore={authStore}
+      <RuntimeFeatureFlags>
+        <AuthInitializer
+          onLogin={onLogin}
+          onLogout={onLogout}
           storage={storage}
           cookieAuth={cookieAuth}
           identity={identity}
         >
-          {children}
-        </WSProvider>
-      </AuthInitializer>
+          <WSProvider
+            wsUrl={wsUrl}
+            authStore={authStore}
+            storage={storage}
+            cookieAuth={cookieAuth}
+            identity={identity}
+          >
+            {children}
+          </WSProvider>
+        </AuthInitializer>
+      </RuntimeFeatureFlags>
     </QueryProvider>
   );
 

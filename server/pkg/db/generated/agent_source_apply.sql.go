@@ -207,6 +207,44 @@ func (q *Queries) RemoveAgentSkillIfSourceManaged(ctx context.Context, arg Remov
 	return err
 }
 
+const setAgentOwnerIfNull = `-- name: SetAgentOwnerIfNull :exec
+UPDATE agent SET
+    owner_id = $2,
+    updated_at = now()
+WHERE id = $1 AND owner_id IS NULL
+`
+
+type SetAgentOwnerIfNullParams struct {
+	ID      pgtype.UUID `json:"id"`
+	OwnerID pgtype.UUID `json:"owner_id"`
+}
+
+// Backfills imports created before apply propagated the authenticated user.
+// Existing explicit ownership is preserved across all subsequent syncs.
+func (q *Queries) SetAgentOwnerIfNull(ctx context.Context, arg SetAgentOwnerIfNullParams) error {
+	_, err := q.db.Exec(ctx, setAgentOwnerIfNull, arg.ID, arg.OwnerID)
+	return err
+}
+
+const setSkillCreatorIfNull = `-- name: SetSkillCreatorIfNull :exec
+UPDATE skill SET
+    created_by = $2,
+    updated_at = now()
+WHERE id = $1 AND created_by IS NULL
+`
+
+type SetSkillCreatorIfNullParams struct {
+	ID        pgtype.UUID `json:"id"`
+	CreatedBy pgtype.UUID `json:"created_by"`
+}
+
+// Ensures every synchronized skill has an adding user without taking ownership
+// away from an adopted skill that already records a creator.
+func (q *Queries) SetSkillCreatorIfNull(ctx context.Context, arg SetSkillCreatorIfNullParams) error {
+	_, err := q.db.Exec(ctx, setSkillCreatorIfNull, arg.ID, arg.CreatedBy)
+	return err
+}
+
 const updateAgentEncryptedEnv = `-- name: UpdateAgentEncryptedEnv :exec
 UPDATE agent SET
     custom_env_encrypted = $2,

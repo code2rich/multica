@@ -527,6 +527,9 @@
     "status_applying": "应用中",
     "status_partial": "部分",
     "status_failed": "失败",
-    "status_offline": "离线"
+    "status_offline": "离线",
+    "apply": "应用",
+    "apply_success": "快照已成功应用。",
+    "apply_failed": "应用快照失败。"
   }
 }

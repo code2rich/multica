@@ -4,7 +4,7 @@ import { useState } from "react";
 import { FolderTree, Plus, RefreshCw, Trash2, AlertTriangle, CheckCircle2 } from "lucide-react";
 import { toast } from "sonner";
 
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@multica/ui/components/ui/button";
 import { Card, CardContent } from "@multica/ui/components/ui/card";
 import { Input } from "@multica/ui/components/ui/input";
@@ -22,6 +22,8 @@ import {
   useCreateAgentSource,
   useDeleteAgentSource,
   useInitiateAgentSourceScan,
+  useApplyAgentSource,
+  agentSourceKeys,
   pollAgentSourceScan,
 } from "@multica/core/agent-sources";
 import { runtimeListOptions } from "@multica/core/runtimes";
@@ -44,14 +46,19 @@ export function AgentWakerTab() {
   const { t } = useT("settings");
   const { data: sources = [], isLoading } = useAgentSources(wsId);
   const { data: runtimes = [] } = useQuery(runtimeListOptions(wsId));
+  const queryClient = useQueryClient();
 
   const createSource = useCreateAgentSource(wsId);
   const deleteSource = useDeleteAgentSource(wsId);
   const initiateScan = useInitiateAgentSourceScan(wsId);
+  const applySource = useApplyAgentSource(wsId);
 
   const [daemonRuntimeId, setDaemonRuntimeId] = useState("");
   const [localPath, setLocalPath] = useState("");
   const [syncMode, setSyncMode] = useState<"manual" | "scheduled" | "watch-assisted">("manual");
+  const [scanningSourceIds, setScanningSourceIds] = useState<Set<string>>(
+    () => new Set(),
+  );
 
   const onlineRuntimes = runtimes.filter((r) => r.status === "online");
 
@@ -74,11 +81,21 @@ export function AgentWakerTab() {
   };
 
   const handleScan = async (source: AgentSource) => {
+    setScanningSourceIds((current) => new Set(current).add(source.id));
     try {
       const initiated = await initiateScan.mutateAsync(source.id);
       toast.info(t(($) => $.agentwaker.scan_started));
       // Poll until terminal. The UI shows the sanitized snapshot once stored.
       const result = await pollAgentSourceScan(source.id, initiated.id);
+      // The mutation's onSettled refresh happens when the scan is only queued.
+      // Refresh again after the daemon reaches a terminal state so the newly
+      // stored preview and final source status appear without a page reload.
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: agentSourceKeys.list(wsId) }),
+        queryClient.invalidateQueries({
+          queryKey: agentSourceKeys.snapshots(wsId, source.id),
+        }),
+      ]);
       if (result.status === "completed") {
         toast.success(t(($) => $.agentwaker.scan_complete));
       } else {
@@ -90,6 +107,12 @@ export function AgentWakerTab() {
       }
     } catch (err) {
       toast.error(humanizeError(err) ?? t(($) => $.agentwaker.scan_failed));
+    } finally {
+      setScanningSourceIds((current) => {
+        const next = new Set(current);
+        next.delete(source.id);
+        return next;
+      });
     }
   };
 
@@ -99,6 +122,18 @@ export function AgentWakerTab() {
       toast.success(t(($) => $.agentwaker.delete_success));
     } catch (err) {
       toast.error(humanizeError(err) ?? t(($) => $.agentwaker.delete_failed));
+    }
+  };
+
+  const handleApply = async (source: AgentSource, snapshotId: string) => {
+    try {
+      await applySource.mutateAsync({
+        sourceId: source.id,
+        snapshotId,
+      });
+      toast.success(t(($) => $.agentwaker.apply_success));
+    } catch (err) {
+      toast.error(humanizeError(err) ?? t(($) => $.agentwaker.apply_failed));
     }
   };
 
@@ -181,8 +216,13 @@ export function AgentWakerTab() {
               source={source}
               wsId={wsId}
               onScan={() => handleScan(source)}
+              onApply={(snapshotId) => handleApply(source, snapshotId)}
               onDelete={() => handleDelete(source)}
-              scanning={initiateScan.isPending}
+              scanning={scanningSourceIds.has(source.id)}
+              applying={
+                applySource.isPending &&
+                applySource.variables?.sourceId === source.id
+              }
             />
           ))}
         </div>
@@ -195,14 +235,18 @@ function SourceRow({
   source,
   wsId,
   onScan,
+  onApply,
   onDelete,
   scanning,
+  applying,
 }: {
   source: AgentSource;
   wsId: string;
   onScan: () => void;
+  onApply: (snapshotId: string) => void;
   onDelete: () => void;
   scanning: boolean;
+  applying: boolean;
 }) {
   const { t } = useT("settings");
   const { data: snapshots = [] } = useAgentSourceSnapshots(wsId, source.id);
@@ -229,11 +273,22 @@ function SourceRow({
             </div>
           </div>
           <div className="flex items-center gap-2 shrink-0">
-            <Button variant="outline" size="sm" onClick={onScan} disabled={scanning}>
+            {latestPreview && (
+              <Button
+                variant="default"
+                size="sm"
+                onClick={() => onApply(latestPreview.id)}
+                disabled={applying || scanning}
+              >
+                <CheckCircle2 className="h-4 w-4" />
+                {t(($) => $.agentwaker.apply)}
+              </Button>
+            )}
+            <Button variant="outline" size="sm" onClick={onScan} disabled={scanning || applying}>
               <RefreshCw className={scanning ? "animate-spin h-4 w-4" : "h-4 w-4"} />
               {t(($) => $.agentwaker.scan)}
             </Button>
-            <Button variant="ghost" size="sm" onClick={onDelete} disabled={scanning}>
+            <Button variant="ghost" size="sm" onClick={onDelete} disabled={scanning || applying}>
               <Trash2 className="h-4 w-4" />
             </Button>
           </div>

@@ -32,10 +32,10 @@ type AgentSourceApplySummary struct {
 
 // AgentSourceChange records one object's disposition during apply.
 type AgentSourceChange struct {
-	Key      string `json:"key"`            // source identity (capability id / role id / skill id)
-	Name     string `json:"name,omitempty"` // display name for the UI
-	Action   string `json:"action"`         // create | update | unchanged | conflict | archive-candidate | blocked
-	Reason   string `json:"reason,omitempty"`
+	Key    string `json:"key"`            // source identity (capability id / role id / skill id)
+	Name   string `json:"name,omitempty"` // display name for the UI
+	Action string `json:"action"`         // create | update | unchanged | conflict | archive-candidate | blocked
+	Reason string `json:"reason,omitempty"`
 }
 
 // AgentSourceEnvApply summarizes the env-value synchronization outcome. It
@@ -58,7 +58,8 @@ type ApplySnapshotInput struct {
 	SourceID     pgtype.UUID
 	SnapshotID   pgtype.UUID
 	WorkspaceID  pgtype.UUID
-	EnvMergeMode string // "source-authoritative" (default) | "merge-preserve"
+	OwnerID      pgtype.UUID // authenticated owner/admin who initiated apply
+	EnvMergeMode string      // "source-authoritative" (default) | "merge-preserve"
 	// EnvValues is keyed by "<roleID>:<varName>" → plaintext value. Only roles
 	// with configured .env entries appear. Sealed by EnvSecret before storage.
 	EnvValues map[string]map[string]string
@@ -85,8 +86,8 @@ type ApplyResult struct {
 //   - env values are encrypted at rest via secretbox before commit;
 //   - unchanged hashes produce no writes.
 func (h *Handler) ApplySnapshot(ctx context.Context, input ApplySnapshotInput) (*ApplyResult, error) {
-	if !input.SnapshotID.Valid || !input.SourceID.Valid || !input.WorkspaceID.Valid {
-		return nil, errors.New("apply: source/snapshot/workspace ids required")
+	if !input.SnapshotID.Valid || !input.SourceID.Valid || !input.WorkspaceID.Valid || !input.OwnerID.Valid {
+		return nil, errors.New("apply: source/snapshot/workspace/owner ids required")
 	}
 	// Load the snapshot manifest (value-free).
 	snap, err := h.Queries.GetAgentSourceSnapshotInSource(ctx, db.GetAgentSourceSnapshotInSourceParams{
@@ -204,13 +205,13 @@ func applyCapabilities(ctx context.Context, qtx *db.Queries, input ApplySnapshot
 		case err == nil:
 			// Update existing identity.
 			if _, err := qtx.UpdateSharedCapabilityActiveVersion(ctx, db.UpdateSharedCapabilityActiveVersionParams{
-				ID:             existing.ID,
+				ID:              existing.ID,
 				ActiveVersionID: pgtype.UUID{},
-				Version:        pgtype.Text{String: version, Valid: true},
-				Name:           pgtype.Text{String: name, Valid: true},
-				Description:    pgtype.Text{String: desc, Valid: true},
-				ContentHash:    pgtype.Text{String: contentHash, Valid: true},
-				Manifest:       manifestJSON,
+				Version:         pgtype.Text{String: version, Valid: true},
+				Name:            pgtype.Text{String: name, Valid: true},
+				Description:     pgtype.Text{String: desc, Valid: true},
+				ContentHash:     pgtype.Text{String: contentHash, Valid: true},
+				Manifest:        manifestJSON,
 			}); err != nil {
 				return nil, nil, fmt.Errorf("update capability %s: %w", sourceKey, err)
 			}
@@ -295,30 +296,34 @@ func applyRoles(ctx context.Context, qtx *db.Queries, h *Handler, input ApplySna
 			agentID = mapping.AgentID
 			roleChange.Action = "update"
 		} else {
-			// Create a minimal agent; detailed config lands in UpdateAgent.
-			created, cerr := qtx.CreateAgent(ctx, db.CreateAgentParams{
-				WorkspaceID:    input.WorkspaceID,
-				Name:           displayName,
-				Description:    truncate(missionOf(role), 255),
-				RuntimeMode:    "local",
-				RuntimeConfig:  []byte("{}"),
-				RuntimeID:      agentRuntimeID,
-				Visibility:     "workspace",
-				PermissionMode: "private",
-				Instructions:   instructionsOf(role),
-			})
+			// Create a complete valid agent row. CreateAgent is a generated query,
+			// so zero-value byte slices are sent as SQL NULL rather than allowing
+			// database defaults to apply. Keep every NOT NULL JSON field explicit.
+			created, cerr := qtx.CreateAgent(ctx, sourceManagedAgentCreateParams(
+				input.WorkspaceID,
+				agentRuntimeID,
+				input.OwnerID,
+				displayName,
+				role,
+			))
 			if cerr != nil {
 				return fmt.Errorf("create agent for role %s: %w", roleID, cerr)
 			}
 			agentID = created.ID
-			mapping, uerr := qtx.UpsertAgentSourceRole(ctx, db.UpsertAgentSourceRoleParams{
-				SourceID: input.SourceID, SourceRoleID: roleID, AgentID: agentID,
-			})
-			if uerr != nil {
-				return fmt.Errorf("map role %s: %w", roleID, uerr)
-			}
-			_ = mapping
 			roleChange.Action = "create"
+		}
+		// Repair source-managed agents imported before apply propagated ownership.
+		// A non-NULL owner is user-managed and must never be overwritten by sync.
+		if err := qtx.SetAgentOwnerIfNull(ctx, db.SetAgentOwnerIfNullParams{
+			ID: agentID, OwnerID: input.OwnerID,
+		}); err != nil {
+			return fmt.Errorf("set owner for role %s: %w", roleID, err)
+		}
+		if _, err := qtx.UpsertAgentSourceRole(ctx, db.UpsertAgentSourceRoleParams{
+			SourceID: input.SourceID, SourceRoleID: roleID, AgentID: agentID,
+			LastImportHash: pgtype.Text{String: roleImportHash(role), Valid: true},
+		}); err != nil {
+			return fmt.Errorf("map role %s: %w", roleID, err)
 		}
 
 		// 2b. Update agent config (instructions hash recorded; content lives in skills).
@@ -327,6 +332,7 @@ func applyRoles(ctx context.Context, qtx *db.Queries, h *Handler, input ApplySna
 			Name:         pgtype.Text{String: displayName, Valid: true},
 			Description:  pgtype.Text{String: truncate(missionOf(role), 255), Valid: true},
 			Instructions: pgtype.Text{String: instructionsOf(role), Valid: true},
+			ProfileHtml:  pgtype.Text{String: personaOf(role), Valid: personaOf(role) != ""},
 			McpConfig:    mcpConfigOf(role, agentID),
 		}); err != nil {
 			return fmt.Errorf("update agent for role %s: %w", roleID, err)
@@ -372,6 +378,26 @@ func applyRoles(ctx context.Context, qtx *db.Queries, h *Handler, input ApplySna
 	return nil
 }
 
+func sourceManagedAgentCreateParams(workspaceID, runtimeID, ownerID pgtype.UUID, displayName string, role map[string]any) db.CreateAgentParams {
+	return db.CreateAgentParams{
+		WorkspaceID:        workspaceID,
+		OwnerID:            ownerID,
+		Name:               displayName,
+		Description:        truncate(missionOf(role), 255),
+		RuntimeMode:        "local",
+		RuntimeConfig:      []byte("{}"),
+		RuntimeID:          runtimeID,
+		Visibility:         "workspace",
+		PermissionMode:     "private",
+		MaxConcurrentTasks: 6,
+		Instructions:       instructionsOf(role),
+		ProfileHtml:        pgtype.Text{String: personaOf(role), Valid: personaOf(role) != ""},
+		CustomEnv:          []byte("{}"),
+		CustomArgs:         []byte("[]"),
+		McpConfig:          mcpConfigOf(role, pgtype.UUID{}),
+	}
+}
+
 // applyRoleSkills materializes each role skill via createSkillWithFilesInTx,
 // records the source mapping, and returns the list of Multica skill ids.
 func applyRoleSkills(ctx context.Context, qtx *db.Queries, h *Handler, input ApplySnapshotInput, roleID string, role map[string]any, agentID pgtype.UUID, summary *AgentSourceApplySummary) ([]pgtype.UUID, error) {
@@ -393,10 +419,8 @@ func applyRoleSkills(ctx context.Context, qtx *db.Queries, h *Handler, input App
 			name = skillKey
 		}
 
-		// Find-or-create by source mapping. The actual content for M2 is the
-		// skill descriptor itself (instructions live on the agent). The full
-		// SKILL.md + supporting files flow lands with M3 runtime materialization;
-		// here we record the provenance and identity so re-syncs are idempotent.
+		// Find-or-create by source mapping, then replace the source-owned
+		// SKILL.md and supporting text bundle so the imported skill is runnable.
 		existing, err := qtx.GetAgentSourceSkill(ctx, db.GetAgentSourceSkillParams{
 			SourceID: input.SourceID, SourceRoleID: roleID, SourceSkillID: skillKey,
 		})
@@ -411,30 +435,46 @@ func applyRoleSkills(ctx context.Context, qtx *db.Queries, h *Handler, input App
 				change.Action = "update"
 			}
 		default:
-			// Create a new skill row recording provenance.
-			created, cerr := createSkillWithFilesInTx(ctx, qtx, skillCreateInput{
+			// Existing workspaces commonly already contain manually imported
+			// skills with the same canonical name. Reuse that row and attach the
+			// stable source mapping instead of violating UNIQUE(workspace_id,
+			// name). This preserves user-authored content on first adoption.
+			byName, findErr := qtx.GetSkillByWorkspaceAndName(ctx, db.GetSkillByWorkspaceAndNameParams{
 				WorkspaceID: input.WorkspaceID,
 				Name:        name,
-				Description: truncate(name+" (source-managed)", 255),
-				Config: map[string]any{
-					"origin": map[string]any{
-						"type":            "agentwaker_directory",
-						"source_id":       uuidToString(input.SourceID),
-						"source_role_id":  roleID,
-						"source_skill_id": skillKey,
-						"content_hash":    contentHash,
-					},
-				},
 			})
-			if cerr != nil {
-				return nil, fmt.Errorf("create skill %s: %w", skillKey, cerr)
+			if findErr == nil {
+				skillID = byName.ID
+				change.Action = "update"
+			} else {
+				// Create a new skill row recording provenance.
+				created, cerr := createSkillWithFilesInTx(ctx, qtx, sourceManagedSkillCreateInput(
+					input, roleID, skillKey, name, contentHash,
+				))
+				if cerr != nil {
+					return nil, fmt.Errorf("create skill %s: %w", skillKey, cerr)
+				}
+				parsed, perr := util.ParseUUID(created.ID)
+				if perr != nil {
+					return nil, fmt.Errorf("parse created skill id %s: %w", created.ID, perr)
+				}
+				skillID = parsed
+				change.Action = "create"
 			}
-			parsed, perr := util.ParseUUID(created.ID)
-			if perr != nil {
-				return nil, fmt.Errorf("parse created skill id %s: %w", created.ID, perr)
+		}
+		// Backfill old source imports without an adder, while preserving any
+		// creator already assigned to an adopted or subsequently edited skill.
+		if err := qtx.SetSkillCreatorIfNull(ctx, db.SetSkillCreatorIfNullParams{
+			ID: skillID, CreatedBy: input.OwnerID,
+		}); err != nil {
+			return nil, fmt.Errorf("set creator for skill %s: %w", skillKey, err)
+		}
+		entrypointContent, _ := s["entrypoint_content"].(string)
+		supportingFiles := extractSupportingFiles(s["supporting_files"])
+		if entrypointContent != "" {
+			if err := materializeSourceSkill(ctx, qtx, skillID, name, entrypointContent, supportingFiles); err != nil {
+				return nil, fmt.Errorf("materialize skill %s: %w", skillKey, err)
 			}
-			skillID = parsed
-			change.Action = "create"
 		}
 		// Record/update the source mapping.
 		if _, err := qtx.UpsertAgentSourceSkill(ctx, db.UpsertAgentSourceSkillParams{
@@ -447,6 +487,47 @@ func applyRoleSkills(ctx context.Context, qtx *db.Queries, h *Handler, input App
 		summary.Skills = append(summary.Skills, change)
 	}
 	return out, nil
+}
+
+func sourceManagedSkillCreateInput(input ApplySnapshotInput, roleID, skillKey, name, contentHash string) skillCreateInput {
+	return skillCreateInput{
+		WorkspaceID: input.WorkspaceID,
+		CreatorID:   input.OwnerID,
+		Name:        name,
+		Description: truncate(name+" (source-managed)", 255),
+		Config: map[string]any{
+			"origin": map[string]any{
+				"type":            "agentwaker_directory",
+				"source_id":       uuidToString(input.SourceID),
+				"source_role_id":  roleID,
+				"source_skill_id": skillKey,
+				"content_hash":    contentHash,
+			},
+		},
+	}
+}
+
+func materializeSourceSkill(ctx context.Context, qtx *db.Queries, skillID pgtype.UUID, name, content string, files []agentwaker.SkillBundleFile) error {
+	if _, err := qtx.UpdateSkill(ctx, db.UpdateSkillParams{
+		ID:          skillID,
+		Description: pgtype.Text{String: truncate(name+" (source-managed)", 255), Valid: true},
+		Content:     pgtype.Text{String: content, Valid: true},
+	}); err != nil {
+		return err
+	}
+	if err := qtx.DeleteSkillFilesBySkill(ctx, skillID); err != nil {
+		return err
+	}
+	for _, file := range files {
+		if _, err := qtx.UpsertSkillFile(ctx, db.UpsertSkillFileParams{
+			SkillID: skillID,
+			Path:    file.Path,
+			Content: file.Content,
+		}); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // applyCapabilityBindings re-inserts the role's declared capability bindings.
@@ -483,46 +564,48 @@ func applyCapabilityBindings(ctx context.Context, qtx *db.Queries, input ApplySn
 		}
 		versionReq, _ := b["version"].(string)
 		required, _ := b["required"].(bool)
-		profile := ""
 		usedBy, _ := b["used_by"].([]any)
-		if len(usedBy) > 0 {
-			if u, ok := usedBy[0].(map[string]any); ok {
-				profile, _ = u["profile"].(string)
-			}
-		}
-		// Find the consuming role skill for the FK.
-		var roleSkillID pgtype.UUID
-		if len(usedBy) > 0 {
-			if u, ok := usedBy[0].(map[string]any); ok {
-				if skillKey, _ := u["skill"].(string); skillKey != "" {
-					roleSkillID = skillIDBySourceKey[skillKey]
-				}
-			}
-		}
-		if !roleSkillID.Valid {
-			// Fall back to any source-managed skill for this role/agent.
-			if id, ok := anyValue(skillIDBySourceKey); ok {
-				roleSkillID = id
-			}
-		}
-		permsJSON, _ := json.Marshal(map[string]any{"mode": b["mode"]})
-		fallbackJSON, _ := json.Marshal(map[string]any{"behavior": b["fallback"]})
-		if _, err := qtx.CreateAgentCapabilityBinding(ctx, db.CreateAgentCapabilityBindingParams{
-			WorkspaceID: input.WorkspaceID, AgentID: agentID, RoleSkillID: roleSkillID,
-			CapabilityID: capID, SourceID: input.SourceID, Profile: profile,
-			VersionRequirement: versionReq, Required: required,
-			Permissions: permsJSON, Fallback: fallbackJSON,
-			SourceSnapshotID: pgtype.UUID{Bytes: input.SnapshotID.Bytes, Valid: true},
-		}); err != nil {
+		if len(usedBy) == 0 {
 			summary.Diagnostics = append(summary.Diagnostics, ScanDiagnostic{
-				Severity: "warning", Code: "binding_create_failed",
-				Message: fmt.Sprintf("capability %s binding failed: %v", capKey, err),
+				Severity: "error", Code: "binding_missing_consumer",
+				Message: fmt.Sprintf("capability %s binding has no used_by consumer", capKey),
 			})
 			continue
 		}
-		summary.Bindings = append(summary.Bindings, AgentSourceChange{
-			Key: capKey, Action: "create",
-		})
+		permsJSON, _ := json.Marshal(map[string]any{"mode": b["mode"]})
+		fallbackJSON, _ := json.Marshal(map[string]any{"behavior": b["fallback"]})
+		for _, useRaw := range usedBy {
+			use, ok := useRaw.(map[string]any)
+			if !ok {
+				continue
+			}
+			skillKey, _ := use["skill"].(string)
+			profile, _ := use["profile"].(string)
+			roleSkillID := skillIDBySourceKey[skillKey]
+			if skillKey == "" || !roleSkillID.Valid {
+				summary.Diagnostics = append(summary.Diagnostics, ScanDiagnostic{
+					Severity: "error", Code: "binding_missing_skill",
+					Message: fmt.Sprintf("capability %s consumer skill %s is not installed", capKey, skillKey),
+				})
+				continue
+			}
+			if _, err := qtx.CreateAgentCapabilityBinding(ctx, db.CreateAgentCapabilityBindingParams{
+				WorkspaceID: input.WorkspaceID, AgentID: agentID, RoleSkillID: roleSkillID,
+				CapabilityID: capID, SourceID: input.SourceID, Profile: profile,
+				VersionRequirement: versionReq, Required: required,
+				Permissions: permsJSON, Fallback: fallbackJSON,
+				SourceSnapshotID: pgtype.UUID{Bytes: input.SnapshotID.Bytes, Valid: true},
+			}); err != nil {
+				summary.Diagnostics = append(summary.Diagnostics, ScanDiagnostic{
+					Severity: "warning", Code: "binding_create_failed",
+					Message: fmt.Sprintf("capability %s binding failed for skill %s: %v", capKey, skillKey, err),
+				})
+				continue
+			}
+			summary.Bindings = append(summary.Bindings, AgentSourceChange{
+				Key: capKey, Action: "create",
+			})
+		}
 	}
 }
 
@@ -615,6 +698,9 @@ func missionOf(role map[string]any) string {
 }
 
 func instructionsOf(role map[string]any) string {
+	if content, ok := role["instructions_content"].(string); ok && content != "" {
+		return content
+	}
 	if m, ok := role["mission"].(string); ok && m != "" {
 		return m
 	}
@@ -622,6 +708,17 @@ func instructionsOf(role map[string]any) string {
 		return t
 	}
 	return ""
+}
+
+func personaOf(role map[string]any) string {
+	content, _ := role["persona_content"].(string)
+	return content
+}
+
+func roleImportHash(role map[string]any) string {
+	body, _ := json.Marshal(role)
+	sum := sha256.Sum256(body)
+	return "sha256:" + hex.EncodeToString(sum[:])
 }
 
 func mcpConfigOf(role map[string]any, _ pgtype.UUID) []byte {
@@ -638,13 +735,6 @@ func truncate(s string, n int) string {
 		return s
 	}
 	return s[:n]
-}
-
-func anyValue(m map[string]pgtype.UUID) (pgtype.UUID, bool) {
-	for _, v := range m {
-		return v, true
-	}
-	return pgtype.UUID{}, false
 }
 
 func mergeEnvSummary(a, b AgentSourceEnvApply) AgentSourceEnvApply {

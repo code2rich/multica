@@ -70,6 +70,35 @@ export function useInitiateAgentSourceScan(wsId: string) {
 }
 
 /**
+ * Apply a snapshot atomically. Creates/updates agents, skills, capabilities,
+ * bindings, and encrypted env values in one transaction.
+ */
+export function useApplyAgentSource(wsId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      sourceId,
+      snapshotId,
+      envMergeMode,
+    }: {
+      sourceId: string;
+      snapshotId: string;
+      envMergeMode?: string;
+    }) =>
+      api.applyAgentSource(sourceId, {
+        snapshot_id: snapshotId,
+        env_merge_mode: envMergeMode ?? "source-authoritative",
+      }),
+    onSettled: (_data, _err, { sourceId }) => {
+      qc.invalidateQueries({ queryKey: agentSourceKeys.list(wsId) });
+      qc.invalidateQueries({
+        queryKey: agentSourceKeys.snapshots(wsId, sourceId),
+      });
+    },
+  });
+}
+
+/**
  * Poll an in-flight scan until it reaches a terminal status. Terminal statuses
  * are completed / failed / timeout. Returns the latest request record.
  */
