@@ -139,6 +139,13 @@ export type {
   RedeemSlackBindingTokenResponse,
 } from "./slack";
 export type {
+  WechatInstallation,
+  ListWechatInstallationsResponse,
+  BeginWechatInstallResponse,
+  WechatInstallStatusResponse,
+  RedeemWechatBindingTokenResponse,
+} from "./wechat";
+export type {
   Autopilot,
   AutopilotStatus,
   AutopilotExecutionMode,
