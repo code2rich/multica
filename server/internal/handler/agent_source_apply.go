@@ -289,12 +289,14 @@ func applyRoles(ctx context.Context, qtx *db.Queries, h *Handler, input ApplySna
 		} else {
 			// Create a minimal agent; detailed config lands in UpdateAgent.
 			created, cerr := qtx.CreateAgent(ctx, db.CreateAgentParams{
-				WorkspaceID:   input.WorkspaceID,
-				Name:          displayName,
-				Description:   truncate(missionOf(role), 255),
-				Visibility:    "workspace",
+				WorkspaceID:    input.WorkspaceID,
+				Name:           displayName,
+				Description:    truncate(missionOf(role), 255),
+				RuntimeMode:    "local",
+				RuntimeConfig:  []byte("{}"),
+				Visibility:     "workspace",
 				PermissionMode: "private",
-				Instructions:  instructionsOf(role),
+				Instructions:   instructionsOf(role),
 			})
 			if cerr != nil {
 				return fmt.Errorf("create agent for role %s: %w", roleID, cerr)

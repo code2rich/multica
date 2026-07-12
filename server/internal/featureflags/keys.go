@@ -23,6 +23,7 @@ const (
 
 var frontendPublicFlags = []string{
 	ComposioMCPApps,
+	AgentWakerDirectorySync,
 }
 
 func ComposioMCPAppsEnabled(ctx context.Context, flags *featureflag.Service) bool {
