@@ -69,6 +69,40 @@ export const agentTasksKeys = {
     [...agentTasksKeys.all(wsId), agentId] as const,
 };
 
+export const workspaceTaskRunsKeys = {
+  all: (wsId: string) => ["workspaces", wsId, "workspace-task-runs"] as const,
+  list: (wsId: string, filters?: { status?: string; agentId?: string }) =>
+    [
+      ...workspaceTaskRunsKeys.all(wsId),
+      "list",
+      filters?.status ?? "all",
+      filters?.agentId ?? "all",
+    ] as const,
+};
+
+// Workspace-wide task run history for the global call-chain page. One fetch
+// per (workspace, status, agent) filter combination. WS task lifecycle events
+// invalidate this via the task-prefix path in useRealtimeSync, so the list
+// stays current without a refetch on focus; the staleTime is a safety net.
+export function workspaceTaskRunsOptions(
+  wsId: string,
+  filters?: { status?: string; agentId?: string; limit?: number; offset?: number },
+) {
+  return queryOptions({
+    queryKey: workspaceTaskRunsKeys.list(wsId, filters),
+    queryFn: () =>
+      api.listWorkspaceTaskRuns({
+        status: filters?.status,
+        agentId: filters?.agentId,
+        limit: filters?.limit,
+        offset: filters?.offset,
+      }),
+    staleTime: 30 * 1000,
+    gcTime: 5 * 60 * 1000,
+    refetchOnWindowFocus: true,
+  });
+}
+
 // All tasks for a single agent (the agent detail page consumer). Powers both
 // the inspector's 7-day throughput stats and the Tasks tab list — shared so
 // they don't fetch twice. WS task events invalidate this via the existing

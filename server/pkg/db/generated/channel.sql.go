@@ -1305,26 +1305,6 @@ func (q *Queries) SetChannelInstallationStatus(ctx context.Context, arg SetChann
 	return err
 }
 
-const updateChannelChatSessionBindingReplyTarget = `-- name: UpdateChannelChatSessionBindingReplyTarget :exec
-UPDATE channel_chat_session_binding
-SET last_message_id = $2,
-    last_thread_id  = $3
-WHERE chat_session_id = $1
-`
-
-type UpdateChannelChatSessionBindingReplyTargetParams struct {
-	ChatSessionID pgtype.UUID `json:"chat_session_id"`
-	LastMessageID pgtype.Text `json:"last_message_id"`
-	LastThreadID  pgtype.Text `json:"last_thread_id"`
-}
-
-// Records the most recent inbound trigger message + thread so the decoupled
-// outbound patcher can thread its reply back into the originating topic.
-func (q *Queries) UpdateChannelChatSessionBindingReplyTarget(ctx context.Context, arg UpdateChannelChatSessionBindingReplyTargetParams) error {
-	_, err := q.db.Exec(ctx, updateChannelChatSessionBindingReplyTarget, arg.ChatSessionID, arg.LastMessageID, arg.LastThreadID)
-	return err
-}
-
 const updateChannelChatSessionBindingConfig = `-- name: UpdateChannelChatSessionBindingConfig :exec
 UPDATE channel_chat_session_binding
 SET config = $2
@@ -1343,6 +1323,26 @@ type UpdateChannelChatSessionBindingConfigParams struct {
 // so other adapters with similar per-conversation state can reuse it.
 func (q *Queries) UpdateChannelChatSessionBindingConfig(ctx context.Context, arg UpdateChannelChatSessionBindingConfigParams) error {
 	_, err := q.db.Exec(ctx, updateChannelChatSessionBindingConfig, arg.ChatSessionID, arg.Config)
+	return err
+}
+
+const updateChannelChatSessionBindingReplyTarget = `-- name: UpdateChannelChatSessionBindingReplyTarget :exec
+UPDATE channel_chat_session_binding
+SET last_message_id = $2,
+    last_thread_id  = $3
+WHERE chat_session_id = $1
+`
+
+type UpdateChannelChatSessionBindingReplyTargetParams struct {
+	ChatSessionID pgtype.UUID `json:"chat_session_id"`
+	LastMessageID pgtype.Text `json:"last_message_id"`
+	LastThreadID  pgtype.Text `json:"last_thread_id"`
+}
+
+// Records the most recent inbound trigger message + thread so the decoupled
+// outbound patcher can thread its reply back into the originating topic.
+func (q *Queries) UpdateChannelChatSessionBindingReplyTarget(ctx context.Context, arg UpdateChannelChatSessionBindingReplyTargetParams) error {
+	_, err := q.db.Exec(ctx, updateChannelChatSessionBindingReplyTarget, arg.ChatSessionID, arg.LastMessageID, arg.LastThreadID)
 	return err
 }
 

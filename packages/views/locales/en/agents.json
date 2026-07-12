@@ -214,6 +214,7 @@
   "tabs": {
     "activity": "Activity",
     "tasks": "Tasks",
+    "runs": "Runs",
     "instructions": "Instructions",
     "skills": "Skills",
     "environment": "Environment",
@@ -494,6 +495,21 @@
       "started_prefix": "Started {{when}}",
       "dispatched_prefix": "Dispatched {{when}}",
       "queued_prefix": "Queued {{when}}"
+    },
+    "runs": {
+      "section_title": "Run history",
+      "subtitle_empty": "No runs yet",
+      "subtitle_progress": "{{shown}} of {{total}}",
+      "subtitle_latest_one": "{{count}} run",
+      "subtitle_latest_other": "{{count}} runs",
+      "empty": "This agent hasn't run anything yet.",
+      "show_more": "Show more →",
+      "transcript_tooltip": "View call chain",
+      "open_full_page": "Open full history",
+      "page_title": "Run history",
+      "filter_all": "All",
+      "filter_status": "Status",
+      "filter_agent": "Agent"
     }
   },
   "char_counter": {

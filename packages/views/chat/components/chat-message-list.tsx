@@ -1,8 +1,8 @@
 "use client";
 
-import { memo, useCallback, useMemo, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Virtuoso, type Components } from "react-virtuoso";
 import { cn } from "@multica/ui/lib/utils";
 import { Skeleton } from "@multica/ui/components/ui/skeleton";
@@ -19,7 +19,13 @@ import {
 } from "@multica/ui/components/ui/tooltip";
 import { ChevronRight, ChevronDown, Brain, AlertCircle, AlertTriangle, Copy } from "lucide-react";
 import { useScrollFade } from "@multica/ui/hooks/use-scroll-fade";
-import { isTaskMessageTaskId, taskMessagesOptions } from "@multica/core/chat/queries";
+import {
+  chatKeys,
+  isTaskMessageTaskId,
+  mergeTaskMessagesBySeq,
+  taskMessagesOptions,
+} from "@multica/core/chat/queries";
+import { api } from "@multica/core/api";
 import { MemoizedMarkdown } from "@multica/views/common/markdown";
 import { copyText } from "@multica/ui/lib/clipboard";
 import { AttachmentList } from "../../issues/components/comment-card";
@@ -303,6 +309,33 @@ function AssistantMessage({
     () => buildTimeline(taskMessages ?? []),
     [taskMessages],
   );
+
+  // Backfill on the cold path. `taskMessagesOptions` is `staleTime: Infinity`,
+  // so React Query never auto-refetches — a page reload, a cross-device view,
+  // or a WS `task:message` gap during the run leaves this cache empty or with
+  // holes. This mirrors the LiveTranscriptDialog backfill: fetch once when the
+  // cache is empty and merge by seq so any concurrent WS append survives.
+  const queryClient = useQueryClient();
+  useEffect(() => {
+    if (!canFetchTaskMessages) return;
+    if (taskMessages != null && taskMessages.length > 0) return;
+    let cancelled = false;
+    api
+      .listTaskMessages(taskId!)
+      .then((msgs) => {
+        if (cancelled) return;
+        queryClient.setQueryData<TaskMessagePayload[]>(
+          chatKeys.taskMessages(taskId!),
+          (old = []) => mergeTaskMessagesBySeq(old, msgs),
+        );
+      })
+      .catch((err) => {
+        console.error(err);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [taskId, canFetchTaskMessages, taskMessages, queryClient]);
 
   // Failure bubble path: when the server's FailTask wrote a failure
   // chat_message (failure_reason set), render a destructive bubble with the

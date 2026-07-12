@@ -198,6 +198,7 @@
   "tabs": {
     "activity": "アクティビティ",
     "tasks": "タスク",
+    "runs": "実行履歴",
     "instructions": "指示",
     "skills": "スキル",
     "environment": "環境",
@@ -472,6 +473,20 @@
       "started_prefix": "{{when}} に開始",
       "dispatched_prefix": "{{when}} にディスパッチ",
       "queued_prefix": "{{when}} に待機開始"
+    },
+    "runs": {
+      "section_title": "実行履歴",
+      "subtitle_empty": "実行履歴なし",
+      "subtitle_progress": "{{total}}件中 {{shown}}",
+      "subtitle_latest_other": "{{count}}件の実行",
+      "empty": "まだ実行履歴がありません。",
+      "show_more": "もっと見る →",
+      "transcript_tooltip": "呼び出しチェーンを表示",
+      "open_full_page": "全履歴を開く",
+      "page_title": "実行履歴",
+      "filter_all": "すべて",
+      "filter_status": "ステータス",
+      "filter_agent": "エージェント"
     }
   },
   "char_counter": {

@@ -72,7 +72,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@multica/ui/components/ui/tooltip";
-import { useNavigation, useRowLink } from "../../navigation";
+import { AppLink, useNavigation, useRowLink } from "../../navigation";
 import { ActorAvatar } from "../../common/actor-avatar";
 import { PageHeader } from "../../layout/page-header";
 import { availabilityConfig } from "../presence";
@@ -193,6 +193,7 @@ function PageHeaderBar({
   onCreate: () => void;
 }) {
   const { t } = useT("agents");
+  const paths = useWorkspacePaths();
   return (
     <PageHeader className="justify-between px-5">
       <div className="flex items-center gap-2">
@@ -214,6 +215,12 @@ function PageHeaderBar({
             {t(($) => $.page.learn_more)}
           </a>
         </p>
+        <AppLink
+          href={paths.runs()}
+          className="ml-1 hidden items-center gap-1 rounded text-xs text-muted-foreground underline decoration-muted-foreground/30 underline-offset-4 transition-colors hover:text-foreground md:inline-flex"
+        >
+          {t(($) => $.tab_body.runs.page_title)}
+        </AppLink>
       </div>
       {/* Quiet chrome button (outline, icon-only below md) — primary is
           reserved for the empty state's CTA. */}

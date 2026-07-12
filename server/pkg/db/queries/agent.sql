@@ -1042,3 +1042,17 @@ SET status = CASE WHEN EXISTS (
     updated_at = now()
 WHERE a.id = $1
 RETURNING *;
+
+-- name: ListWorkspaceTaskRuns :many
+-- Workspace-wide task run history for the global call-chain page. JOINs agent
+-- because agent_task_queue has no workspace_id column. Optional status / agent
+-- filters narrow the set (NULL = no filter on that axis). Capped by
+-- LIMIT/OFFSET for paging; defaults supplied by the handler.
+SELECT atq.* FROM agent_task_queue atq
+JOIN agent a ON a.id = atq.agent_id
+WHERE a.workspace_id = $1
+  AND (sqlc.narg('status_filter')::text IS NULL OR atq.status = sqlc.narg('status_filter'))
+  AND (sqlc.narg('agent_filter')::uuid IS NULL OR atq.agent_id = sqlc.narg('agent_filter'))
+ORDER BY atq.created_at DESC
+LIMIT sqlc.narg('row_limit') OFFSET sqlc.narg('row_offset');
+

@@ -206,6 +206,7 @@
   "tabs": {
     "activity": "활동",
     "tasks": "작업",
+    "runs": "실행 기록",
     "instructions": "지침",
     "skills": "스킬",
     "environment": "환경",
@@ -480,6 +481,20 @@
       "started_prefix": "{{when}} 시작됨",
       "dispatched_prefix": "{{when}} 디스패치됨",
       "queued_prefix": "{{when}} 대기 시작"
+    },
+    "runs": {
+      "section_title": "실행 기록",
+      "subtitle_empty": "실행 기록 없음",
+      "subtitle_progress": "{{total}}건 중 {{shown}}",
+      "subtitle_latest_other": "{{count}}회 실행",
+      "empty": "아직 실행된 기록이 없습니다.",
+      "show_more": "더 보기 →",
+      "transcript_tooltip": "호출 체인 보기",
+      "open_full_page": "전체 기록 열기",
+      "page_title": "실행 기록",
+      "filter_all": "전체",
+      "filter_status": "상태",
+      "filter_agent": "에이전트"
     }
   },
   "char_counter": {

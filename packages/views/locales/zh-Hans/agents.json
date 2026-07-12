@@ -206,6 +206,7 @@
   "tabs": {
     "activity": "动态",
     "tasks": "Tasks",
+    "runs": "运行历史",
     "instructions": "指令",
     "skills": "Skills",
     "environment": "环境变量",
@@ -480,6 +481,20 @@
       "started_prefix": "{{when}}启动",
       "dispatched_prefix": "{{when}}派发",
       "queued_prefix": "{{when}}排队"
+    },
+    "runs": {
+      "section_title": "运行历史",
+      "subtitle_empty": "暂无运行",
+      "subtitle_progress": "{{shown}} / {{total}}",
+      "subtitle_latest_other": "{{count}} 次运行",
+      "empty": "该智能体还没有运行记录。",
+      "show_more": "显示更多 →",
+      "transcript_tooltip": "查看调用链路",
+      "open_full_page": "打开完整历史",
+      "page_title": "运行历史",
+      "filter_all": "全部",
+      "filter_status": "状态",
+      "filter_agent": "智能体"
     }
   },
   "char_counter": {
