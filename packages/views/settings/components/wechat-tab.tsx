@@ -244,18 +244,46 @@ export function WechatAgentBindButton({
   existing?: WechatInstallation;
 }) {
   const { t } = useT("settings");
+  const qc = useQueryClient();
   const [open, setOpen] = useState(false);
+  const [disconnectOpen, setDisconnectOpen] = useState(false);
+  const [disconnecting, setDisconnecting] = useState(false);
+
+  async function handleDisconnect() {
+    if (!existing || disconnecting) return;
+    setDisconnecting(true);
+    try {
+      await api.deleteWechatInstallation(wsId, existing.id);
+      await qc.invalidateQueries({ queryKey: wechatKeys.installations(wsId) });
+      toast.success(t(($) => $.wechat.toast_disconnected));
+      setDisconnectOpen(false);
+    } catch (e) {
+      toast.error(
+        e instanceof Error ? e.message : t(($) => $.wechat.toast_disconnect_failed),
+      );
+    } finally {
+      setDisconnecting(false);
+    }
+  }
 
   // When already connected, show the connected badge alongside a "rebind"
-  // button so the user can scan a new WeChat to replace the current bot. The
-  // backend UpsertChannelInstallation overwrites the same (workspace, agent,
-  // channel_type) row, so the new bot_token replaces the old one in place.
+  // button and a "disconnect" button — mirroring Lark's connected badge which
+  // has inline Manage / Disconnect actions. Disconnect is a soft revoke
+  // (status→revoked); the bot stops receiving messages immediately.
   if (existing && existing.status === "active") {
     return (
       <>
         <WechatAgentBotConnectedBadge installation={existing} />
         <Button variant="outline" size="sm" onClick={() => setOpen(true)}>
           {t(($) => $.wechat.rebind_button)}
+        </Button>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => setDisconnectOpen(true)}
+        >
+          <Trash2 className="h-3 w-3" />
+          {t(($) => $.wechat.disconnect)}
         </Button>
         {open && (
           <WechatInstallDialog
@@ -265,6 +293,33 @@ export function WechatAgentBindButton({
             onClose={() => setOpen(false)}
           />
         )}
+        <AlertDialog
+          open={disconnectOpen}
+          onOpenChange={(v) => {
+            if (!v && !disconnecting) setDisconnectOpen(false);
+          }}
+        >
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>
+                {t(($) => $.wechat.disconnect_confirm_title)}
+              </AlertDialogTitle>
+              <AlertDialogDescription>
+                {t(($) => $.wechat.disconnect_confirm_description)}
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel disabled={disconnecting}>
+                {t(($) => $.wechat.disconnect_confirm_cancel)}
+              </AlertDialogCancel>
+              <AlertDialogAction onClick={handleDisconnect} disabled={disconnecting}>
+                {disconnecting
+                  ? t(($) => $.wechat.disconnecting)
+                  : t(($) => $.wechat.disconnect)}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </>
     );
   }
