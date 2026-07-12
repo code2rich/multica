@@ -73,6 +73,11 @@ type installQueries interface {
 	ListChannelInstallationsByWorkspace(ctx context.Context, arg db.ListChannelInstallationsByWorkspaceParams) ([]db.ChannelInstallation, error)
 	GetChannelInstallationInWorkspace(ctx context.Context, arg db.GetChannelInstallationInWorkspaceParams) (db.ChannelInstallation, error)
 	SetChannelInstallationStatus(ctx context.Context, arg db.SetChannelInstallationStatusParams) error
+	// CreateChannelUserBinding auto-binds the scanner's WeChat id to the
+	// installer's Multica account at install time ("scanner = owner"), so the
+	// owner's own messages skip the binding-prompt flow. Idempotent via ON
+	// CONFLICT (re-install / re-scan just no-ops).
+	CreateChannelUserBinding(ctx context.Context, arg db.CreateChannelUserBindingParams) (db.ChannelUserBinding, error)
 }
 
 // dbInstallQueries adapts *db.Queries to installQueries (the generated WithTx
@@ -357,6 +362,25 @@ func (s *RegistrationService) completeInstall(ctx context.Context, sess *registr
 		}
 		s.failSession(sess, reason, err.Error())
 		return
+	}
+	// "Scanner = owner": auto-bind the scanning WeChat account to the installer's
+	// Multica account so the owner's own messages skip the binding-prompt flow
+	// (no need to click a bind link on first message). The iLink confirm response
+	// carries ilink_user_id = the WeChat id that scanned. Idempotent via ON
+	// CONFLICT; a failure here is logged but does not undo the install (the user
+	// can still bind via the normal prompt as a fallback).
+	if login.IlinkUserID != "" && sess.installerID.Valid {
+		if _, berr := s.q.CreateChannelUserBinding(ctx, db.CreateChannelUserBindingParams{
+			WorkspaceID:    sess.workspaceID,
+			MulticaUserID:  sess.installerID,
+			InstallationID: inst.ID,
+			ChannelType:    string(TypeWechat),
+			ChannelUserID:  login.IlinkUserID,
+			Config:         []byte(`{}`),
+		}); berr != nil {
+			s.logger.WarnContext(ctx, "wechat install: auto-bind scanner failed; user will see binding prompt",
+				"installation_id", inst.ID, "wechat_user_id", login.IlinkUserID, "error", berr)
+		}
 	}
 	s.mu.Lock()
 	sess.status = RegistrationStatusSuccess

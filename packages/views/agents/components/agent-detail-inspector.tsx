@@ -46,6 +46,10 @@ import { ThinkingPropRow } from "./inspector/thinking-prop-row";
 import { AccessPicker } from "./inspector/access-picker";
 import { LarkAgentBindButton } from "../../settings/components/lark-tab";
 import { SlackAgentBindButton } from "../../settings/components/slack-tab";
+import { WechatAgentBindButton } from "../../settings/components/wechat-tab";
+import { wechatInstallationsOptions } from "@multica/core/wechat";
+import { useWorkspaceId } from "@multica/core/hooks";
+import { useQuery } from "@tanstack/react-query";
 
 interface InspectorProps {
   agent: Agent;
@@ -103,6 +107,18 @@ export function AgentDetailInspector({
   const timeAgo = useTimeAgo();
   const update = (data: Record<string, unknown>) => onUpdate(agent.id, data);
   const isOnline = runtime?.status === "online";
+  const wsId = useWorkspaceId();
+  // WeChat installation listing — needed to pass the existing installation to
+  // WechatAgentBindButton so it can show connected / rebind state. Lark and
+  // Slack buttons query internally; WeChat's button takes wsId + existing as
+  // props (see wechat-tab.tsx).
+  const { data: wechatListing } = useQuery({
+    ...wechatInstallationsOptions(wsId),
+    enabled: !!wsId,
+  });
+  const wechatExisting = wechatListing?.installations.find(
+    (inst) => inst.agent_id === agent.id && inst.status === "active",
+  );
 
   return (
     <aside className="flex w-full flex-col rounded-lg border bg-background md:h-full md:min-h-0 md:overflow-y-auto">
@@ -251,6 +267,12 @@ export function AgentDetailInspector({
               agentId={agent.id}
               agentName={agent.name}
               onShowConnectedDetails={onShowIntegrations}
+            />
+            <WechatAgentBindButton
+              wsId={wsId}
+              agentId={agent.id}
+              agentName={agent.name}
+              existing={wechatExisting}
             />
           </div>
         </div>
