@@ -50,6 +50,7 @@ type Agent struct {
 	PermissionMode     string      `json:"permission_mode"`
 	ProfileHtml        pgtype.Text `json:"profile_html"`
 	CustomEnvEncrypted []byte      `json:"custom_env_encrypted"`
+	InstructionsZh     string      `json:"instructions_zh"`
 }
 
 type AgentCapabilityBinding struct {
@@ -860,15 +861,16 @@ type SharedCapabilityVersionFile struct {
 }
 
 type Skill struct {
-	ID          pgtype.UUID        `json:"id"`
-	WorkspaceID pgtype.UUID        `json:"workspace_id"`
-	Name        string             `json:"name"`
-	Description string             `json:"description"`
-	Content     string             `json:"content"`
-	Config      []byte             `json:"config"`
-	CreatedBy   pgtype.UUID        `json:"created_by"`
-	CreatedAt   pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt   pgtype.Timestamptz `json:"updated_at"`
+	ID            pgtype.UUID        `json:"id"`
+	WorkspaceID   pgtype.UUID        `json:"workspace_id"`
+	Name          string             `json:"name"`
+	Description   string             `json:"description"`
+	Content       string             `json:"content"`
+	Config        []byte             `json:"config"`
+	CreatedBy     pgtype.UUID        `json:"created_by"`
+	CreatedAt     pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt     pgtype.Timestamptz `json:"updated_at"`
+	DescriptionZh string             `json:"description_zh"`
 }
 
 type SkillFile struct {

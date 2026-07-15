@@ -692,11 +692,7 @@ func (h *Handler) ListAgentSourceSnapshots(w http.ResponseWriter, r *http.Reques
 		writeError(w, http.StatusInternalServerError, "failed to list snapshots: "+err.Error())
 		return
 	}
-	out := make([]AgentSourceSnapshotResponse, 0, len(snaps))
-	for _, s := range snaps {
-		out = append(out, agentSourceSnapshotToResponse(s))
-	}
-	writeJSON(w, http.StatusOK, out)
+	writeJSON(w, http.StatusOK, agentSourceSnapshotListToResponse(snaps))
 }
 
 func (h *Handler) GetAgentSourceSnapshot(w http.ResponseWriter, r *http.Request) {
@@ -772,9 +768,12 @@ func agentSourceToResponse(s db.AgentSource) AgentSourceResponse {
 func agentSourceSnapshotToResponse(s db.AgentSourceSnapshot) AgentSourceSnapshotResponse {
 	var schema map[string]any
 	_ = json.Unmarshal(s.SchemaVersions, &schema)
-	var diags []ScanDiagnostic
+	diags := []ScanDiagnostic{}
 	if len(s.Diagnostics) > 0 {
 		_ = json.Unmarshal(s.Diagnostics, &diags)
+	}
+	if diags == nil {
+		diags = []ScanDiagnostic{}
 	}
 	resp := AgentSourceSnapshotResponse{
 		ID:             uuidToString(s.ID),
@@ -797,6 +796,27 @@ func agentSourceSnapshotToResponse(s db.AgentSourceSnapshot) AgentSourceSnapshot
 		resp.LockYAML = s.LockYaml.String
 	}
 	return resp
+}
+
+// agentSourceSnapshotListToResponse keeps the snapshot history lightweight.
+// A manifest contains the complete imported role and skill bodies and can be
+// several megabytes. Returning it for every historical snapshot made the
+// settings page download and parse tens of megabytes before it could render
+// the Apply button. The list only needs the newest actionable preview's
+// manifest; callers can use GetAgentSourceSnapshot for any historical body.
+func agentSourceSnapshotListToResponse(snaps []db.AgentSourceSnapshot) []AgentSourceSnapshotResponse {
+	out := make([]AgentSourceSnapshotResponse, 0, len(snaps))
+	previewManifestIncluded := false
+	for _, s := range snaps {
+		resp := agentSourceSnapshotToResponse(s)
+		if s.Status == "preview" && !previewManifestIncluded {
+			previewManifestIncluded = true
+		} else {
+			resp.Manifest = json.RawMessage("null")
+		}
+		out = append(out, resp)
+	}
+	return out
 }
 
 // canonicalPathHash returns a stable, non-reversible hash of the absolute path

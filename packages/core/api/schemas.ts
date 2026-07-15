@@ -1223,7 +1223,8 @@ export const AgentSourceSnapshotSchema = z
           })
           .loose(),
       )
-      .default([]),
+      .nullish()
+      .transform((value) => value ?? []),
     lock_yaml: z.string().optional(),
     scanner_version: z.string().optional(),
     created_at: z.string(),
@@ -1264,4 +1265,3 @@ export const AgentWakerScanRequestSchema = z
   .loose();
 
 export const EMPTY_AGENTWAKER_SCAN_REQUEST = null;
-

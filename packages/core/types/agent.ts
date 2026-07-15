@@ -302,6 +302,8 @@ export interface Agent {
   name: string;
   description: string;
   instructions: string;
+  /** Localized presentation copy. Runtime execution always uses `instructions`. */
+  instructions_zh?: string;
   avatar_url: string | null;
   runtime_mode: AgentRuntimeMode;
   runtime_config: Record<string, unknown>;
@@ -415,6 +417,7 @@ export interface AgentSkillSummary {
   id: string;
   name: string;
   description: string;
+  description_zh?: string;
 }
 
 export interface CreateAgentRequest {
@@ -643,6 +646,7 @@ export interface SkillSummary {
   workspace_id: string;
   name: string;
   description: string;
+  description_zh?: string;
   config: Record<string, unknown>;
   created_by: string | null;
   created_at: string;
@@ -666,6 +670,7 @@ export interface SkillFile {
 export interface CreateSkillRequest {
   name: string;
   description?: string;
+  description_zh?: string;
   content?: string;
   config?: Record<string, unknown>;
   files?: { path: string; content: string }[];
@@ -674,6 +679,7 @@ export interface CreateSkillRequest {
 export interface UpdateSkillRequest {
   name?: string;
   description?: string;
+  description_zh?: string;
   content?: string;
   config?: Record<string, unknown>;
   files?: { path: string; content: string }[];

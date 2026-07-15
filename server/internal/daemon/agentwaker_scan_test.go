@@ -132,8 +132,29 @@ func TestScanDirectory_DiscoversAllContracts(t *testing.T) {
 			t.Errorf("skill %s missing SKILL.md content", skill["id"])
 		}
 	}
+	var trendResearch map[string]any
+	for _, scannedSkill := range researchSkills {
+		if scannedSkill["id"] == "trend-research" {
+			trendResearch = scannedSkill
+		}
+	}
+	if trendResearch == nil {
+		t.Fatal("trend-research skill not discovered")
+	}
+	if got := trendResearch["description"]; got != "Collect platform and audience signals for a trend evaluation." {
+		t.Errorf("English skill description mismatch: %q", got)
+	}
+	if got := trendResearch["description_zh"]; got != "收集平台与受众信号，形成可验证的趋势评估。" {
+		t.Errorf("Chinese skill description mismatch: %q", got)
+	}
 	if content, _ := research["instructions_content"].(string); content == "" {
 		t.Error("research-operator missing agent-detail.en.md content")
+	}
+	if content, _ := research["instructions_content_zh"].(string); !strings.Contains(content, "负责收集平台与受众信号") {
+		t.Errorf("research-operator missing Chinese display instructions: %q", content)
+	}
+	if description, _ := research["description_zh"].(string); description != "收集平台与受众信号，形成可验证的趋势判断与视觉资产。" {
+		t.Errorf("research-operator Chinese description mismatch: %q", description)
 	}
 	if content, _ := research["persona_content"].(string); content == "" {
 		t.Error("research-operator missing agent-persona.html content")

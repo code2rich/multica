@@ -21,14 +21,14 @@ INSERT INTO agent (
     workspace_id, name, description, avatar_url, runtime_mode,
     runtime_config, runtime_id, visibility, max_concurrent_tasks, owner_id,
     instructions, custom_env, custom_args, mcp_config, model, thinking_level,
-    composio_toolkit_allowlist, permission_mode, profile_html
+    composio_toolkit_allowlist, permission_mode, profile_html, instructions_zh
 ) VALUES (
     $1, $2, $3, $4, $5,
     $6, $7, $8, $9, $10,
     $11, $12, $13, $14, $15, $16,
     sqlc.narg('composio_toolkit_allowlist')::text[],
     COALESCE(sqlc.narg('permission_mode'), 'private'),
-    sqlc.narg('profile_html')
+    sqlc.narg('profile_html'), COALESCE(sqlc.narg('instructions_zh'), '')
 )
 RETURNING *;
 
@@ -51,6 +51,7 @@ UPDATE agent SET
     status = COALESCE(sqlc.narg('status'), status),
     max_concurrent_tasks = COALESCE(sqlc.narg('max_concurrent_tasks'), max_concurrent_tasks),
     instructions = COALESCE(sqlc.narg('instructions'), instructions),
+    instructions_zh = COALESCE(sqlc.narg('instructions_zh'), instructions_zh),
     custom_env = COALESCE(sqlc.narg('custom_env'), custom_env),
     custom_args = COALESCE(sqlc.narg('custom_args'), custom_args),
     mcp_config = COALESCE(sqlc.narg('mcp_config'), mcp_config),
@@ -1055,4 +1056,3 @@ WHERE a.workspace_id = $1
   AND (sqlc.narg('agent_filter')::uuid IS NULL OR atq.agent_id = sqlc.narg('agent_filter'))
 ORDER BY atq.created_at DESC
 LIMIT sqlc.narg('row_limit') OFFSET sqlc.narg('row_offset');
-

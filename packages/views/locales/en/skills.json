@@ -108,6 +108,9 @@
     "name_placeholder": "skill-name",
     "description_label": "Description",
     "description_placeholder": "One sentence describing when an agent should use this skill…",
+    "language_toggle": "Skill display language",
+    "localized_display_note": "Chinese presentation · Runtime loading still uses SKILL.md.",
+    "execution_source_note": "Execution source · Runtime loads this description and SKILL.md.",
     "subline": {
       "origin_runtime_named": "Local runtime · {{name}}",
       "origin_runtime_provider": "Local runtime · {{provider}}",

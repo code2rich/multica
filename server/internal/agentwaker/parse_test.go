@@ -163,6 +163,9 @@ display_name: Rita
 skills:
   directory: research-operator-skills/
   meta_entrypoint: research-operator-skills/SKILL.md
+generation:
+  card_title_zh: 调研员
+  card_mission_zh: 收集信号并形成可验证的结论。
 `
 		p, err := ParseProfile([]byte(yaml))
 		if err != nil {
@@ -170,6 +173,9 @@ skills:
 		}
 		if p.ID != "research-operator" || p.Skills.Directory != "research-operator-skills/" {
 			t.Fatalf("unexpected: %+v", p)
+		}
+		if p.Generation.CardMissionZH != "收集信号并形成可验证的结论。" {
+			t.Fatalf("Chinese card mission not parsed: %+v", p.Generation)
 		}
 	})
 	t.Run("missing skills directory", func(t *testing.T) {

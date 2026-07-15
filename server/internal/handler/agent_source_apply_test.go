@@ -11,10 +11,12 @@ func TestSourceManagedAgentCreateParamsPopulateRequiredJSONFields(t *testing.T) 
 	runtimeID := pgtype.UUID{Bytes: [16]byte{2}, Valid: true}
 	ownerID := pgtype.UUID{Bytes: [16]byte{3}, Valid: true}
 	params := sourceManagedAgentCreateParams(workspaceID, runtimeID, ownerID, "Carter", map[string]any{
-		"mission":              "Create durable agents",
-		"instructions_content": "# Full instructions",
-		"persona_content":      "<section>Persona</section>",
-		"mcp":                  map[string]any{"has_servers": false},
+		"mission":                 "Create durable agents",
+		"description_zh":          "从真实意图中唤醒可信的数字同事",
+		"instructions_content":    "# Full instructions",
+		"instructions_content_zh": "# 中文展示指令",
+		"persona_content":         "<section>Persona</section>",
+		"mcp":                     map[string]any{"has_servers": false},
 	})
 
 	if string(params.RuntimeConfig) != "{}" {
@@ -41,8 +43,23 @@ func TestSourceManagedAgentCreateParamsPopulateRequiredJSONFields(t *testing.T) 
 	if params.Instructions != "# Full instructions" {
 		t.Fatalf("full agent-detail content not used: %q", params.Instructions)
 	}
+	if params.InstructionsZh != "# 中文展示指令" {
+		t.Fatalf("Chinese display instructions not populated: %q", params.InstructionsZh)
+	}
+	if params.Description != "从真实意图中唤醒可信的数字同事" {
+		t.Fatalf("Chinese display description not used: %q", params.Description)
+	}
 	if !params.ProfileHtml.Valid || params.ProfileHtml.String != "<section>Persona</section>" {
 		t.Fatalf("persona HTML not populated: %+v", params.ProfileHtml)
+	}
+}
+
+func TestDescriptionFallsBackToMissionAndTruncatesUnicodeSafely(t *testing.T) {
+	if got := descriptionOf(map[string]any{"mission": "English fallback"}); got != "English fallback" {
+		t.Fatalf("mission fallback mismatch: %q", got)
+	}
+	if got := truncate("中文描述", 2); got != "中文" {
+		t.Fatalf("Unicode truncation mismatch: %q", got)
 	}
 }
 
@@ -53,9 +70,12 @@ func TestSourceManagedSkillCreateInputUsesApplyingUser(t *testing.T) {
 		WorkspaceID: workspaceID,
 		OwnerID:     ownerID,
 		SourceID:    pgtype.UUID{Bytes: [16]byte{4}, Valid: true},
-	}, "creator", "creator-skill", "Creator Skill", "sha256:test")
+	}, "creator", "creator-skill", "Creator Skill", "Create agents", "创建角色", "sha256:test")
 
 	if input.WorkspaceID != workspaceID || input.CreatorID != ownerID {
 		t.Fatalf("source skill must retain workspace and applying user: %+v", input)
+	}
+	if input.Description != "Create agents" || input.DescriptionZH != "创建角色" {
+		t.Fatalf("localized skill descriptions not preserved: %+v", input)
 	}
 }

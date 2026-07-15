@@ -7,6 +7,7 @@ import { Checkbox } from "@multica/ui/components/ui/checkbox";
 import { Input } from "@multica/ui/components/ui/input";
 import { cn } from "@multica/ui/lib/utils";
 import { useT } from "../../i18n";
+import { localizedSkillDescription } from "../../i18n/localized-skill-description";
 
 interface SkillPickerListProps {
   /** Skills to show. Callers filter (e.g. exclude already-attached
@@ -58,15 +59,26 @@ export function SkillPickerList({
   noMatchMessage,
   className,
 }: SkillPickerListProps) {
-  const { t } = useT("agents");
+  const { t, i18n } = useT("agents");
   const [query, setQuery] = useState("");
 
   const trimmedQuery = query.trim().toLowerCase();
   const filtered = trimmedQuery
     ? skills.filter((s) => {
         const name = s.name.toLowerCase();
-        const description = s.description?.toLowerCase() ?? "";
-        return name.includes(trimmedQuery) || description.includes(trimmedQuery);
+        const description = localizedSkillDescription(
+          s,
+          i18n.language,
+        ).toLowerCase();
+        const alternateDescription = [s.description, s.description_zh]
+          .filter(Boolean)
+          .join(" ")
+          .toLowerCase();
+        return (
+          name.includes(trimmedQuery) ||
+          description.includes(trimmedQuery) ||
+          alternateDescription.includes(trimmedQuery)
+        );
       })
     : skills;
 
@@ -103,6 +115,10 @@ export function SkillPickerList({
         ) : (
           filtered.map((skill) => {
             const isSelected = selectedIds.has(skill.id);
+            const localizedDescription = localizedSkillDescription(
+              skill,
+              i18n.language,
+            );
             return (
               <button
                 key={skill.id}
@@ -125,9 +141,9 @@ export function SkillPickerList({
                 <FileText className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
                 <div className="min-w-0 flex-1">
                   <div className="truncate text-sm font-medium">{skill.name}</div>
-                  {skill.description ? (
+                  {localizedDescription ? (
                     <div className="truncate text-xs text-muted-foreground">
-                      {skill.description}
+                      {localizedDescription}
                     </div>
                   ) : null}
                 </div>

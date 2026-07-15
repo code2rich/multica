@@ -14,13 +14,14 @@ import {
 import { Button } from "@multica/ui/components/ui/button";
 import { SkillAddDialog } from "../skill-add-dialog";
 import { useT } from "../../../i18n";
+import { localizedSkillDescription } from "../../../i18n/localized-skill-description";
 
 export function SkillsTab({
   agent,
 }: {
   agent: Agent;
 }) {
-  const { t } = useT("agents");
+  const { t, i18n } = useT("agents");
   const qc = useQueryClient();
   const wsId = useWorkspaceId();
   // Same query the SkillAddDialog uses (TanStack Query dedupes by key, so
@@ -89,7 +90,12 @@ export function SkillsTab({
         </div>
       ) : (
         <ul className="space-y-1.5">
-          {agent.skills.map((skill) => (
+          {agent.skills.map((skill) => {
+            const localizedDescription = localizedSkillDescription(
+              skill,
+              i18n.language,
+            );
+            return (
             <li
               key={skill.id}
               className="flex items-center gap-2.5 rounded-md border px-3 py-2"
@@ -97,9 +103,9 @@ export function SkillsTab({
               <FileText className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
               <div className="min-w-0 flex-1">
                 <div className="text-sm font-medium">{skill.name}</div>
-                {skill.description && (
+                {localizedDescription && (
                   <div className="truncate text-xs text-muted-foreground">
-                    {skill.description}
+                    {localizedDescription}
                   </div>
                 )}
               </div>
@@ -113,7 +119,8 @@ export function SkillsTab({
                 <Trash2 className="h-3.5 w-3.5" />
               </Button>
             </li>
-          ))}
+            );
+          })}
         </ul>
       )}
 

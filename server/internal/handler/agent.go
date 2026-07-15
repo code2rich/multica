@@ -34,17 +34,18 @@ import (
 const maxAgentDescriptionLength = 255
 
 type AgentResponse struct {
-	ID            string          `json:"id"`
-	WorkspaceID   string          `json:"workspace_id"`
-	RuntimeID     string          `json:"runtime_id"`
-	Name          string          `json:"name"`
-	Description   string          `json:"description"`
-	Instructions  string          `json:"instructions"`
-	AvatarURL     *string         `json:"avatar_url"`
-	RuntimeMode   string          `json:"runtime_mode"`
-	RuntimeConfig any             `json:"runtime_config"`
-	CustomArgs    []string        `json:"custom_args"`
-	McpConfig     json.RawMessage `json:"mcp_config"`
+	ID             string          `json:"id"`
+	WorkspaceID    string          `json:"workspace_id"`
+	RuntimeID      string          `json:"runtime_id"`
+	Name           string          `json:"name"`
+	Description    string          `json:"description"`
+	Instructions   string          `json:"instructions"`
+	InstructionsZH string          `json:"instructions_zh"`
+	AvatarURL      *string         `json:"avatar_url"`
+	RuntimeMode    string          `json:"runtime_mode"`
+	RuntimeConfig  any             `json:"runtime_config"`
+	CustomArgs     []string        `json:"custom_args"`
+	McpConfig      json.RawMessage `json:"mcp_config"`
 	// custom_env is intentionally NOT serialized on agent resources. The
 	// agent_list/get/create/update/archive/restore responses and WS events
 	// only expose coarse metadata (has_custom_env, custom_env_key_count) so
@@ -161,6 +162,7 @@ func agentToResponse(a db.Agent) AgentResponse {
 		Name:                     a.Name,
 		Description:              a.Description,
 		Instructions:             a.Instructions,
+		InstructionsZH:           a.InstructionsZh,
 		AvatarURL:                textToPtr(a.AvatarUrl),
 		RuntimeMode:              a.RuntimeMode,
 		RuntimeConfig:            rc,
@@ -643,9 +645,10 @@ func (h *Handler) ListAgents(w http.ResponseWriter, r *http.Request) {
 	for _, row := range skillRows {
 		agentID := uuidToString(row.AgentID)
 		skillMap[agentID] = append(skillMap[agentID], AgentSkillSummary{
-			ID:          uuidToString(row.ID),
-			Name:        row.Name,
-			Description: row.Description,
+			ID:            uuidToString(row.ID),
+			Name:          row.Name,
+			Description:   row.Description,
+			DescriptionZH: row.DescriptionZh,
 		})
 	}
 
@@ -1665,9 +1668,10 @@ func (h *Handler) attachAgentSkills(ctx context.Context, resp *AgentResponse, ag
 	out := make([]AgentSkillSummary, len(skills))
 	for i, s := range skills {
 		out[i] = AgentSkillSummary{
-			ID:          uuidToString(s.ID),
-			Name:        s.Name,
-			Description: s.Description,
+			ID:            uuidToString(s.ID),
+			Name:          s.Name,
+			Description:   s.Description,
+			DescriptionZH: s.DescriptionZh,
 		}
 	}
 	resp.Skills = out

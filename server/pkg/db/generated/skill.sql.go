@@ -28,18 +28,19 @@ func (q *Queries) AddAgentSkill(ctx context.Context, arg AddAgentSkillParams) er
 }
 
 const createSkill = `-- name: CreateSkill :one
-INSERT INTO skill (workspace_id, name, description, content, config, created_by)
-VALUES ($1, $2, $3, $4, $5, $6)
-RETURNING id, workspace_id, name, description, content, config, created_by, created_at, updated_at
+INSERT INTO skill (workspace_id, name, description, description_zh, content, config, created_by)
+VALUES ($1, $2, $3, $4, $5, $6, $7)
+RETURNING id, workspace_id, name, description, content, config, created_by, created_at, updated_at, description_zh
 `
 
 type CreateSkillParams struct {
-	WorkspaceID pgtype.UUID `json:"workspace_id"`
-	Name        string      `json:"name"`
-	Description string      `json:"description"`
-	Content     string      `json:"content"`
-	Config      []byte      `json:"config"`
-	CreatedBy   pgtype.UUID `json:"created_by"`
+	WorkspaceID   pgtype.UUID `json:"workspace_id"`
+	Name          string      `json:"name"`
+	Description   string      `json:"description"`
+	DescriptionZh string      `json:"description_zh"`
+	Content       string      `json:"content"`
+	Config        []byte      `json:"config"`
+	CreatedBy     pgtype.UUID `json:"created_by"`
 }
 
 func (q *Queries) CreateSkill(ctx context.Context, arg CreateSkillParams) (Skill, error) {
@@ -47,6 +48,7 @@ func (q *Queries) CreateSkill(ctx context.Context, arg CreateSkillParams) (Skill
 		arg.WorkspaceID,
 		arg.Name,
 		arg.Description,
+		arg.DescriptionZh,
 		arg.Content,
 		arg.Config,
 		arg.CreatedBy,
@@ -62,6 +64,7 @@ func (q *Queries) CreateSkill(ctx context.Context, arg CreateSkillParams) (Skill
 		&i.CreatedBy,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.DescriptionZh,
 	)
 	return i, err
 }
@@ -100,7 +103,7 @@ func (q *Queries) DeleteSkillFilesBySkill(ctx context.Context, skillID pgtype.UU
 }
 
 const getSkill = `-- name: GetSkill :one
-SELECT id, workspace_id, name, description, content, config, created_by, created_at, updated_at FROM skill
+SELECT id, workspace_id, name, description, content, config, created_by, created_at, updated_at, description_zh FROM skill
 WHERE id = $1
 `
 
@@ -117,12 +120,13 @@ func (q *Queries) GetSkill(ctx context.Context, id pgtype.UUID) (Skill, error) {
 		&i.CreatedBy,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.DescriptionZh,
 	)
 	return i, err
 }
 
 const getSkillByWorkspaceAndName = `-- name: GetSkillByWorkspaceAndName :one
-SELECT id, workspace_id, name, description, content, config, created_by, created_at, updated_at FROM skill
+SELECT id, workspace_id, name, description, content, config, created_by, created_at, updated_at, description_zh FROM skill
 WHERE workspace_id = $1 AND name = $2
 `
 
@@ -148,6 +152,7 @@ func (q *Queries) GetSkillByWorkspaceAndName(ctx context.Context, arg GetSkillBy
 		&i.CreatedBy,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.DescriptionZh,
 	)
 	return i, err
 }
@@ -172,7 +177,7 @@ func (q *Queries) GetSkillFile(ctx context.Context, id pgtype.UUID) (SkillFile, 
 }
 
 const getSkillInWorkspace = `-- name: GetSkillInWorkspace :one
-SELECT id, workspace_id, name, description, content, config, created_by, created_at, updated_at FROM skill
+SELECT id, workspace_id, name, description, content, config, created_by, created_at, updated_at, description_zh FROM skill
 WHERE id = $1 AND workspace_id = $2
 `
 
@@ -194,6 +199,7 @@ func (q *Queries) GetSkillInWorkspace(ctx context.Context, arg GetSkillInWorkspa
 		&i.CreatedBy,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.DescriptionZh,
 	)
 	return i, err
 }
@@ -232,7 +238,7 @@ func (q *Queries) ListAgentSkillNamesByAgentIDs(ctx context.Context, agentIds []
 }
 
 const listAgentSkillSummaries = `-- name: ListAgentSkillSummaries :many
-SELECT s.id, s.workspace_id, s.name, s.description, s.config, s.created_by, s.created_at, s.updated_at
+SELECT s.id, s.workspace_id, s.name, s.description, s.description_zh, s.config, s.created_by, s.created_at, s.updated_at
 FROM skill s
 JOIN agent_skill ask ON ask.skill_id = s.id
 WHERE ask.agent_id = $1
@@ -240,14 +246,15 @@ ORDER BY s.name ASC
 `
 
 type ListAgentSkillSummariesRow struct {
-	ID          pgtype.UUID        `json:"id"`
-	WorkspaceID pgtype.UUID        `json:"workspace_id"`
-	Name        string             `json:"name"`
-	Description string             `json:"description"`
-	Config      []byte             `json:"config"`
-	CreatedBy   pgtype.UUID        `json:"created_by"`
-	CreatedAt   pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt   pgtype.Timestamptz `json:"updated_at"`
+	ID            pgtype.UUID        `json:"id"`
+	WorkspaceID   pgtype.UUID        `json:"workspace_id"`
+	Name          string             `json:"name"`
+	Description   string             `json:"description"`
+	DescriptionZh string             `json:"description_zh"`
+	Config        []byte             `json:"config"`
+	CreatedBy     pgtype.UUID        `json:"created_by"`
+	CreatedAt     pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt     pgtype.Timestamptz `json:"updated_at"`
 }
 
 // Summary variant for the agent skills list endpoint — omits `content` for
@@ -266,6 +273,7 @@ func (q *Queries) ListAgentSkillSummaries(ctx context.Context, agentID pgtype.UU
 			&i.WorkspaceID,
 			&i.Name,
 			&i.Description,
+			&i.DescriptionZh,
 			&i.Config,
 			&i.CreatedBy,
 			&i.CreatedAt,
@@ -283,7 +291,7 @@ func (q *Queries) ListAgentSkillSummaries(ctx context.Context, agentID pgtype.UU
 
 const listAgentSkills = `-- name: ListAgentSkills :many
 
-SELECT s.id, s.workspace_id, s.name, s.description, s.content, s.config, s.created_by, s.created_at, s.updated_at FROM skill s
+SELECT s.id, s.workspace_id, s.name, s.description, s.content, s.config, s.created_by, s.created_at, s.updated_at, s.description_zh FROM skill s
 JOIN agent_skill ask ON ask.skill_id = s.id
 WHERE ask.agent_id = $1
 ORDER BY s.name ASC
@@ -309,6 +317,7 @@ func (q *Queries) ListAgentSkills(ctx context.Context, agentID pgtype.UUID) ([]S
 			&i.CreatedBy,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.DescriptionZh,
 		); err != nil {
 			return nil, err
 		}
@@ -321,7 +330,7 @@ func (q *Queries) ListAgentSkills(ctx context.Context, agentID pgtype.UUID) ([]S
 }
 
 const listAgentSkillsByWorkspace = `-- name: ListAgentSkillsByWorkspace :many
-SELECT ask.agent_id, s.id, s.name, s.description
+SELECT ask.agent_id, s.id, s.name, s.description, s.description_zh
 FROM agent_skill ask
 JOIN skill s ON s.id = ask.skill_id
 WHERE s.workspace_id = $1
@@ -329,10 +338,11 @@ ORDER BY s.name ASC
 `
 
 type ListAgentSkillsByWorkspaceRow struct {
-	AgentID     pgtype.UUID `json:"agent_id"`
-	ID          pgtype.UUID `json:"id"`
-	Name        string      `json:"name"`
-	Description string      `json:"description"`
+	AgentID       pgtype.UUID `json:"agent_id"`
+	ID            pgtype.UUID `json:"id"`
+	Name          string      `json:"name"`
+	Description   string      `json:"description"`
+	DescriptionZh string      `json:"description_zh"`
 }
 
 func (q *Queries) ListAgentSkillsByWorkspace(ctx context.Context, workspaceID pgtype.UUID) ([]ListAgentSkillsByWorkspaceRow, error) {
@@ -349,6 +359,7 @@ func (q *Queries) ListAgentSkillsByWorkspace(ctx context.Context, workspaceID pg
 			&i.ID,
 			&i.Name,
 			&i.Description,
+			&i.DescriptionZh,
 		); err != nil {
 			return nil, err
 		}
@@ -396,21 +407,22 @@ func (q *Queries) ListSkillFiles(ctx context.Context, skillID pgtype.UUID) ([]Sk
 }
 
 const listSkillSummariesByWorkspace = `-- name: ListSkillSummariesByWorkspace :many
-SELECT id, workspace_id, name, description, config, created_by, created_at, updated_at
+SELECT id, workspace_id, name, description, description_zh, config, created_by, created_at, updated_at
 FROM skill
 WHERE workspace_id = $1
 ORDER BY name ASC
 `
 
 type ListSkillSummariesByWorkspaceRow struct {
-	ID          pgtype.UUID        `json:"id"`
-	WorkspaceID pgtype.UUID        `json:"workspace_id"`
-	Name        string             `json:"name"`
-	Description string             `json:"description"`
-	Config      []byte             `json:"config"`
-	CreatedBy   pgtype.UUID        `json:"created_by"`
-	CreatedAt   pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt   pgtype.Timestamptz `json:"updated_at"`
+	ID            pgtype.UUID        `json:"id"`
+	WorkspaceID   pgtype.UUID        `json:"workspace_id"`
+	Name          string             `json:"name"`
+	Description   string             `json:"description"`
+	DescriptionZh string             `json:"description_zh"`
+	Config        []byte             `json:"config"`
+	CreatedBy     pgtype.UUID        `json:"created_by"`
+	CreatedAt     pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt     pgtype.Timestamptz `json:"updated_at"`
 }
 
 // Same as ListSkillsByWorkspace but omits the SKILL.md `content` column. Used
@@ -431,6 +443,7 @@ func (q *Queries) ListSkillSummariesByWorkspace(ctx context.Context, workspaceID
 			&i.WorkspaceID,
 			&i.Name,
 			&i.Description,
+			&i.DescriptionZh,
 			&i.Config,
 			&i.CreatedBy,
 			&i.CreatedAt,
@@ -448,7 +461,7 @@ func (q *Queries) ListSkillSummariesByWorkspace(ctx context.Context, workspaceID
 
 const listSkillsByWorkspace = `-- name: ListSkillsByWorkspace :many
 
-SELECT id, workspace_id, name, description, content, config, created_by, created_at, updated_at FROM skill
+SELECT id, workspace_id, name, description, content, config, created_by, created_at, updated_at, description_zh FROM skill
 WHERE workspace_id = $1
 ORDER BY name ASC
 `
@@ -473,6 +486,7 @@ func (q *Queries) ListSkillsByWorkspace(ctx context.Context, workspaceID pgtype.
 			&i.CreatedBy,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.DescriptionZh,
 		); err != nil {
 			return nil, err
 		}
@@ -512,19 +526,21 @@ const updateSkill = `-- name: UpdateSkill :one
 UPDATE skill SET
     name = COALESCE($2, name),
     description = COALESCE($3, description),
-    content = COALESCE($4, content),
-    config = COALESCE($5, config),
+    description_zh = COALESCE($4, description_zh),
+    content = COALESCE($5, content),
+    config = COALESCE($6, config),
     updated_at = now()
 WHERE id = $1
-RETURNING id, workspace_id, name, description, content, config, created_by, created_at, updated_at
+RETURNING id, workspace_id, name, description, content, config, created_by, created_at, updated_at, description_zh
 `
 
 type UpdateSkillParams struct {
-	ID          pgtype.UUID `json:"id"`
-	Name        pgtype.Text `json:"name"`
-	Description pgtype.Text `json:"description"`
-	Content     pgtype.Text `json:"content"`
-	Config      []byte      `json:"config"`
+	ID            pgtype.UUID `json:"id"`
+	Name          pgtype.Text `json:"name"`
+	Description   pgtype.Text `json:"description"`
+	DescriptionZh pgtype.Text `json:"description_zh"`
+	Content       pgtype.Text `json:"content"`
+	Config        []byte      `json:"config"`
 }
 
 func (q *Queries) UpdateSkill(ctx context.Context, arg UpdateSkillParams) (Skill, error) {
@@ -532,6 +548,7 @@ func (q *Queries) UpdateSkill(ctx context.Context, arg UpdateSkillParams) (Skill
 		arg.ID,
 		arg.Name,
 		arg.Description,
+		arg.DescriptionZh,
 		arg.Content,
 		arg.Config,
 	)
@@ -546,6 +563,7 @@ func (q *Queries) UpdateSkill(ctx context.Context, arg UpdateSkillParams) (Skill
 		&i.CreatedBy,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.DescriptionZh,
 	)
 	return i, err
 }

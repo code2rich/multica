@@ -12,11 +12,12 @@ import (
 	"strings"
 
 	"github.com/multica-ai/multica/server/internal/agentwaker"
+	"github.com/multica-ai/multica/server/internal/skill"
 )
 
 // ScannerVersion is the daemon-side scanner version reported with each result.
 // Bump when the scan algorithm or hashing changes so the server can reconcile.
-const ScannerVersion = "1"
+const ScannerVersion = "2"
 
 // agentWakerEnvDigestKey returns the HMAC key the scanner uses to compute env
 // value digests. When no key is configured, digests are omitted and previews
@@ -288,6 +289,10 @@ func scanRole(root, roleDir string, envDigestKey []byte) (map[string]any, []agen
 	} else {
 		diags = append(diags, agentwakerScanDiagnostic{Severity: "warning", Code: "instructions_missing", Message: "agent-detail.en.md not found", Path: roleName})
 	}
+	instructionsContentZH := ""
+	if content, rerr := readTextFile(filepath.Join(roleDir, "agent-detail.zh.md"), maxInstructionsSize); rerr == nil {
+		instructionsContentZH = content
+	}
 
 	// Persona HTML (agent-persona.html).
 	personaHash := ""
@@ -343,21 +348,23 @@ func scanRole(root, roleDir string, envDigestKey []byte) (map[string]any, []agen
 	diags = append(diags, mcpDiags...)
 
 	entry := map[string]any{
-		"id":                   profile.ID,
-		"role_dir":             roleName,
-		"display_name":         profile.DisplayName,
-		"title":                profile.Title,
-		"version":              profile.Version,
-		"lifecycle":            profile.Lifecycle,
-		"mission":              profile.Mission,
-		"instructions_content": instructionsContent,
-		"instructions_hash":    instructionsHash,
-		"persona_content":      personaContent,
-		"persona_hash":         personaHash,
-		"skills":               skills,
-		"capability_bindings":  bindingsSummary,
-		"env":                  envDecls,
-		"mcp":                  mcpSummary,
+		"id":                      profile.ID,
+		"role_dir":                roleName,
+		"display_name":            profile.DisplayName,
+		"title":                   profile.Title,
+		"version":                 profile.Version,
+		"lifecycle":               profile.Lifecycle,
+		"mission":                 profile.Mission,
+		"description_zh":          profile.Generation.CardMissionZH,
+		"instructions_content":    instructionsContent,
+		"instructions_content_zh": instructionsContentZH,
+		"instructions_hash":       instructionsHash,
+		"persona_content":         personaContent,
+		"persona_hash":            personaHash,
+		"skills":                  skills,
+		"capability_bindings":     bindingsSummary,
+		"env":                     envDecls,
+		"mcp":                     mcpSummary,
 	}
 	return entry, diags, nil
 }
@@ -492,13 +499,23 @@ func collectSkillSupportingFiles(skillDir, contentPath string, skipRootDirs map[
 }
 
 func skillManifestEntry(id, name string, isMeta bool, content, hash string, files []agentwaker.SkillBundleFile) map[string]any {
+	parsedName, description := skill.ParseSkillFrontmatter(content)
+	if parsedName != "" {
+		name = parsedName
+	}
+	descriptionZH := ""
 	supporting := make([]map[string]any, 0, len(files))
 	for _, file := range files {
 		supporting = append(supporting, map[string]any{"path": file.Path, "content": file.Content})
+		if file.Path == "SKILL.zh.md" {
+			_, descriptionZH = skill.ParseSkillFrontmatter(file.Content)
+		}
 	}
 	return map[string]any{
 		"id":                 id,
 		"name":               name,
+		"description":        description,
+		"description_zh":     descriptionZH,
 		"is_meta":            isMeta,
 		"entrypoint":         "SKILL.md",
 		"entrypoint_content": content,

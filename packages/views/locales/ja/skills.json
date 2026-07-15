@@ -103,6 +103,9 @@
     "name_placeholder": "skill-name",
     "description_label": "説明",
     "description_placeholder": "エージェントがこのスキルをいつ使うべきかを 1 文で説明してください…",
+    "language_toggle": "skill の表示言語",
+    "localized_display_note": "中国語の表示レイヤー · 実行時は引き続き SKILL.md を読み込みます。",
+    "execution_source_note": "実行元 · 実行時はこの説明と SKILL.md を読み込みます。",
     "subline": {
       "origin_runtime_named": "ローカルランタイム · {{name}}",
       "origin_runtime_provider": "ローカルランタイム · {{provider}}",

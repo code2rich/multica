@@ -39,15 +39,16 @@ func sanitizeNullBytes(s string) string {
 // --- Response structs ---
 
 type SkillResponse struct {
-	ID          string  `json:"id"`
-	WorkspaceID string  `json:"workspace_id"`
-	Name        string  `json:"name"`
-	Description string  `json:"description"`
-	Content     string  `json:"content"`
-	Config      any     `json:"config"`
-	CreatedBy   *string `json:"created_by"`
-	CreatedAt   string  `json:"created_at"`
-	UpdatedAt   string  `json:"updated_at"`
+	ID            string  `json:"id"`
+	WorkspaceID   string  `json:"workspace_id"`
+	Name          string  `json:"name"`
+	Description   string  `json:"description"`
+	DescriptionZH string  `json:"description_zh"`
+	Content       string  `json:"content"`
+	Config        any     `json:"config"`
+	CreatedBy     *string `json:"created_by"`
+	CreatedAt     string  `json:"created_at"`
+	UpdatedAt     string  `json:"updated_at"`
 }
 
 // SkillSummaryResponse is the list-endpoint shape: everything SkillResponse
@@ -56,14 +57,15 @@ type SkillResponse struct {
 // links (GH multica-ai/multica#2174). Detail endpoints still return the full
 // SkillResponse with content.
 type SkillSummaryResponse struct {
-	ID          string  `json:"id"`
-	WorkspaceID string  `json:"workspace_id"`
-	Name        string  `json:"name"`
-	Description string  `json:"description"`
-	Config      any     `json:"config"`
-	CreatedBy   *string `json:"created_by"`
-	CreatedAt   string  `json:"created_at"`
-	UpdatedAt   string  `json:"updated_at"`
+	ID            string  `json:"id"`
+	WorkspaceID   string  `json:"workspace_id"`
+	Name          string  `json:"name"`
+	Description   string  `json:"description"`
+	DescriptionZH string  `json:"description_zh"`
+	Config        any     `json:"config"`
+	CreatedBy     *string `json:"created_by"`
+	CreatedAt     string  `json:"created_at"`
+	UpdatedAt     string  `json:"updated_at"`
 }
 
 // AgentSkillSummary is the still-narrower shape used for skills embedded in
@@ -72,9 +74,10 @@ type SkillSummaryResponse struct {
 // the UI; the standalone `/api/agents/{id}/skills` endpoint returns the full
 // SkillSummaryResponse for callers that need the source/origin info.
 type AgentSkillSummary struct {
-	ID          string `json:"id"`
-	Name        string `json:"name"`
-	Description string `json:"description"`
+	ID            string `json:"id"`
+	Name          string `json:"name"`
+	Description   string `json:"description"`
+	DescriptionZH string `json:"description_zh"`
 }
 
 type SkillFileResponse struct {
@@ -124,15 +127,16 @@ func writeSkillImportDuplicateConflict(w http.ResponseWriter, existing ExistingS
 
 func skillToResponse(s db.Skill) SkillResponse {
 	return SkillResponse{
-		ID:          uuidToString(s.ID),
-		WorkspaceID: uuidToString(s.WorkspaceID),
-		Name:        s.Name,
-		Description: s.Description,
-		Content:     s.Content,
-		Config:      decodeSkillConfig(s.Config),
-		CreatedBy:   uuidToPtr(s.CreatedBy),
-		CreatedAt:   timestampToString(s.CreatedAt),
-		UpdatedAt:   timestampToString(s.UpdatedAt),
+		ID:            uuidToString(s.ID),
+		WorkspaceID:   uuidToString(s.WorkspaceID),
+		Name:          s.Name,
+		Description:   s.Description,
+		DescriptionZH: s.DescriptionZh,
+		Content:       s.Content,
+		Config:        decodeSkillConfig(s.Config),
+		CreatedBy:     uuidToPtr(s.CreatedBy),
+		CreatedAt:     timestampToString(s.CreatedAt),
+		UpdatedAt:     timestampToString(s.UpdatedAt),
 	}
 }
 
@@ -177,20 +181,21 @@ func decodeSkillConfig(raw []byte) any {
 
 func skillSummaryToResponse(
 	id, workspaceID pgtype.UUID,
-	name, description string,
+	name, description, descriptionZH string,
 	config []byte,
 	createdBy pgtype.UUID,
 	createdAt, updatedAt pgtype.Timestamptz,
 ) SkillSummaryResponse {
 	return SkillSummaryResponse{
-		ID:          uuidToString(id),
-		WorkspaceID: uuidToString(workspaceID),
-		Name:        name,
-		Description: description,
-		Config:      decodeSkillConfig(config),
-		CreatedBy:   uuidToPtr(createdBy),
-		CreatedAt:   timestampToString(createdAt),
-		UpdatedAt:   timestampToString(updatedAt),
+		ID:            uuidToString(id),
+		WorkspaceID:   uuidToString(workspaceID),
+		Name:          name,
+		Description:   description,
+		DescriptionZH: descriptionZH,
+		Config:        decodeSkillConfig(config),
+		CreatedBy:     uuidToPtr(createdBy),
+		CreatedAt:     timestampToString(createdAt),
+		UpdatedAt:     timestampToString(updatedAt),
 	}
 }
 
@@ -208,11 +213,12 @@ func skillFileToResponse(f db.SkillFile) SkillFileResponse {
 // --- Request structs ---
 
 type CreateSkillRequest struct {
-	Name        string                   `json:"name"`
-	Description string                   `json:"description"`
-	Content     string                   `json:"content"`
-	Config      any                      `json:"config"`
-	Files       []CreateSkillFileRequest `json:"files,omitempty"`
+	Name          string                   `json:"name"`
+	Description   string                   `json:"description"`
+	DescriptionZH string                   `json:"description_zh"`
+	Content       string                   `json:"content"`
+	Config        any                      `json:"config"`
+	Files         []CreateSkillFileRequest `json:"files,omitempty"`
 }
 
 type CreateSkillFileRequest struct {
@@ -221,11 +227,12 @@ type CreateSkillFileRequest struct {
 }
 
 type UpdateSkillRequest struct {
-	Name        *string                  `json:"name"`
-	Description *string                  `json:"description"`
-	Content     *string                  `json:"content"`
-	Config      any                      `json:"config"`
-	Files       []CreateSkillFileRequest `json:"files,omitempty"`
+	Name          *string                  `json:"name"`
+	Description   *string                  `json:"description"`
+	DescriptionZH *string                  `json:"description_zh"`
+	Content       *string                  `json:"content"`
+	Config        any                      `json:"config"`
+	Files         []CreateSkillFileRequest `json:"files,omitempty"`
 }
 
 type SetAgentSkillsRequest struct {
@@ -290,7 +297,7 @@ func (h *Handler) ListSkills(w http.ResponseWriter, r *http.Request) {
 	resp := make([]SkillSummaryResponse, len(skills))
 	for i, s := range skills {
 		resp[i] = skillSummaryToResponse(
-			s.ID, s.WorkspaceID, s.Name, s.Description, s.Config,
+			s.ID, s.WorkspaceID, s.Name, s.Description, s.DescriptionZh, s.Config,
 			s.CreatedBy, s.CreatedAt, s.UpdatedAt,
 		)
 	}
@@ -373,13 +380,14 @@ func (h *Handler) CreateSkill(w http.ResponseWriter, r *http.Request) {
 	}
 
 	resp, err := h.createSkillWithFiles(r.Context(), skillCreateInput{
-		WorkspaceID: workspaceUUID,
-		CreatorID:   creatorUUID,
-		Name:        req.Name,
-		Description: req.Description,
-		Content:     req.Content,
-		Config:      req.Config,
-		Files:       req.Files,
+		WorkspaceID:   workspaceUUID,
+		CreatorID:     creatorUUID,
+		Name:          req.Name,
+		Description:   req.Description,
+		DescriptionZH: req.DescriptionZH,
+		Content:       req.Content,
+		Config:        req.Config,
+		Files:         req.Files,
 	})
 	if err != nil {
 		if isUniqueViolation(err) {
@@ -460,6 +468,9 @@ func (h *Handler) UpdateSkill(w http.ResponseWriter, r *http.Request) {
 	}
 	if req.Description != nil {
 		params.Description = pgtype.Text{String: sanitizeNullBytes(*req.Description), Valid: true}
+	}
+	if req.DescriptionZH != nil {
+		params.DescriptionZh = pgtype.Text{String: sanitizeNullBytes(*req.DescriptionZH), Valid: true}
 	}
 	if req.Content != nil {
 		params.Content = pgtype.Text{String: sanitizeNullBytes(*req.Content), Valid: true}
@@ -2139,7 +2150,7 @@ func (h *Handler) ListAgentSkills(w http.ResponseWriter, r *http.Request) {
 	resp := make([]SkillSummaryResponse, len(skills))
 	for i, s := range skills {
 		resp[i] = skillSummaryToResponse(
-			s.ID, s.WorkspaceID, s.Name, s.Description, s.Config,
+			s.ID, s.WorkspaceID, s.Name, s.Description, s.DescriptionZh, s.Config,
 			s.CreatedBy, s.CreatedAt, s.UpdatedAt,
 		)
 	}
@@ -2279,7 +2290,7 @@ func (h *Handler) writeUpdatedAgentSkills(w http.ResponseWriter, r *http.Request
 	resp := make([]SkillSummaryResponse, len(skills))
 	for i, s := range skills {
 		resp[i] = skillSummaryToResponse(
-			s.ID, s.WorkspaceID, s.Name, s.Description, s.Config,
+			s.ID, s.WorkspaceID, s.Name, s.Description, s.DescriptionZh, s.Config,
 			s.CreatedBy, s.CreatedAt, s.UpdatedAt,
 		)
 	}

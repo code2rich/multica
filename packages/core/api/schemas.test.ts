@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   AppConfigSchema,
   AgentTaskListSchema,
+  AgentSourceSnapshotListSchema,
   DashboardAgentRunTimeListSchema,
   DashboardUsageByAgentListSchema,
   DashboardUsageDailyListSchema,
@@ -47,6 +48,40 @@ const baseIssue = {
   created_at: "2026-01-01T00:00:00Z",
   updated_at: "2026-01-01T00:00:00Z",
 };
+
+describe("AgentSourceSnapshotListSchema", () => {
+  it("normalizes legacy null diagnostics without dropping the snapshot list", () => {
+    const parsed = AgentSourceSnapshotListSchema.parse([
+      {
+        id: "snapshot-1",
+        source_id: "source-1",
+        directory_hash: "sha256:latest",
+        schema_versions: { profile: "2.1" },
+        manifest: { roles: [{ id: "jpage-agent" }] },
+        status: "preview",
+        diagnostics: [],
+        scanner_version: "1",
+        created_at: "2026-07-14T15:26:00Z",
+      },
+      {
+        id: "snapshot-0",
+        source_id: "source-1",
+        directory_hash: "sha256:older",
+        schema_versions: { profile: "2.1" },
+        manifest: null,
+        status: "applied",
+        diagnostics: null,
+        scanner_version: "1",
+        created_at: "2026-07-12T14:13:28Z",
+        applied_at: "2026-07-12T14:13:40Z",
+      },
+    ]);
+
+    expect(parsed).toHaveLength(2);
+    expect(parsed[0]?.status).toBe("preview");
+    expect(parsed[1]?.diagnostics).toEqual([]);
+  });
+});
 
 describe("IssueSchema (via ListIssuesResponseSchema)", () => {
   it("accepts a primitive metadata KV map", () => {

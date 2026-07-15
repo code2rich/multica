@@ -103,6 +103,9 @@
     "name_placeholder": "skill-name",
     "description_label": "설명",
     "description_placeholder": "에이전트가 이 스킬을 언제 써야 하는지 한 문장으로 설명하세요...",
+    "language_toggle": "skill 표시 언어",
+    "localized_display_note": "중국어 표시 계층 · 런타임은 계속 SKILL.md를 불러옵니다.",
+    "execution_source_note": "실행 원본 · 런타임은 이 설명과 SKILL.md를 불러옵니다.",
     "subline": {
       "origin_runtime_named": "로컬 런타임 · {{name}}",
       "origin_runtime_provider": "로컬 런타임 · {{provider}}",

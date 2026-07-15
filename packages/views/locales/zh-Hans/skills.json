@@ -115,6 +115,9 @@
     "name_placeholder": "skill-name",
     "description_label": "描述",
     "description_placeholder": "用一句话描述智能体什么时候应该使用这个 skill...",
+    "language_toggle": "skill 显示语言",
+    "localized_display_note": "中文展示层 · 运行时仍加载 SKILL.md。",
+    "execution_source_note": "执行源 · 运行时加载此描述与 SKILL.md。",
     "subline": {
       "origin_runtime_named": "本地运行时 · {{name}}",
       "origin_runtime_provider": "本地运行时 · {{provider}}",

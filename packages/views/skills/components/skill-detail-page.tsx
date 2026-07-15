@@ -71,8 +71,13 @@ import {
   type SkillActionsContext,
 } from "./skill-list-actions";
 import { useT } from "../../i18n";
+import {
+  LocalizedContentToggle,
+  type ContentLanguage,
+} from "../../i18n/localized-content-toggle";
 
 const SKILL_MD = "SKILL.md";
+const SKILL_ZH_MD = "SKILL.zh.md";
 
 type DraftFile = { id?: string; path: string; content: string };
 
@@ -249,7 +254,7 @@ function OriginSidebarCard({
 // ---------------------------------------------------------------------------
 
 export function SkillDetailPage({ skillId }: { skillId: string }) {
-  const { t } = useT("skills");
+  const { t, i18n } = useT("skills");
   const timeAgo = useTimeAgo();
   const wsId = useWorkspaceId();
   const qc = useQueryClient();
@@ -295,6 +300,7 @@ export function SkillDetailPage({ skillId }: { skillId: string }) {
 
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
+  const [descriptionZh, setDescriptionZh] = useState("");
   const [content, setContent] = useState("");
   const [files, setFiles] = useState<DraftFile[]>([]);
   const [selectedPath, setSelectedPath] = useState(SKILL_MD);
@@ -305,8 +311,11 @@ export function SkillDetailPage({ skillId }: { skillId: string }) {
   const [addingFile, setAddingFile] = useState(false);
   const [conflictPending, setConflictPending] = useState(false);
 
-  const draftRef = useRef({ name, description, content, files });
-  draftRef.current = { name, description, content, files };
+  const [contentLanguage, setContentLanguage] = useState<ContentLanguage>(
+    i18n.language.startsWith("zh") ? "zh" : "en",
+  );
+  const draftRef = useRef({ name, description, descriptionZh, content, files });
+  draftRef.current = { name, description, descriptionZh, content, files };
 
   const seededKeyRef = useRef<string | null>(null);
 
@@ -330,6 +339,7 @@ export function SkillDetailPage({ skillId }: { skillId: string }) {
       const hasEdits =
         d.name.trim() !== skill.name ||
         d.description.trim() !== skill.description ||
+        d.descriptionZh.trim() !== (skill.description_zh ?? "") ||
         d.content !== skill.content ||
         draftFilesJson !== serverFilesJson;
       if (hasEdits) {
@@ -342,6 +352,7 @@ export function SkillDetailPage({ skillId }: { skillId: string }) {
     setConflictPending(false);
     setName(skill.name);
     setDescription(skill.description);
+    setDescriptionZh(skill.description_zh ?? "");
     setContent(skill.content);
     setFiles(
       (skill.files ?? []).map((f: SkillFile) => ({
@@ -350,8 +361,15 @@ export function SkillDetailPage({ skillId }: { skillId: string }) {
         content: f.content,
       })),
     );
-    if (!sameSkill) setSelectedPath(SKILL_MD);
-  }, [skill, wsId]);
+    if (!sameSkill) {
+      const preferChinese = i18n.language.startsWith("zh");
+      const hasChineseFile = (skill.files ?? []).some(
+        (file) => file.path === SKILL_ZH_MD,
+      );
+      setContentLanguage(preferChinese && hasChineseFile ? "zh" : "en");
+      setSelectedPath(preferChinese && hasChineseFile ? SKILL_ZH_MD : SKILL_MD);
+    }
+  }, [skill, wsId, i18n.language]);
 
   const creator = useMemo<MemberWithUser | null>(
     () =>
@@ -384,6 +402,8 @@ export function SkillDetailPage({ skillId }: { skillId: string }) {
   }, [content, files]);
   const filePaths = useMemo(() => Array.from(fileMap.keys()), [fileMap]);
   const selectedContent = fileMap.get(selectedPath) ?? "";
+  const hasChinese =
+    fileMap.has(SKILL_ZH_MD) || Boolean(descriptionZh.trim());
 
   useEffect(() => {
     if (selectedPath !== SKILL_MD && !fileMap.has(selectedPath)) {
@@ -401,14 +421,16 @@ export function SkillDetailPage({ skillId }: { skillId: string }) {
     return (
       name.trim() !== skill.name ||
       description.trim() !== skill.description ||
+      descriptionZh.trim() !== (skill.description_zh ?? "") ||
       content !== skill.content ||
       JSON.stringify(draftFiles) !== JSON.stringify(serverFiles)
     );
-  }, [skill, name, description, content, files]);
+  }, [skill, name, description, descriptionZh, content, files]);
 
   const seedFromSkill = (s: Skill) => {
     setName(s.name);
     setDescription(s.description);
+    setDescriptionZh(s.description_zh ?? "");
     setContent(s.content);
     setFiles(
       (s.files ?? []).map((f: SkillFile) => ({
@@ -428,6 +450,7 @@ export function SkillDetailPage({ skillId }: { skillId: string }) {
       const payload: UpdateSkillRequest = {
         name: trimmedName,
         description: trimmedDesc,
+        description_zh: descriptionZh.trim(),
         content,
         files: files.filter((f) => f.path.trim()),
       };
@@ -457,6 +480,15 @@ export function SkillDetailPage({ skillId }: { skillId: string }) {
     seedFromSkill(skill);
     seededKeyRef.current = `${wsId}:${skill.id}@${skill.updated_at}`;
     setConflictPending(false);
+  };
+
+  const handleLanguageChange = (language: ContentLanguage) => {
+    setContentLanguage(language);
+    setSelectedPath(
+      language === "zh" && fileMap.has(SKILL_ZH_MD)
+        ? SKILL_ZH_MD
+        : SKILL_MD,
+    );
   };
 
   const handleDelete = async () => {
@@ -702,22 +734,39 @@ export function SkillDetailPage({ skillId }: { skillId: string }) {
               aria-label={t(($) => $.detail.name_aria)}
             />
             <div className="space-y-1">
-              <Label
-                htmlFor="skill-description"
-                className="text-xs text-muted-foreground"
-              >
-                <Pencil className="h-3 w-3" />
-                {t(($) => $.detail.description_label)}
-              </Label>
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <Label
+                  htmlFor="skill-description"
+                  className="text-xs text-muted-foreground"
+                >
+                  <Pencil className="h-3 w-3" />
+                  {t(($) => $.detail.description_label)}
+                </Label>
+                <LocalizedContentToggle
+                  value={contentLanguage}
+                  onChange={handleLanguageChange}
+                  hasChinese={hasChinese}
+                  ariaLabel={t(($) => $.detail.language_toggle)}
+                />
+              </div>
               <Textarea
                 id="skill-description"
-                value={description}
+                value={contentLanguage === "zh" ? descriptionZh : description}
                 readOnly={!canEdit}
-                onChange={(e) => setDescription(e.target.value)}
+                onChange={(e) =>
+                  contentLanguage === "zh"
+                    ? setDescriptionZh(e.target.value)
+                    : setDescription(e.target.value)
+                }
                 placeholder={t(($) => $.detail.description_placeholder)}
                 rows={2}
                 className="resize-none text-sm read-only:cursor-default"
               />
+              <p className="text-[11px] text-muted-foreground">
+                {contentLanguage === "zh"
+                  ? t(($) => $.detail.localized_display_note)
+                  : t(($) => $.detail.execution_source_note)}
+              </p>
             </div>
             <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
               {originLabel && (

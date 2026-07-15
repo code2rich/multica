@@ -328,12 +328,13 @@ func applyRoles(ctx context.Context, qtx *db.Queries, h *Handler, input ApplySna
 
 		// 2b. Update agent config (instructions hash recorded; content lives in skills).
 		if _, err := qtx.UpdateAgent(ctx, db.UpdateAgentParams{
-			ID:           agentID,
-			Name:         pgtype.Text{String: displayName, Valid: true},
-			Description:  pgtype.Text{String: truncate(missionOf(role), 255), Valid: true},
-			Instructions: pgtype.Text{String: instructionsOf(role), Valid: true},
-			ProfileHtml:  pgtype.Text{String: personaOf(role), Valid: personaOf(role) != ""},
-			McpConfig:    mcpConfigOf(role, agentID),
+			ID:             agentID,
+			Name:           pgtype.Text{String: displayName, Valid: true},
+			Description:    pgtype.Text{String: truncate(descriptionOf(role), 255), Valid: true},
+			Instructions:   pgtype.Text{String: instructionsOf(role), Valid: true},
+			InstructionsZh: pgtype.Text{String: instructionsZHOf(role), Valid: true},
+			ProfileHtml:    pgtype.Text{String: personaOf(role), Valid: personaOf(role) != ""},
+			McpConfig:      mcpConfigOf(role, agentID),
 		}); err != nil {
 			return fmt.Errorf("update agent for role %s: %w", roleID, err)
 		}
@@ -383,7 +384,7 @@ func sourceManagedAgentCreateParams(workspaceID, runtimeID, ownerID pgtype.UUID,
 		WorkspaceID:        workspaceID,
 		OwnerID:            ownerID,
 		Name:               displayName,
-		Description:        truncate(missionOf(role), 255),
+		Description:        truncate(descriptionOf(role), 255),
 		RuntimeMode:        "local",
 		RuntimeConfig:      []byte("{}"),
 		RuntimeID:          runtimeID,
@@ -391,6 +392,7 @@ func sourceManagedAgentCreateParams(workspaceID, runtimeID, ownerID pgtype.UUID,
 		PermissionMode:     "private",
 		MaxConcurrentTasks: 6,
 		Instructions:       instructionsOf(role),
+		InstructionsZh:     instructionsZHOf(role),
 		ProfileHtml:        pgtype.Text{String: personaOf(role), Valid: personaOf(role) != ""},
 		CustomEnv:          []byte("{}"),
 		CustomArgs:         []byte("[]"),
@@ -415,6 +417,8 @@ func applyRoleSkills(ctx context.Context, qtx *db.Queries, h *Handler, input App
 		isMeta, _ := s["is_meta"].(bool)
 		contentHash, _ := s["content_hash"].(string)
 		name, _ := s["name"].(string)
+		description, _ := s["description"].(string)
+		descriptionZH, _ := s["description_zh"].(string)
 		if name == "" {
 			name = skillKey
 		}
@@ -449,7 +453,7 @@ func applyRoleSkills(ctx context.Context, qtx *db.Queries, h *Handler, input App
 			} else {
 				// Create a new skill row recording provenance.
 				created, cerr := createSkillWithFilesInTx(ctx, qtx, sourceManagedSkillCreateInput(
-					input, roleID, skillKey, name, contentHash,
+					input, roleID, skillKey, name, description, descriptionZH, contentHash,
 				))
 				if cerr != nil {
 					return nil, fmt.Errorf("create skill %s: %w", skillKey, cerr)
@@ -472,7 +476,7 @@ func applyRoleSkills(ctx context.Context, qtx *db.Queries, h *Handler, input App
 		entrypointContent, _ := s["entrypoint_content"].(string)
 		supportingFiles := extractSupportingFiles(s["supporting_files"])
 		if entrypointContent != "" {
-			if err := materializeSourceSkill(ctx, qtx, skillID, name, entrypointContent, supportingFiles); err != nil {
+			if err := materializeSourceSkill(ctx, qtx, skillID, name, description, descriptionZH, entrypointContent, supportingFiles); err != nil {
 				return nil, fmt.Errorf("materialize skill %s: %w", skillKey, err)
 			}
 		}
@@ -489,12 +493,13 @@ func applyRoleSkills(ctx context.Context, qtx *db.Queries, h *Handler, input App
 	return out, nil
 }
 
-func sourceManagedSkillCreateInput(input ApplySnapshotInput, roleID, skillKey, name, contentHash string) skillCreateInput {
+func sourceManagedSkillCreateInput(input ApplySnapshotInput, roleID, skillKey, name, description, descriptionZH, contentHash string) skillCreateInput {
 	return skillCreateInput{
-		WorkspaceID: input.WorkspaceID,
-		CreatorID:   input.OwnerID,
-		Name:        name,
-		Description: truncate(name+" (source-managed)", 255),
+		WorkspaceID:   input.WorkspaceID,
+		CreatorID:     input.OwnerID,
+		Name:          name,
+		Description:   description,
+		DescriptionZH: descriptionZH,
 		Config: map[string]any{
 			"origin": map[string]any{
 				"type":            "agentwaker_directory",
@@ -507,11 +512,12 @@ func sourceManagedSkillCreateInput(input ApplySnapshotInput, roleID, skillKey, n
 	}
 }
 
-func materializeSourceSkill(ctx context.Context, qtx *db.Queries, skillID pgtype.UUID, name, content string, files []agentwaker.SkillBundleFile) error {
+func materializeSourceSkill(ctx context.Context, qtx *db.Queries, skillID pgtype.UUID, name, description, descriptionZH, content string, files []agentwaker.SkillBundleFile) error {
 	if _, err := qtx.UpdateSkill(ctx, db.UpdateSkillParams{
-		ID:          skillID,
-		Description: pgtype.Text{String: truncate(name+" (source-managed)", 255), Valid: true},
-		Content:     pgtype.Text{String: content, Valid: true},
+		ID:            skillID,
+		Description:   pgtype.Text{String: description, Valid: true},
+		DescriptionZh: pgtype.Text{String: descriptionZH, Valid: true},
+		Content:       pgtype.Text{String: content, Valid: true},
 	}); err != nil {
 		return err
 	}
@@ -697,6 +703,13 @@ func missionOf(role map[string]any) string {
 	return ""
 }
 
+func descriptionOf(role map[string]any) string {
+	if description, ok := role["description_zh"].(string); ok && description != "" {
+		return description
+	}
+	return missionOf(role)
+}
+
 func instructionsOf(role map[string]any) string {
 	if content, ok := role["instructions_content"].(string); ok && content != "" {
 		return content
@@ -708,6 +721,11 @@ func instructionsOf(role map[string]any) string {
 		return t
 	}
 	return ""
+}
+
+func instructionsZHOf(role map[string]any) string {
+	content, _ := role["instructions_content_zh"].(string)
+	return content
 }
 
 func personaOf(role map[string]any) string {
@@ -731,10 +749,11 @@ func mcpConfigOf(role map[string]any, _ pgtype.UUID) []byte {
 }
 
 func truncate(s string, n int) string {
-	if len(s) <= n {
+	runes := []rune(s)
+	if len(runes) <= n {
 		return s
 	}
-	return s[:n]
+	return string(runes[:n])
 }
 
 func mergeEnvSummary(a, b AgentSourceEnvApply) AgentSourceEnvApply {

@@ -133,6 +133,14 @@ type ProfileV2 struct {
 	Lifecycle     string         `yaml:"lifecycle" json:"lifecycle"`
 	Mission       string         `yaml:"mission" json:"mission"`
 	Skills        ProfileSkills  `yaml:"skills" json:"skills"`
+	Generation    ProfileGeneration `yaml:"generation" json:"generation"`
+}
+
+// ProfileGeneration contains human-facing presentation copy. AgentWaker keeps
+// operational source material in English while these card fields are Chinese.
+type ProfileGeneration struct {
+	CardTitleZH   string `yaml:"card_title_zh" json:"card_title_zh"`
+	CardMissionZH string `yaml:"card_mission_zh" json:"card_mission_zh"`
 }
 
 // ProfileSkills declares where the role's skill package lives.

@@ -14,7 +14,7 @@ import (
 const archiveAgent = `-- name: ArchiveAgent :one
 UPDATE agent SET archived_at = now(), archived_by = $2, updated_at = now()
 WHERE id = $1
-RETURNING id, workspace_id, name, avatar_url, runtime_mode, runtime_config, visibility, status, max_concurrent_tasks, owner_id, created_at, updated_at, description, runtime_id, instructions, archived_at, archived_by, custom_env, custom_args, mcp_config, model, thinking_level, composio_toolkit_allowlist, permission_mode, profile_html, custom_env_encrypted
+RETURNING id, workspace_id, name, avatar_url, runtime_mode, runtime_config, visibility, status, max_concurrent_tasks, owner_id, created_at, updated_at, description, runtime_id, instructions, archived_at, archived_by, custom_env, custom_args, mcp_config, model, thinking_level, composio_toolkit_allowlist, permission_mode, profile_html, custom_env_encrypted, instructions_zh
 `
 
 type ArchiveAgentParams struct {
@@ -52,6 +52,7 @@ func (q *Queries) ArchiveAgent(ctx context.Context, arg ArchiveAgentParams) (Age
 		&i.PermissionMode,
 		&i.ProfileHtml,
 		&i.CustomEnvEncrypted,
+		&i.InstructionsZh,
 	)
 	return i, err
 }
@@ -60,7 +61,7 @@ const archiveAgentsByIDs = `-- name: ArchiveAgentsByIDs :many
 UPDATE agent
 SET archived_at = now(), archived_by = $1, updated_at = now()
 WHERE id = ANY($2::uuid[]) AND archived_at IS NULL
-RETURNING id, workspace_id, name, avatar_url, runtime_mode, runtime_config, visibility, status, max_concurrent_tasks, owner_id, created_at, updated_at, description, runtime_id, instructions, archived_at, archived_by, custom_env, custom_args, mcp_config, model, thinking_level, composio_toolkit_allowlist, permission_mode, profile_html, custom_env_encrypted
+RETURNING id, workspace_id, name, avatar_url, runtime_mode, runtime_config, visibility, status, max_concurrent_tasks, owner_id, created_at, updated_at, description, runtime_id, instructions, archived_at, archived_by, custom_env, custom_args, mcp_config, model, thinking_level, composio_toolkit_allowlist, permission_mode, profile_html, custom_env_encrypted, instructions_zh
 `
 
 type ArchiveAgentsByIDsParams struct {
@@ -112,6 +113,7 @@ func (q *Queries) ArchiveAgentsByIDs(ctx context.Context, arg ArchiveAgentsByIDs
 			&i.PermissionMode,
 			&i.ProfileHtml,
 			&i.CustomEnvEncrypted,
+			&i.InstructionsZh,
 		); err != nil {
 			return nil, err
 		}
@@ -127,7 +129,7 @@ const archiveAgentsByRuntime = `-- name: ArchiveAgentsByRuntime :many
 UPDATE agent
 SET archived_at = now(), archived_by = $1, updated_at = now()
 WHERE runtime_id = ANY($2::uuid[]) AND archived_at IS NULL
-RETURNING id, workspace_id, name, avatar_url, runtime_mode, runtime_config, visibility, status, max_concurrent_tasks, owner_id, created_at, updated_at, description, runtime_id, instructions, archived_at, archived_by, custom_env, custom_args, mcp_config, model, thinking_level, composio_toolkit_allowlist, permission_mode, profile_html, custom_env_encrypted
+RETURNING id, workspace_id, name, avatar_url, runtime_mode, runtime_config, visibility, status, max_concurrent_tasks, owner_id, created_at, updated_at, description, runtime_id, instructions, archived_at, archived_by, custom_env, custom_args, mcp_config, model, thinking_level, composio_toolkit_allowlist, permission_mode, profile_html, custom_env_encrypted, instructions_zh
 `
 
 type ArchiveAgentsByRuntimeParams struct {
@@ -175,6 +177,7 @@ func (q *Queries) ArchiveAgentsByRuntime(ctx context.Context, arg ArchiveAgentsB
 			&i.PermissionMode,
 			&i.ProfileHtml,
 			&i.CustomEnvEncrypted,
+			&i.InstructionsZh,
 		); err != nil {
 			return nil, err
 		}
@@ -879,7 +882,7 @@ func (q *Queries) ClaimAgentTask(ctx context.Context, arg ClaimAgentTaskParams) 
 const clearAgentComposioToolkitAllowlist = `-- name: ClearAgentComposioToolkitAllowlist :one
 UPDATE agent SET composio_toolkit_allowlist = NULL, updated_at = now()
 WHERE id = $1
-RETURNING id, workspace_id, name, avatar_url, runtime_mode, runtime_config, visibility, status, max_concurrent_tasks, owner_id, created_at, updated_at, description, runtime_id, instructions, archived_at, archived_by, custom_env, custom_args, mcp_config, model, thinking_level, composio_toolkit_allowlist, permission_mode, profile_html, custom_env_encrypted
+RETURNING id, workspace_id, name, avatar_url, runtime_mode, runtime_config, visibility, status, max_concurrent_tasks, owner_id, created_at, updated_at, description, runtime_id, instructions, archived_at, archived_by, custom_env, custom_args, mcp_config, model, thinking_level, composio_toolkit_allowlist, permission_mode, profile_html, custom_env_encrypted, instructions_zh
 `
 
 // Explicit NULL-clear for composio_toolkit_allowlist. The COALESCE-based
@@ -918,6 +921,7 @@ func (q *Queries) ClearAgentComposioToolkitAllowlist(ctx context.Context, id pgt
 		&i.PermissionMode,
 		&i.ProfileHtml,
 		&i.CustomEnvEncrypted,
+		&i.InstructionsZh,
 	)
 	return i, err
 }
@@ -925,7 +929,7 @@ func (q *Queries) ClearAgentComposioToolkitAllowlist(ctx context.Context, id pgt
 const clearAgentMcpConfig = `-- name: ClearAgentMcpConfig :one
 UPDATE agent SET mcp_config = NULL, updated_at = now()
 WHERE id = $1
-RETURNING id, workspace_id, name, avatar_url, runtime_mode, runtime_config, visibility, status, max_concurrent_tasks, owner_id, created_at, updated_at, description, runtime_id, instructions, archived_at, archived_by, custom_env, custom_args, mcp_config, model, thinking_level, composio_toolkit_allowlist, permission_mode, profile_html, custom_env_encrypted
+RETURNING id, workspace_id, name, avatar_url, runtime_mode, runtime_config, visibility, status, max_concurrent_tasks, owner_id, created_at, updated_at, description, runtime_id, instructions, archived_at, archived_by, custom_env, custom_args, mcp_config, model, thinking_level, composio_toolkit_allowlist, permission_mode, profile_html, custom_env_encrypted, instructions_zh
 `
 
 func (q *Queries) ClearAgentMcpConfig(ctx context.Context, id pgtype.UUID) (Agent, error) {
@@ -958,6 +962,7 @@ func (q *Queries) ClearAgentMcpConfig(ctx context.Context, id pgtype.UUID) (Agen
 		&i.PermissionMode,
 		&i.ProfileHtml,
 		&i.CustomEnvEncrypted,
+		&i.InstructionsZh,
 	)
 	return i, err
 }
@@ -965,7 +970,7 @@ func (q *Queries) ClearAgentMcpConfig(ctx context.Context, id pgtype.UUID) (Agen
 const clearAgentProfileHTML = `-- name: ClearAgentProfileHTML :one
 UPDATE agent SET profile_html = NULL, updated_at = now()
 WHERE id = $1
-RETURNING id, workspace_id, name, avatar_url, runtime_mode, runtime_config, visibility, status, max_concurrent_tasks, owner_id, created_at, updated_at, description, runtime_id, instructions, archived_at, archived_by, custom_env, custom_args, mcp_config, model, thinking_level, composio_toolkit_allowlist, permission_mode, profile_html, custom_env_encrypted
+RETURNING id, workspace_id, name, avatar_url, runtime_mode, runtime_config, visibility, status, max_concurrent_tasks, owner_id, created_at, updated_at, description, runtime_id, instructions, archived_at, archived_by, custom_env, custom_args, mcp_config, model, thinking_level, composio_toolkit_allowlist, permission_mode, profile_html, custom_env_encrypted, instructions_zh
 `
 
 // Explicit NULL-clear for profile_html. COALESCE-based UpdateAgent cannot
@@ -1001,6 +1006,7 @@ func (q *Queries) ClearAgentProfileHTML(ctx context.Context, id pgtype.UUID) (Ag
 		&i.PermissionMode,
 		&i.ProfileHtml,
 		&i.CustomEnvEncrypted,
+		&i.InstructionsZh,
 	)
 	return i, err
 }
@@ -1008,7 +1014,7 @@ func (q *Queries) ClearAgentProfileHTML(ctx context.Context, id pgtype.UUID) (Ag
 const clearAgentThinkingLevel = `-- name: ClearAgentThinkingLevel :one
 UPDATE agent SET thinking_level = NULL, updated_at = now()
 WHERE id = $1
-RETURNING id, workspace_id, name, avatar_url, runtime_mode, runtime_config, visibility, status, max_concurrent_tasks, owner_id, created_at, updated_at, description, runtime_id, instructions, archived_at, archived_by, custom_env, custom_args, mcp_config, model, thinking_level, composio_toolkit_allowlist, permission_mode, profile_html, custom_env_encrypted
+RETURNING id, workspace_id, name, avatar_url, runtime_mode, runtime_config, visibility, status, max_concurrent_tasks, owner_id, created_at, updated_at, description, runtime_id, instructions, archived_at, archived_by, custom_env, custom_args, mcp_config, model, thinking_level, composio_toolkit_allowlist, permission_mode, profile_html, custom_env_encrypted, instructions_zh
 `
 
 // Explicit NULL-clear for thinking_level. COALESCE-based UpdateAgent cannot
@@ -1044,6 +1050,7 @@ func (q *Queries) ClearAgentThinkingLevel(ctx context.Context, id pgtype.UUID) (
 		&i.PermissionMode,
 		&i.ProfileHtml,
 		&i.CustomEnvEncrypted,
+		&i.InstructionsZh,
 	)
 	return i, err
 }
@@ -1130,16 +1137,16 @@ INSERT INTO agent (
     workspace_id, name, description, avatar_url, runtime_mode,
     runtime_config, runtime_id, visibility, max_concurrent_tasks, owner_id,
     instructions, custom_env, custom_args, mcp_config, model, thinking_level,
-    composio_toolkit_allowlist, permission_mode, profile_html
+    composio_toolkit_allowlist, permission_mode, profile_html, instructions_zh
 ) VALUES (
     $1, $2, $3, $4, $5,
     $6, $7, $8, $9, $10,
     $11, $12, $13, $14, $15, $16,
     $17::text[],
     COALESCE($18, 'private'),
-    $19
+    $19, COALESCE($20, '')
 )
-RETURNING id, workspace_id, name, avatar_url, runtime_mode, runtime_config, visibility, status, max_concurrent_tasks, owner_id, created_at, updated_at, description, runtime_id, instructions, archived_at, archived_by, custom_env, custom_args, mcp_config, model, thinking_level, composio_toolkit_allowlist, permission_mode, profile_html, custom_env_encrypted
+RETURNING id, workspace_id, name, avatar_url, runtime_mode, runtime_config, visibility, status, max_concurrent_tasks, owner_id, created_at, updated_at, description, runtime_id, instructions, archived_at, archived_by, custom_env, custom_args, mcp_config, model, thinking_level, composio_toolkit_allowlist, permission_mode, profile_html, custom_env_encrypted, instructions_zh
 `
 
 type CreateAgentParams struct {
@@ -1162,6 +1169,7 @@ type CreateAgentParams struct {
 	ComposioToolkitAllowlist []string    `json:"composio_toolkit_allowlist"`
 	PermissionMode           interface{} `json:"permission_mode"`
 	ProfileHtml              pgtype.Text `json:"profile_html"`
+	InstructionsZh           interface{} `json:"instructions_zh"`
 }
 
 func (q *Queries) CreateAgent(ctx context.Context, arg CreateAgentParams) (Agent, error) {
@@ -1185,6 +1193,7 @@ func (q *Queries) CreateAgent(ctx context.Context, arg CreateAgentParams) (Agent
 		arg.ComposioToolkitAllowlist,
 		arg.PermissionMode,
 		arg.ProfileHtml,
+		arg.InstructionsZh,
 	)
 	var i Agent
 	err := row.Scan(
@@ -1214,6 +1223,7 @@ func (q *Queries) CreateAgent(ctx context.Context, arg CreateAgentParams) (Agent
 		&i.PermissionMode,
 		&i.ProfileHtml,
 		&i.CustomEnvEncrypted,
+		&i.InstructionsZh,
 	)
 	return i, err
 }
@@ -1998,7 +2008,7 @@ func (q *Queries) FailStaleTasks(ctx context.Context, arg FailStaleTasksParams) 
 }
 
 const getAgent = `-- name: GetAgent :one
-SELECT id, workspace_id, name, avatar_url, runtime_mode, runtime_config, visibility, status, max_concurrent_tasks, owner_id, created_at, updated_at, description, runtime_id, instructions, archived_at, archived_by, custom_env, custom_args, mcp_config, model, thinking_level, composio_toolkit_allowlist, permission_mode, profile_html, custom_env_encrypted FROM agent
+SELECT id, workspace_id, name, avatar_url, runtime_mode, runtime_config, visibility, status, max_concurrent_tasks, owner_id, created_at, updated_at, description, runtime_id, instructions, archived_at, archived_by, custom_env, custom_args, mcp_config, model, thinking_level, composio_toolkit_allowlist, permission_mode, profile_html, custom_env_encrypted, instructions_zh FROM agent
 WHERE id = $1
 `
 
@@ -2032,12 +2042,13 @@ func (q *Queries) GetAgent(ctx context.Context, id pgtype.UUID) (Agent, error) {
 		&i.PermissionMode,
 		&i.ProfileHtml,
 		&i.CustomEnvEncrypted,
+		&i.InstructionsZh,
 	)
 	return i, err
 }
 
 const getAgentForClaimUpdate = `-- name: GetAgentForClaimUpdate :one
-SELECT id, workspace_id, name, avatar_url, runtime_mode, runtime_config, visibility, status, max_concurrent_tasks, owner_id, created_at, updated_at, description, runtime_id, instructions, archived_at, archived_by, custom_env, custom_args, mcp_config, model, thinking_level, composio_toolkit_allowlist, permission_mode, profile_html, custom_env_encrypted FROM agent
+SELECT id, workspace_id, name, avatar_url, runtime_mode, runtime_config, visibility, status, max_concurrent_tasks, owner_id, created_at, updated_at, description, runtime_id, instructions, archived_at, archived_by, custom_env, custom_args, mcp_config, model, thinking_level, composio_toolkit_allowlist, permission_mode, profile_html, custom_env_encrypted, instructions_zh FROM agent
 WHERE id = $1
 FOR UPDATE
 `
@@ -2072,12 +2083,13 @@ func (q *Queries) GetAgentForClaimUpdate(ctx context.Context, id pgtype.UUID) (A
 		&i.PermissionMode,
 		&i.ProfileHtml,
 		&i.CustomEnvEncrypted,
+		&i.InstructionsZh,
 	)
 	return i, err
 }
 
 const getAgentInWorkspace = `-- name: GetAgentInWorkspace :one
-SELECT id, workspace_id, name, avatar_url, runtime_mode, runtime_config, visibility, status, max_concurrent_tasks, owner_id, created_at, updated_at, description, runtime_id, instructions, archived_at, archived_by, custom_env, custom_args, mcp_config, model, thinking_level, composio_toolkit_allowlist, permission_mode, profile_html, custom_env_encrypted FROM agent
+SELECT id, workspace_id, name, avatar_url, runtime_mode, runtime_config, visibility, status, max_concurrent_tasks, owner_id, created_at, updated_at, description, runtime_id, instructions, archived_at, archived_by, custom_env, custom_args, mcp_config, model, thinking_level, composio_toolkit_allowlist, permission_mode, profile_html, custom_env_encrypted, instructions_zh FROM agent
 WHERE id = $1 AND workspace_id = $2
 `
 
@@ -2116,6 +2128,7 @@ func (q *Queries) GetAgentInWorkspace(ctx context.Context, arg GetAgentInWorkspa
 		&i.PermissionMode,
 		&i.ProfileHtml,
 		&i.CustomEnvEncrypted,
+		&i.InstructionsZh,
 	)
 	return i, err
 }
@@ -2601,7 +2614,7 @@ func (q *Queries) LinkTaskToIssue(ctx context.Context, arg LinkTaskToIssueParams
 }
 
 const listActiveAgentsByRuntime = `-- name: ListActiveAgentsByRuntime :many
-SELECT id, workspace_id, name, avatar_url, runtime_mode, runtime_config, visibility, status, max_concurrent_tasks, owner_id, created_at, updated_at, description, runtime_id, instructions, archived_at, archived_by, custom_env, custom_args, mcp_config, model, thinking_level, composio_toolkit_allowlist, permission_mode, profile_html, custom_env_encrypted FROM agent
+SELECT id, workspace_id, name, avatar_url, runtime_mode, runtime_config, visibility, status, max_concurrent_tasks, owner_id, created_at, updated_at, description, runtime_id, instructions, archived_at, archived_by, custom_env, custom_args, mcp_config, model, thinking_level, composio_toolkit_allowlist, permission_mode, profile_html, custom_env_encrypted, instructions_zh FROM agent
 WHERE runtime_id = $1 AND archived_at IS NULL
 ORDER BY name ASC
 `
@@ -2648,6 +2661,7 @@ func (q *Queries) ListActiveAgentsByRuntime(ctx context.Context, runtimeID pgtyp
 			&i.PermissionMode,
 			&i.ProfileHtml,
 			&i.CustomEnvEncrypted,
+			&i.InstructionsZh,
 		); err != nil {
 			return nil, err
 		}
@@ -2660,7 +2674,7 @@ func (q *Queries) ListActiveAgentsByRuntime(ctx context.Context, runtimeID pgtyp
 }
 
 const listActiveAgentsByRuntimeForUpdate = `-- name: ListActiveAgentsByRuntimeForUpdate :many
-SELECT id, workspace_id, name, avatar_url, runtime_mode, runtime_config, visibility, status, max_concurrent_tasks, owner_id, created_at, updated_at, description, runtime_id, instructions, archived_at, archived_by, custom_env, custom_args, mcp_config, model, thinking_level, composio_toolkit_allowlist, permission_mode, profile_html, custom_env_encrypted FROM agent
+SELECT id, workspace_id, name, avatar_url, runtime_mode, runtime_config, visibility, status, max_concurrent_tasks, owner_id, created_at, updated_at, description, runtime_id, instructions, archived_at, archived_by, custom_env, custom_args, mcp_config, model, thinking_level, composio_toolkit_allowlist, permission_mode, profile_html, custom_env_encrypted, instructions_zh FROM agent
 WHERE runtime_id = $1 AND archived_at IS NULL
 ORDER BY name ASC
 FOR UPDATE
@@ -2710,6 +2724,7 @@ func (q *Queries) ListActiveAgentsByRuntimeForUpdate(ctx context.Context, runtim
 			&i.PermissionMode,
 			&i.ProfileHtml,
 			&i.CustomEnvEncrypted,
+			&i.InstructionsZh,
 		); err != nil {
 			return nil, err
 		}
@@ -2857,7 +2872,7 @@ func (q *Queries) ListAgentTasks(ctx context.Context, agentID pgtype.UUID) ([]Ag
 }
 
 const listAgents = `-- name: ListAgents :many
-SELECT id, workspace_id, name, avatar_url, runtime_mode, runtime_config, visibility, status, max_concurrent_tasks, owner_id, created_at, updated_at, description, runtime_id, instructions, archived_at, archived_by, custom_env, custom_args, mcp_config, model, thinking_level, composio_toolkit_allowlist, permission_mode, profile_html, custom_env_encrypted FROM agent
+SELECT id, workspace_id, name, avatar_url, runtime_mode, runtime_config, visibility, status, max_concurrent_tasks, owner_id, created_at, updated_at, description, runtime_id, instructions, archived_at, archived_by, custom_env, custom_args, mcp_config, model, thinking_level, composio_toolkit_allowlist, permission_mode, profile_html, custom_env_encrypted, instructions_zh FROM agent
 WHERE workspace_id = $1 AND archived_at IS NULL
 ORDER BY created_at ASC
 `
@@ -2898,6 +2913,7 @@ func (q *Queries) ListAgents(ctx context.Context, workspaceID pgtype.UUID) ([]Ag
 			&i.PermissionMode,
 			&i.ProfileHtml,
 			&i.CustomEnvEncrypted,
+			&i.InstructionsZh,
 		); err != nil {
 			return nil, err
 		}
@@ -2910,7 +2926,7 @@ func (q *Queries) ListAgents(ctx context.Context, workspaceID pgtype.UUID) ([]Ag
 }
 
 const listAllAgents = `-- name: ListAllAgents :many
-SELECT id, workspace_id, name, avatar_url, runtime_mode, runtime_config, visibility, status, max_concurrent_tasks, owner_id, created_at, updated_at, description, runtime_id, instructions, archived_at, archived_by, custom_env, custom_args, mcp_config, model, thinking_level, composio_toolkit_allowlist, permission_mode, profile_html, custom_env_encrypted FROM agent
+SELECT id, workspace_id, name, avatar_url, runtime_mode, runtime_config, visibility, status, max_concurrent_tasks, owner_id, created_at, updated_at, description, runtime_id, instructions, archived_at, archived_by, custom_env, custom_args, mcp_config, model, thinking_level, composio_toolkit_allowlist, permission_mode, profile_html, custom_env_encrypted, instructions_zh FROM agent
 WHERE workspace_id = $1
 ORDER BY created_at ASC
 `
@@ -2951,6 +2967,7 @@ func (q *Queries) ListAllAgents(ctx context.Context, workspaceID pgtype.UUID) ([
 			&i.PermissionMode,
 			&i.ProfileHtml,
 			&i.CustomEnvEncrypted,
+			&i.InstructionsZh,
 		); err != nil {
 			return nil, err
 		}
@@ -3741,7 +3758,7 @@ SET status = CASE WHEN EXISTS (
 ) THEN 'working' ELSE 'idle' END,
     updated_at = now()
 WHERE a.id = $1
-RETURNING id, workspace_id, name, avatar_url, runtime_mode, runtime_config, visibility, status, max_concurrent_tasks, owner_id, created_at, updated_at, description, runtime_id, instructions, archived_at, archived_by, custom_env, custom_args, mcp_config, model, thinking_level, composio_toolkit_allowlist, permission_mode, profile_html, custom_env_encrypted
+RETURNING id, workspace_id, name, avatar_url, runtime_mode, runtime_config, visibility, status, max_concurrent_tasks, owner_id, created_at, updated_at, description, runtime_id, instructions, archived_at, archived_by, custom_env, custom_args, mcp_config, model, thinking_level, composio_toolkit_allowlist, permission_mode, profile_html, custom_env_encrypted, instructions_zh
 `
 
 func (q *Queries) RefreshAgentStatusFromTasks(ctx context.Context, id pgtype.UUID) (Agent, error) {
@@ -3774,6 +3791,7 @@ func (q *Queries) RefreshAgentStatusFromTasks(ctx context.Context, id pgtype.UUI
 		&i.PermissionMode,
 		&i.ProfileHtml,
 		&i.CustomEnvEncrypted,
+		&i.InstructionsZh,
 	)
 	return i, err
 }
@@ -3852,7 +3870,7 @@ func (q *Queries) RequeueAgentTaskAfterClaimFailure(ctx context.Context, arg Req
 const restoreAgent = `-- name: RestoreAgent :one
 UPDATE agent SET archived_at = NULL, archived_by = NULL, updated_at = now()
 WHERE id = $1
-RETURNING id, workspace_id, name, avatar_url, runtime_mode, runtime_config, visibility, status, max_concurrent_tasks, owner_id, created_at, updated_at, description, runtime_id, instructions, archived_at, archived_by, custom_env, custom_args, mcp_config, model, thinking_level, composio_toolkit_allowlist, permission_mode, profile_html, custom_env_encrypted
+RETURNING id, workspace_id, name, avatar_url, runtime_mode, runtime_config, visibility, status, max_concurrent_tasks, owner_id, created_at, updated_at, description, runtime_id, instructions, archived_at, archived_by, custom_env, custom_args, mcp_config, model, thinking_level, composio_toolkit_allowlist, permission_mode, profile_html, custom_env_encrypted, instructions_zh
 `
 
 func (q *Queries) RestoreAgent(ctx context.Context, id pgtype.UUID) (Agent, error) {
@@ -3885,6 +3903,7 @@ func (q *Queries) RestoreAgent(ctx context.Context, id pgtype.UUID) (Agent, erro
 		&i.PermissionMode,
 		&i.ProfileHtml,
 		&i.CustomEnvEncrypted,
+		&i.InstructionsZh,
 	)
 	return i, err
 }
@@ -4011,16 +4030,17 @@ UPDATE agent SET
     status = COALESCE($10, status),
     max_concurrent_tasks = COALESCE($11, max_concurrent_tasks),
     instructions = COALESCE($12, instructions),
-    custom_env = COALESCE($13, custom_env),
-    custom_args = COALESCE($14, custom_args),
-    mcp_config = COALESCE($15, mcp_config),
-    model = COALESCE($16, model),
-    thinking_level = COALESCE($17, thinking_level),
-    composio_toolkit_allowlist = COALESCE($18::text[], composio_toolkit_allowlist),
-    profile_html = COALESCE($19, profile_html),
+    instructions_zh = COALESCE($13, instructions_zh),
+    custom_env = COALESCE($14, custom_env),
+    custom_args = COALESCE($15, custom_args),
+    mcp_config = COALESCE($16, mcp_config),
+    model = COALESCE($17, model),
+    thinking_level = COALESCE($18, thinking_level),
+    composio_toolkit_allowlist = COALESCE($19::text[], composio_toolkit_allowlist),
+    profile_html = COALESCE($20, profile_html),
     updated_at = now()
 WHERE id = $1
-RETURNING id, workspace_id, name, avatar_url, runtime_mode, runtime_config, visibility, status, max_concurrent_tasks, owner_id, created_at, updated_at, description, runtime_id, instructions, archived_at, archived_by, custom_env, custom_args, mcp_config, model, thinking_level, composio_toolkit_allowlist, permission_mode, profile_html, custom_env_encrypted
+RETURNING id, workspace_id, name, avatar_url, runtime_mode, runtime_config, visibility, status, max_concurrent_tasks, owner_id, created_at, updated_at, description, runtime_id, instructions, archived_at, archived_by, custom_env, custom_args, mcp_config, model, thinking_level, composio_toolkit_allowlist, permission_mode, profile_html, custom_env_encrypted, instructions_zh
 `
 
 type UpdateAgentParams struct {
@@ -4036,6 +4056,7 @@ type UpdateAgentParams struct {
 	Status                   pgtype.Text `json:"status"`
 	MaxConcurrentTasks       pgtype.Int4 `json:"max_concurrent_tasks"`
 	Instructions             pgtype.Text `json:"instructions"`
+	InstructionsZh           pgtype.Text `json:"instructions_zh"`
 	CustomEnv                []byte      `json:"custom_env"`
 	CustomArgs               []byte      `json:"custom_args"`
 	McpConfig                []byte      `json:"mcp_config"`
@@ -4065,6 +4086,7 @@ func (q *Queries) UpdateAgent(ctx context.Context, arg UpdateAgentParams) (Agent
 		arg.Status,
 		arg.MaxConcurrentTasks,
 		arg.Instructions,
+		arg.InstructionsZh,
 		arg.CustomEnv,
 		arg.CustomArgs,
 		arg.McpConfig,
@@ -4101,6 +4123,7 @@ func (q *Queries) UpdateAgent(ctx context.Context, arg UpdateAgentParams) (Agent
 		&i.PermissionMode,
 		&i.ProfileHtml,
 		&i.CustomEnvEncrypted,
+		&i.InstructionsZh,
 	)
 	return i, err
 }
@@ -4109,7 +4132,7 @@ const updateAgentCustomEnv = `-- name: UpdateAgentCustomEnv :one
 UPDATE agent
 SET custom_env = $2, updated_at = now()
 WHERE id = $1
-RETURNING id, workspace_id, name, avatar_url, runtime_mode, runtime_config, visibility, status, max_concurrent_tasks, owner_id, created_at, updated_at, description, runtime_id, instructions, archived_at, archived_by, custom_env, custom_args, mcp_config, model, thinking_level, composio_toolkit_allowlist, permission_mode, profile_html, custom_env_encrypted
+RETURNING id, workspace_id, name, avatar_url, runtime_mode, runtime_config, visibility, status, max_concurrent_tasks, owner_id, created_at, updated_at, description, runtime_id, instructions, archived_at, archived_by, custom_env, custom_args, mcp_config, model, thinking_level, composio_toolkit_allowlist, permission_mode, profile_html, custom_env_encrypted, instructions_zh
 `
 
 type UpdateAgentCustomEnvParams struct {
@@ -4152,6 +4175,7 @@ func (q *Queries) UpdateAgentCustomEnv(ctx context.Context, arg UpdateAgentCusto
 		&i.PermissionMode,
 		&i.ProfileHtml,
 		&i.CustomEnvEncrypted,
+		&i.InstructionsZh,
 	)
 	return i, err
 }
@@ -4159,7 +4183,7 @@ func (q *Queries) UpdateAgentCustomEnv(ctx context.Context, arg UpdateAgentCusto
 const updateAgentStatus = `-- name: UpdateAgentStatus :one
 UPDATE agent SET status = $2, updated_at = now()
 WHERE id = $1
-RETURNING id, workspace_id, name, avatar_url, runtime_mode, runtime_config, visibility, status, max_concurrent_tasks, owner_id, created_at, updated_at, description, runtime_id, instructions, archived_at, archived_by, custom_env, custom_args, mcp_config, model, thinking_level, composio_toolkit_allowlist, permission_mode, profile_html, custom_env_encrypted
+RETURNING id, workspace_id, name, avatar_url, runtime_mode, runtime_config, visibility, status, max_concurrent_tasks, owner_id, created_at, updated_at, description, runtime_id, instructions, archived_at, archived_by, custom_env, custom_args, mcp_config, model, thinking_level, composio_toolkit_allowlist, permission_mode, profile_html, custom_env_encrypted, instructions_zh
 `
 
 type UpdateAgentStatusParams struct {
@@ -4197,6 +4221,7 @@ func (q *Queries) UpdateAgentStatus(ctx context.Context, arg UpdateAgentStatusPa
 		&i.PermissionMode,
 		&i.ProfileHtml,
 		&i.CustomEnvEncrypted,
+		&i.InstructionsZh,
 	)
 	return i, err
 }

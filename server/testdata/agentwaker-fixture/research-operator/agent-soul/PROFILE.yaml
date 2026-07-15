@@ -17,3 +17,6 @@ skills:
       use_when: Collect platform and audience signals for a trend evaluation.
       entrypoint: research-operator-skills/trend-research/SKILL.md
       status: implemented
+generation:
+  card_title_zh: 调研运营
+  card_mission_zh: 收集平台与受众信号，形成可验证的趋势判断与视觉资产。
