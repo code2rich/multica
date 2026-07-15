@@ -297,10 +297,9 @@ func (h *Handler) GetAgentSourcePlan(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, plan)
 }
 
-// ApplyAgentSourceSnapshot applies one snapshot atomically. M2 apply requires
-// the env apply token (the daemon's secret-bearing re-read result) to
-// synchronize .env values; without it, apply proceeds but skips env-value sync
-// and records the reason in the summary.
+// ApplyAgentSourceSnapshot applies one snapshot atomically. By default it
+// parses each role's exact env/.env source body from the snapshot and seals the
+// values at rest; EnvValues is an optional authenticated override.
 func (h *Handler) ApplyAgentSourceSnapshot(w http.ResponseWriter, r *http.Request) {
 	if !agentWakerDirectorySyncEnabled(h, w, r) {
 		return
@@ -333,9 +332,8 @@ func (h *Handler) ApplyAgentSourceSnapshot(w http.ResponseWriter, r *http.Reques
 		writeError(w, http.StatusBadRequest, "env_merge_mode must be source-authoritative or merge-preserve")
 		return
 	}
-	// The env values travel in the explicit apply payload (owner/admin only,
-	// TLS). The server does NOT read them from the snapshot (snapshots are
-	// value-free). Defense-in-depth: confirm no value leaks into logs.
+	// An explicit env_values map overrides the scoped snapshot body. Neither
+	// source is logged, and ApplySnapshot seals values before database storage.
 	result, err := h.ApplySnapshot(r.Context(), ApplySnapshotInput{
 		SourceID:     src.ID,
 		SnapshotID:   snapshotID,
@@ -352,11 +350,9 @@ func (h *Handler) ApplyAgentSourceSnapshot(w http.ResponseWriter, r *http.Reques
 }
 
 // RollbackAgentSource re-applies a prior superseded snapshot, making it the
-// active applied snapshot again. It uses the same atomic apply path; the prior
-// snapshot's manifest is already stored value-free, so rollback is a re-apply
-// of that manifest. Env values are NOT re-synchronized on rollback (they would
-// require a fresh daemon re-read); the encrypted env column is left as-is so
-// the agent keeps its last-known-good configuration.
+// active applied snapshot again. It uses the same atomic apply path and parses
+// that snapshot's scoped env/.env source body, so encrypted environment values
+// roll back with the rest of the role configuration.
 func (h *Handler) RollbackAgentSource(w http.ResponseWriter, r *http.Request) {
 	if !agentWakerDirectorySyncEnabled(h, w, r) {
 		return

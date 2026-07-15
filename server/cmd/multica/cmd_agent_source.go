@@ -220,8 +220,9 @@ func runAgentSourceApply(cmd *cobra.Command, args []string) error {
 		"snapshot_id":    snapshot,
 		"env_merge_mode": mergeMode,
 	}
-	// Env values are read from a local JSON file and sent only in the explicit
-	// authenticated apply payload. They are never printed.
+	// Env values are normally derived server-side from the scoped env/.env
+	// source body. An explicit JSON payload overrides those values and is never
+	// printed.
 	if envFile != "" {
 		raw, rerr := os.ReadFile(envFile)
 		if rerr != nil {

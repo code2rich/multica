@@ -10,45 +10,53 @@ import (
 	"github.com/multica-ai/multica/server/internal/agentwaker"
 )
 
-// fixtureRoot returns the absolute path to the shared AgentWaker test fixture.
-// The scanner requires an absolute path (it reuses the daemon path validators).
+// fixtureRoot copies the tracked fixture and adds the intentionally ignored
+// real env/.env at runtime. The scanner requires an absolute source path.
 func fixtureRoot(t *testing.T) string {
 	t.Helper()
 	rel := filepath.Join("..", "..", "testdata", "agentwaker-fixture")
-	abs, err := filepath.Abs(rel)
+	source, err := filepath.Abs(rel)
 	if err != nil {
 		t.Fatalf("resolve fixture abs path: %v", err)
 	}
-	if _, err := os.Stat(abs); err != nil {
-		t.Fatalf("fixture missing at %s: %v", abs, err)
+	if _, err := os.Stat(source); err != nil {
+		t.Fatalf("fixture missing at %s: %v", source, err)
 	}
-	return abs
+	destination := filepath.Join(t.TempDir(), "agentwaker-fixture")
+	if err := os.CopyFS(destination, os.DirFS(source)); err != nil {
+		t.Fatalf("copy fixture: %v", err)
+	}
+	envPath := filepath.Join(destination, "research-operator", "env", ".env")
+	envBody := "PLATFORM_API_KEY=" + scanCanary + "\nPLATFORM_API_BASE=https://api.example.com\n"
+	if err := os.WriteFile(envPath, []byte(envBody), 0o600); err != nil {
+		t.Fatalf("write fixture env/.env: %v", err)
+	}
+	return destination
 }
 
 // scanCanary is the plaintext value in the fixture's research-operator/env/.env.
-// Every scan test asserts it never appears in the sanitized scan result.
+// The source-files contract intentionally returns this exact file body.
 const scanCanary = "super-secret-value-do-not-leak"
 
 // unrelatedCanary is the value in the OUT-of-scope secrets.env that must NEVER
 // be read by the scanner.
 const unrelatedCanary = "unrelated-secret-must-not-be-read"
 
-// TestScanDirectory_RedactsPlaintextEnv is the canonical M1 proof: a full
-// directory scan produces a sanitized manifest, and plaintext env values never
-// appear in it — not in the manifest, not in the diagnostics, not in the
-// serialized JSON. It also proves the scanner does not read unrelated .env
-// files outside the recognized {role}/env/.env path.
-func TestScanDirectory_RedactsPlaintextEnv(t *testing.T) {
+// TestScanDirectory_ScopesPlaintextEnvSourceBody proves the scanner includes
+// only the recognized role's exact env/.env body. Env declarations remain
+// value-free even though the separately requested source body is returned.
+func TestScanDirectory_ScopesPlaintextEnvSourceBody(t *testing.T) {
 	key := []byte("32-byte-server-secret-key-for-hmac!!")
 	result, err := ScanDirectory(t.Context(), fixtureRoot(t), key)
 	if err != nil {
 		t.Fatalf("ScanDirectory failed: %v", err)
 	}
 
-	// 1. The configured canary must be absent from the entire serialized result.
+	// 1. The configured canary is present because env/.env is a requested
+	//    source-file body.
 	blob, _ := json.Marshal(result)
-	if strings.Contains(string(blob), scanCanary) {
-		t.Fatalf("PLAINTEXT LEAKED into scan result: %s", blob)
+	if !strings.Contains(string(blob), scanCanary) {
+		t.Fatalf("env/.env body was not included in scan result: %s", blob)
 	}
 
 	// 2. The unrelated .env canary must also be absent — proves exact-path
@@ -157,20 +165,20 @@ func TestScanDirectory_DiscoversAllContracts(t *testing.T) {
 		t.Errorf("research-operator Chinese description mismatch: %q", description)
 	}
 	sourceFiles := research["source_files"].([]map[string]any)
-	if len(sourceFiles) != 4 {
-		t.Fatalf("research-operator want 4 linked source files, got %d: %+v", len(sourceFiles), sourceFiles)
+	if len(sourceFiles) != 5 {
+		t.Fatalf("research-operator want 5 source files, got %d: %+v", len(sourceFiles), sourceFiles)
 	}
 	sourceByPath := map[string]string{}
 	for _, sourceFile := range sourceFiles {
 		sourceByPath[sourceFile["path"].(string)] = sourceFile["content"].(string)
 	}
-	for _, expected := range []string{"agent-soul/PROFILE.yaml", "research-operator-skills/SKILL.md", "env/.env.example", "workdir/README.md"} {
+	for _, expected := range []string{"agent-soul/PROFILE.yaml", "research-operator-skills/SKILL.md", "env/.env", "env/.env.example", "workdir/README.md"} {
 		if sourceByPath[expected] == "" {
 			t.Errorf("linked source file %s was not packaged", expected)
 		}
 	}
-	if _, leaked := sourceByPath["env/.env"]; leaked {
-		t.Fatal("real env/.env must never be packaged as a source file")
+	if !strings.Contains(sourceByPath["env/.env"], scanCanary) {
+		t.Fatal("real env/.env body was not packaged as a source file")
 	}
 	if content, _ := research["persona_content"].(string); content == "" {
 		t.Error("research-operator missing agent-persona.html content")

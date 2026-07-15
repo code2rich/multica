@@ -378,10 +378,10 @@ func (c *Client) ReportLocalSkillImportResult(ctx context.Context, runtimeID, re
 	return c.postJSON(ctx, fmt.Sprintf("/api/daemon/runtimes/%s/local-skills/import/%s/result", runtimeID, requestID), result, nil)
 }
 
-// ReportAgentWakerScanResult sends a sanitized AgentWaker directory-scan report
-// back to the server. The payload carries the value-free manifest, the canonical
-// directory hash, diagnostics, and the scanner version. Plaintext env values
-// never appear here — the server also defense-checks the payload.
+// ReportAgentWakerScanResult sends a scoped AgentWaker directory-scan report
+// back to the server. The payload carries scoped role source files, the
+// canonical directory hash, diagnostics, and scanner version. Structured env
+// declarations remain value-free; source_files may contain exact env/.env.
 func (c *Client) ReportAgentWakerScanResult(ctx context.Context, runtimeID, requestID string, result map[string]any) error {
 	return c.postJSON(ctx, fmt.Sprintf("/api/daemon/runtimes/%s/agent-sources/scan/%s/result", runtimeID, requestID), result, nil)
 }

@@ -1245,7 +1245,8 @@ func (h *Handler) processHeartbeat(ctx context.Context, rt db.AgentRuntime, supp
 	// probe / unbounded-pop two-step as the local-skill queues: a slow
 	// shared store cannot stall the heartbeat on empty-queue ticks, but the
 	// claim itself runs unbounded because its Lua side effects cannot be
-	// safely aborted mid-script. The scan is read-only and value-free.
+	// safely aborted mid-script. The scan is read-only; scoped source files
+	// may include the exact env/.env body requested by the product.
 	if h.AgentWakerScanStore != nil {
 		probeScanCtx, cancelProbeScan := context.WithTimeout(ctx, heartbeatHasPendingTimeout)
 		hasScan, probeScanErr := h.AgentWakerScanStore.HasPending(probeScanCtx, runtimeID)
@@ -1472,11 +1473,12 @@ func (h *Handler) ClaimTaskByRuntime(w http.ResponseWriter, r *http.Request) {
 	}
 	if agent, err := h.Queries.GetAgent(r.Context(), task.AgentID); err == nil {
 		useSkillRefs := requestHasDaemonCapability(r, protocol.DaemonCapabilitySkillBundlesV1)
-		var customEnv map[string]string
-		if agent.CustomEnv != nil {
-			if err := json.Unmarshal(agent.CustomEnv, &customEnv); err != nil {
-				slog.Warn("failed to unmarshal agent custom_env", "agent_id", uuidToString(agent.ID), "error", err)
-			}
+		customEnv, envErr := h.mergedAgentEnv(agent)
+		if envErr != nil {
+			slog.Error("daemon claim: failed to load agent env", "task_id", uuidToString(task.ID), "agent_id", uuidToString(agent.ID), "error", envErr)
+			requeueFailedClaim("agent_env")
+			writeError(w, http.StatusInternalServerError, "failed to load agent environment")
+			return
 		}
 		var customArgs []string
 		if agent.CustomArgs != nil {

@@ -50,18 +50,17 @@ type AgentSourceEnvApply struct {
 	Skipped   string   `json:"skipped,omitempty"`   // reason env sync was skipped (e.g. no secret key)
 }
 
-// ApplySnapshotInput carries everything ApplySnapshot needs. EnvValues is the
-// ONLY plaintext-bearing field; it arrives through the secret apply channel
-// (the daemon re-read {role}/env/.env after verifying the directory hash) and
-// is encrypted at rest before the transaction commits.
+// ApplySnapshotInput carries everything ApplySnapshot needs. By default env
+// values are parsed from the scoped source_files env/.env body; EnvValues is
+// an optional authenticated override. Values are sealed before commit.
 type ApplySnapshotInput struct {
 	SourceID     pgtype.UUID
 	SnapshotID   pgtype.UUID
 	WorkspaceID  pgtype.UUID
 	OwnerID      pgtype.UUID // authenticated owner/admin who initiated apply
 	EnvMergeMode string      // "source-authoritative" (default) | "merge-preserve"
-	// EnvValues is keyed by "<roleID>:<varName>" → plaintext value. Only roles
-	// with configured .env entries appear. Sealed by EnvSecret before storage.
+	// EnvValues is keyed by role ID, then variable name. A non-nil map overrides
+	// snapshot parsing and is sealed by EnvSecret before storage.
 	EnvValues map[string]map[string]string
 }
 
@@ -89,7 +88,8 @@ func (h *Handler) ApplySnapshot(ctx context.Context, input ApplySnapshotInput) (
 	if !input.SnapshotID.Valid || !input.SourceID.Valid || !input.WorkspaceID.Valid || !input.OwnerID.Valid {
 		return nil, errors.New("apply: source/snapshot/workspace/owner ids required")
 	}
-	// Load the snapshot manifest (value-free).
+	// Load the snapshot manifest. Structured env declarations are value-free;
+	// scoped source_files may contain exact env/.env content.
 	snap, err := h.Queries.GetAgentSourceSnapshotInSource(ctx, db.GetAgentSourceSnapshotInSourceParams{
 		ID: input.SnapshotID, SourceID: input.SourceID,
 	})
@@ -623,6 +623,14 @@ func applyRoleEnv(ctx context.Context, qtx *db.Queries, h *Handler, input ApplyS
 	if len(envRaw) == 0 {
 		return nil
 	}
+	roleValues := input.EnvValues[roleID]
+	if input.EnvValues == nil {
+		var err error
+		roleValues, err = envValuesFromRoleSourceFiles(role)
+		if err != nil {
+			return fmt.Errorf("load env source for role %s: %w", roleID, err)
+		}
+	}
 	declaredKeys := []string{}
 	valuesForAgent := map[string]string{}
 	envSummary := AgentSourceEnvApply{}
@@ -650,13 +658,11 @@ func applyRoleEnv(ctx context.Context, qtx *db.Queries, h *Handler, input ApplyS
 		if required && !configured {
 			envSummary.Missing = append(envSummary.Missing, name)
 		}
-		// Pull the plaintext value from the secret apply input (if present).
-		if configured && input.EnvValues != nil {
-			if roleValues, ok := input.EnvValues[roleID]; ok {
-				if v, ok := roleValues[name]; ok {
-					valuesForAgent[name] = v
-					envSummary.Updated = append(envSummary.Updated, name)
-				}
+		// Pull the value from the scoped source body or explicit override.
+		if configured {
+			if v, ok := roleValues[name]; ok {
+				valuesForAgent[name] = v
+				envSummary.Updated = append(envSummary.Updated, name)
 			}
 		}
 	}
@@ -670,7 +676,7 @@ func applyRoleEnv(ctx context.Context, qtx *db.Queries, h *Handler, input ApplyS
 		summary.Env = mergeEnvSummary(summary.Env, envSummary)
 		return nil
 	}
-	if len(valuesForAgent) > 0 {
+	if len(valuesForAgent) > 0 || input.EnvMergeMode == "source-authoritative" {
 		// Merge with any existing sealed values per the configured policy.
 		merged := valuesForAgent
 		if input.EnvMergeMode == "merge-preserve" {
@@ -694,6 +700,29 @@ func applyRoleEnv(ctx context.Context, qtx *db.Queries, h *Handler, input ApplyS
 	}
 	summary.Env = mergeEnvSummary(summary.Env, envSummary)
 	return nil
+}
+
+// envValuesFromRoleSourceFiles parses only the exact env/.env source body
+// already captured by the owning daemon. This keeps every apply entry point
+// consistent without assuming the API server or CLI can access daemon paths.
+func envValuesFromRoleSourceFiles(role map[string]any) (map[string]string, error) {
+	sourceFiles, _ := role["source_files"].([]any)
+	for _, raw := range sourceFiles {
+		file, ok := raw.(map[string]any)
+		if !ok || file["path"] != "env/.env" {
+			continue
+		}
+		content, ok := file["content"].(string)
+		if !ok {
+			return nil, fmt.Errorf("env/.env source content is not text")
+		}
+		parsed, err := agentwaker.ParseEnvFile([]byte(content))
+		if err != nil {
+			return nil, err
+		}
+		return parsed.Values, nil
+	}
+	return map[string]string{}, nil
 }
 
 // --- helpers ---

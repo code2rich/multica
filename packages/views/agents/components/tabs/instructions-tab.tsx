@@ -46,6 +46,10 @@ export function InstructionsTab({
   const activeSourceFile = agent.source_files?.find(
     (file) => file.path === activeSourcePath,
   );
+  const envSourceFile = agent.source_files?.find(
+    (file) => file.path === "env/.env",
+  );
+  const overviewLinksEnvSource = agent.instructions_zh?.includes("(env/.env");
   const handleSourceLink = useCallback(
     (href: string) => {
       const result = findAgentSourceFile(
@@ -164,11 +168,24 @@ export function InstructionsTab({
             )}
           </div>
         ) : (
-          <ReadonlyContent
-            content={agent.instructions_zh ?? ""}
-            className="min-h-full"
-            onLinkClick={handleSourceLink}
-          />
+          <div className="min-h-full">
+            <ReadonlyContent
+              content={agent.instructions_zh ?? ""}
+              className="min-h-full"
+              onLinkClick={handleSourceLink}
+            />
+            {envSourceFile && !overviewLinksEnvSource && (
+              <Button
+                type="button"
+                variant="link"
+                size="sm"
+                className="mt-2 h-auto px-0 font-mono text-xs"
+                onClick={() => setActiveSourcePath(envSourceFile.path)}
+              >
+                {envSourceFile.path}
+              </Button>
+            )}
+          </div>
         )}
       </div>
 

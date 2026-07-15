@@ -19,8 +19,13 @@ describe("resolveAgentSourcePath", () => {
   });
 
   it("finds packaged content while preserving an unavailable path", () => {
-    const files = [{ path: "agent-soul/PROFILE.yaml", content: "id: test" }];
+    const files = [
+      { path: "agent-soul/PROFILE.yaml", content: "id: test" },
+      { path: "env/.env", content: "TOKEN=secret" },
+    ];
     expect(findAgentSourceFile(files, "", "agent-soul/PROFILE.yaml")?.file).toEqual(files[0]);
-    expect(findAgentSourceFile(files, "", "env/.env")?.file).toBeUndefined();
+    expect(findAgentSourceFile(files, "", "env/.env")?.file).toEqual(files[1]);
+
+    expect(findAgentSourceFile(files, "", "missing.md")?.file).toBeUndefined();
   });
 });

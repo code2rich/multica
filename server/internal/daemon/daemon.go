@@ -2048,8 +2048,8 @@ func (d *Daemon) handleHeartbeatActions(ctx context.Context, runtimeID string, r
 			go d.handleLocalSkillImport(ctx, *rt, *resp.PendingLocalSkillImport)
 		}
 	}
-	// AgentWaker directory scan: read-only, value-free. Old daemons that don't
-	// know this field ignore it (standard JSON behavior).
+	// AgentWaker directory scan: read-only with scoped source files. Old daemons
+	// that don't know this field ignore it (standard JSON behavior).
 	if resp.PendingAgentWakerScan != nil {
 		if rt := d.findRuntime(runtimeID); rt != nil {
 			go d.handleAgentWakerScan(ctx, *rt, *resp.PendingAgentWakerScan)
@@ -2225,10 +2225,9 @@ func (d *Daemon) reportModelListResult(ctx context.Context, rt Runtime, requestI
 
 // handleAgentWakerScan performs a read-only AgentWaker directory scan and
 // reports the sanitized result. The scan reuses the daemon path validators and
-// the agentwaker parsers; it never executes scripts and never returns plaintext
-// env values. The envDigestKey is the server-shared HMAC key the daemon uses to
-// compute value digests so previews carry digests — never values — and the
-// server can still detect "this value changed".
+// the agentwaker parsers and never executes scripts. Structured env previews
+// carry digests, while scoped source_files may contain the requested exact
+// env/.env body. The envDigestKey supports safe change detection.
 func (d *Daemon) handleAgentWakerScan(ctx context.Context, rt Runtime, pending PendingAgentWakerScan) {
 	d.logger.Info("agentwaker scan requested",
 		"runtime_id", rt.ID, "request_id", pending.ID, "source_id", pending.SourceID, "abs_path", pending.AbsPath)

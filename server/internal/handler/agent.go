@@ -41,9 +41,9 @@ type AgentResponse struct {
 	Description    string `json:"description"`
 	Instructions   string `json:"instructions"`
 	InstructionsZH string `json:"instructions_zh"`
-	// SourceFiles are safe text files explicitly referenced by the imported
-	// AgentWaker presentation document. They are populated only on the detail
-	// endpoint so list and WebSocket payloads stay small.
+	// SourceFiles are scoped text files from the imported AgentWaker role. They
+	// are populated only on the detail endpoint so list and WebSocket payloads
+	// stay small. The exact env/.env body may be present by product contract.
 	SourceFiles   []AgentSourceFile `json:"source_files,omitempty"`
 	AvatarURL     *string           `json:"avatar_url"`
 	RuntimeMode   string            `json:"runtime_mode"`
@@ -177,7 +177,7 @@ func agentToResponse(a db.Agent) AgentResponse {
 		RuntimeConfig:            rc,
 		CustomArgs:               customArgs,
 		McpConfig:                mcpConfig,
-		HasCustomEnv:             envKeyCount > 0,
+		HasCustomEnv:             envKeyCount > 0 || len(a.CustomEnvEncrypted) > 0,
 		CustomEnvKeyCount:        envKeyCount,
 		Visibility:               a.Visibility,
 		PermissionMode:           a.PermissionMode,
@@ -743,6 +743,14 @@ func (h *Handler) GetAgent(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	resp := agentToResponse(agent)
+	if mergedEnv, err := h.mergedAgentEnv(agent); err != nil {
+		slog.Error("load agent env metadata failed", "agent_id", uuidToString(agent.ID), "error", err)
+		writeError(w, http.StatusInternalServerError, "failed to load agent env metadata")
+		return
+	} else {
+		resp.HasCustomEnv = len(mergedEnv) > 0
+		resp.CustomEnvKeyCount = len(mergedEnv)
+	}
 	if len(agent.SourceFiles) > 0 {
 		if err := json.Unmarshal(agent.SourceFiles, &resp.SourceFiles); err != nil {
 			slog.Warn("failed to unmarshal agent source_files", "agent_id", uuidToString(agent.ID), "error", err)
