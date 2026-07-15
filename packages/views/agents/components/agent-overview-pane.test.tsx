@@ -1,10 +1,11 @@
 // @vitest-environment jsdom
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { Agent, AgentRuntime } from "@multica/core/types";
 import { I18nProvider } from "@multica/core/i18n/react";
+import { NavigationProvider, type NavigationAdapter } from "../../navigation";
 import enCommon from "../../locales/en/common.json";
 import enAgents from "../../locales/en/agents.json";
 
@@ -15,6 +16,7 @@ const TEST_RESOURCES = { en: { common: enCommon, agents: enAgents } };
 // not what each tab does, so we stub the heavy children.
 vi.mock("./tabs/activity-tab", () => ({
   ActivityTab: () => <div>activity-tab</div>,
+  AgentPerformanceSummary: () => <div>agent-performance-summary</div>,
 }));
 vi.mock("./tabs/instructions-tab", () => ({
   InstructionsTab: () => <div>instructions-tab</div>,
@@ -33,6 +35,11 @@ vi.mock("./tabs/mcp-config-tab", () => ({
 }));
 vi.mock("./tabs/integrations-tab", () => ({
   IntegrationsTab: () => <div>integrations-tab</div>,
+}));
+vi.mock("./tabs/profile-tab", () => ({
+  ProfileTab: ({ agent }: { agent: Agent }) => (
+    <div>profile-tab:{agent.profile_html}</div>
+  ),
 }));
 vi.mock("../../common/actor-issues-panel", () => ({
   ActorIssuesPanel: () => <div>actor-issues-panel</div>,
@@ -92,6 +99,7 @@ const baseAgent: Agent = {
   status: "idle",
   max_concurrent_tasks: 1,
   model: "",
+  profile_html: "<main>Imported persona</main>",
   owner_id: "user-1",
   skills: [],
   created_at: "2026-05-28T00:00:00Z",
@@ -124,17 +132,32 @@ function renderPane(runtimes: AgentRuntime[]) {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   });
+  const navigation: NavigationAdapter = {
+    push: vi.fn(),
+    replace: vi.fn(),
+    back: vi.fn(),
+    pathname: "/agents/agent-1",
+    searchParams: new URLSearchParams(),
+    getShareableUrl: (path) => `https://example.test${path}`,
+  };
   return render(
     <I18nProvider locale="en" resources={TEST_RESOURCES}>
-      <QueryClientProvider client={queryClient}>
-        <AgentOverviewPane
-          agent={baseAgent}
-          runtimes={runtimes}
-          onUpdate={vi.fn().mockResolvedValue(undefined)}
-        />
-      </QueryClientProvider>
+      <NavigationProvider value={navigation}>
+        <QueryClientProvider client={queryClient}>
+          <AgentOverviewPane
+            agent={baseAgent}
+            runtime={runtimes[0] ?? null}
+            runtimes={runtimes}
+            onUpdate={vi.fn().mockResolvedValue(undefined)}
+          />
+        </QueryClientProvider>
+      </NavigationProvider>
     </I18nProvider>,
   );
+}
+
+function openCapabilities() {
+  fireEvent.click(screen.getByRole("tab", { name: /^Capabilities$/i }));
 }
 
 beforeEach(() => {
@@ -155,15 +178,17 @@ describe("AgentOverviewPane MCP tab visibility", () => {
     ["OpenClaw", "openclaw"],
   ])("renders the MCP tab when the agent runs on the %s runtime", (_label, provider) => {
     renderPane([makeRuntime(provider)]);
-    expect(screen.getByRole("button", { name: /^MCP$/i })).toBeInTheDocument();
+    openCapabilities();
+    expect(screen.getByRole("tab", { name: /^MCP$/i })).toBeInTheDocument();
   });
 
   it("hides the MCP tab for providers whose backend does not read mcp_config", () => {
     // Saving an MCP config on e.g. Gemini would be a silent no-op at run
     // time — that's the bug this hiding logic is meant to prevent.
     renderPane([makeRuntime("gemini")]);
+    openCapabilities();
     expect(
-      screen.queryByRole("button", { name: /^MCP$/i }),
+      screen.queryByRole("tab", { name: /^MCP$/i }),
     ).not.toBeInTheDocument();
   });
 
@@ -172,7 +197,20 @@ describe("AgentOverviewPane MCP tab visibility", () => {
     // the runtimes query resolving. Hiding the tab would flicker it off and
     // then back on, which reads as a bug.
     renderPane([]);
-    expect(screen.getByRole("button", { name: /^MCP$/i })).toBeInTheDocument();
+    openCapabilities();
+    expect(screen.getByRole("tab", { name: /^MCP$/i })).toBeInTheDocument();
+  });
+});
+
+describe("AgentOverviewPane profile tab", () => {
+  it("keeps imported persona HTML reachable from the top-level navigation", () => {
+    renderPane([makeRuntime("kimi")]);
+
+    fireEvent.click(screen.getByRole("tab", { name: /^Profile$/i }));
+
+    expect(
+      screen.getByText("profile-tab:<main>Imported persona</main>"),
+    ).toBeInTheDocument();
   });
 });
 
@@ -180,8 +218,9 @@ describe("AgentOverviewPane Integrations tab visibility", () => {
   it("shows the Integrations tab once the deployment has Lark configured", async () => {
     larkListingRef.current = { installations: [], configured: true };
     renderPane([makeRuntime("claude")]);
+    openCapabilities();
     expect(
-      await screen.findByRole("button", { name: /^Integrations$/i }),
+      await screen.findByRole("tab", { name: /^Integrations$/i }),
     ).toBeInTheDocument();
   });
 
@@ -190,8 +229,9 @@ describe("AgentOverviewPane Integrations tab visibility", () => {
     // a Slack-only deployment was hiding the tab (and its bind entry).
     slackListingRef.current = { installations: [], configured: true };
     renderPane([makeRuntime("claude")]);
+    openCapabilities();
     expect(
-      await screen.findByRole("button", { name: /^Integrations$/i }),
+      await screen.findByRole("tab", { name: /^Integrations$/i }),
     ).toBeInTheDocument();
   });
 
@@ -200,8 +240,9 @@ describe("AgentOverviewPane Integrations tab visibility", () => {
     // deployment was hiding the tab (and its QR-scan bind entry).
     wechatListingRef.current = { installations: [], configured: true };
     renderPane([makeRuntime("claude")]);
+    openCapabilities();
     expect(
-      await screen.findByRole("button", { name: /^Integrations$/i }),
+      await screen.findByRole("tab", { name: /^Integrations$/i }),
     ).toBeInTheDocument();
   });
 
@@ -209,8 +250,9 @@ describe("AgentOverviewPane Integrations tab visibility", () => {
     // Default refs are configured:false; the tab must not appear on
     // deployments without any integration, the common case.
     renderPane([makeRuntime("claude")]);
+    openCapabilities();
     expect(
-      screen.queryByRole("button", { name: /^Integrations$/i }),
+      screen.queryByRole("tab", { name: /^Integrations$/i }),
     ).not.toBeInTheDocument();
   });
 });

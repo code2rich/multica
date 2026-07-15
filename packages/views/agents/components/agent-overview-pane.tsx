@@ -34,6 +34,7 @@ import { McpConfigTab } from "./tabs/mcp-config-tab";
 import { AgentMcpTab } from "./tabs/agent-mcp-tab";
 import { IntegrationsTab } from "./tabs/integrations-tab";
 import { RuntimeConfigTab } from "./tabs/runtime-config-tab";
+import { ProfileTab } from "./tabs/profile-tab";
 import { AgentDetailInspector } from "./agent-detail-inspector";
 import { AgentAccessSettings } from "./agent-access-settings";
 import { AgentOverviewSummary } from "./agent-overview-summary";
@@ -41,11 +42,17 @@ import { ActorIssuesPanel } from "../../common/actor-issues-panel";
 import { useT } from "../../i18n";
 import { useNavigation } from "../../navigation";
 
-type DetailSection = "overview" | "work" | "capabilities" | "settings";
+type DetailSection =
+  | "overview"
+  | "work"
+  | "capabilities"
+  | "profile"
+  | "settings";
 
 export type DetailTab =
   | "overview"
   | "work"
+  | "profile"
   | "instructions"
   | "skills"
   | "mcp_config"
@@ -92,6 +99,7 @@ const TOP_TABS: { id: DetailSection; labelKey: DetailSection }[] = [
   { id: "overview", labelKey: "overview" },
   { id: "work", labelKey: "work" },
   { id: "capabilities", labelKey: "capabilities" },
+  { id: "profile", labelKey: "profile" },
   { id: "settings", labelKey: "settings" },
 ];
 
@@ -102,6 +110,7 @@ const SETTINGS_IDS = new Set<DetailTab>(SETTINGS_TABS.map((tab) => tab.id));
 const DETAIL_VIEWS = new Set<DetailTab>([
   "overview",
   "work",
+  "profile",
   ...CAPABILITY_TABS.map((tab) => tab.id),
   ...SETTINGS_TABS.map((tab) => tab.id),
 ]);
@@ -113,6 +122,7 @@ function isDetailTab(value: string | null): value is DetailTab {
 function sectionForView(view: DetailTab): DetailSection {
   if (view === "overview") return "overview";
   if (view === "work") return "work";
+  if (view === "profile") return "profile";
   if (CAPABILITY_IDS.has(view)) return "capabilities";
   return "settings";
 }
@@ -219,6 +229,7 @@ export function AgentOverviewPane({
       new Set<DetailTab>([
         "overview",
         "work",
+        "profile",
         ...visibleCapabilityTabs.map((tab) => tab.id),
         ...visibleSettingsTabs.map((tab) => tab.id),
       ]),
@@ -253,7 +264,11 @@ export function AgentOverviewPane({
   );
 
   const requestSection = (section: DetailSection) => {
-    if (section === "overview" || section === "work") {
+    if (
+      section === "overview" ||
+      section === "work" ||
+      section === "profile"
+    ) {
       requestView(section);
       return;
     }
@@ -359,6 +374,16 @@ export function AgentOverviewPane({
         {effectiveView === "work" && (
           <div className="flex min-h-[620px] flex-col">
             <ActorIssuesPanel actorType="agent" actorId={agent.id} />
+          </div>
+        )}
+
+        {effectiveView === "profile" && (
+          <div className="mx-auto w-full max-w-5xl p-4 sm:p-6">
+            <ProfileTab
+              agent={agent}
+              onSave={(updates) => onUpdate(agent.id, updates)}
+              onDirtyChange={setActiveDirty}
+            />
           </div>
         )}
 
