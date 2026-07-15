@@ -52,8 +52,8 @@ func (s AgentWakerScanStatus) Terminal() bool {
 // AgentWakerScanRequest is one queued read-only directory scan. It is the
 // in-flight record held by the store and surfaced to the polling client. The
 // Manifest field carries the daemon's sanitized scan result (env key names +
-// digests only — verified value-free by the report handler). DirectoryHash is
-// the canonical manifest digest.
+// digests plus scoped source files, which may include exact env/.env content).
+// DirectoryHash is the canonical manifest digest.
 type AgentWakerScanRequest struct {
 	ID            string               `json:"id"`
 	SourceID      string               `json:"source_id"`
@@ -471,7 +471,7 @@ func (h *Handler) DeleteAgentSource(w http.ResponseWriter, r *http.Request) {
 
 // InitiateAgentSourceScan enqueues a read-only directory scan against the
 // configured daemon. The scan does NOT mutate any agent/skill/capability/env
-// state. The result lands in an immutable sanitized snapshot.
+// state. The result lands in an immutable scoped snapshot.
 func (h *Handler) InitiateAgentSourceScan(w http.ResponseWriter, r *http.Request) {
 	if !agentWakerDirectorySyncEnabled(h, w, r) {
 		return
@@ -537,10 +537,9 @@ func (h *Handler) GetAgentSourceScanRequest(w http.ResponseWriter, r *http.Reque
 }
 
 // ReportAgentWakerScanResult is the daemon-only endpoint that receives the
-// sanitized scan result. Defense-in-depth: it rejects any payload whose
-// manifest carries a plaintext env value (a bare "value" field where a digest
-// object is expected). On a successful report it writes an immutable sanitized
-// snapshot and updates the source status.
+// scoped scan result. Structured env declarations must remain value-free; the
+// source_files package may contain the explicitly requested exact env/.env
+// body. On success it writes an immutable snapshot and updates source status.
 func (h *Handler) ReportAgentWakerScanResult(w http.ResponseWriter, r *http.Request) {
 	runtimeID := chi.URLParam(r, "runtimeId")
 	if _, ok := h.requireDaemonRuntimeAccess(w, r, runtimeID); !ok {
@@ -576,7 +575,8 @@ func (h *Handler) ReportAgentWakerScanResult(w http.ResponseWriter, r *http.Requ
 	}
 
 	if body.Status == "completed" {
-		// Defense-in-depth: reject any plaintext env leakage in the manifest.
+		// Defense-in-depth: reject plaintext "value" fields in structured env
+		// declarations. The exact env/.env source-file content is intentional.
 		if len(body.Manifest) > 0 {
 			var decoded any
 			if err := json.Unmarshal(body.Manifest, &decoded); err != nil {
@@ -614,7 +614,7 @@ func (h *Handler) ReportAgentWakerScanResult(w http.ResponseWriter, r *http.Requ
 				return
 			}
 		}
-		// Content changed: persist an immutable sanitized snapshot.
+		// Content changed: persist an immutable scoped snapshot.
 		h.persistAgentSourceSnapshot(w, r, req, body.DirectoryHash, body.Manifest, body.Diagnostics, body.ScannerVersion)
 		return
 	}

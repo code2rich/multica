@@ -10,6 +10,10 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+
+	"github.com/multica-ai/multica/server/internal/service"
+	"github.com/multica-ai/multica/server/internal/util/secretbox"
+	db "github.com/multica-ai/multica/server/pkg/db/generated"
 )
 
 // TestListWorkspaceAgentTaskSnapshot covers the agent presence snapshot endpoint:
@@ -664,6 +668,48 @@ func TestMergeAgentEnv_PureFunction(t *testing.T) {
 				t.Errorf("audit: got %+v, want %+v", audit, tc.audit)
 			}
 		})
+	}
+}
+
+func TestMergedAgentEnvDecryptsSourceAndAppliesManualOverrides(t *testing.T) {
+	box, err := secretbox.New(make([]byte, secretbox.KeySize))
+	if err != nil {
+		t.Fatalf("secretbox.New: %v", err)
+	}
+	envSecret, err := service.NewEnvSecretService(box)
+	if err != nil {
+		t.Fatalf("NewEnvSecretService: %v", err)
+	}
+	sealed, err := envSecret.SealEnv(map[string]string{
+		"SOURCE_ONLY": "source",
+		"SHARED":      "source-value",
+	})
+	if err != nil {
+		t.Fatalf("SealEnv: %v", err)
+	}
+
+	h := &Handler{EnvSecret: envSecret}
+	got, err := h.mergedAgentEnv(db.Agent{
+		CustomEnvEncrypted: sealed,
+		CustomEnv:          []byte(`{"MANUAL_ONLY":"manual","SHARED":"manual-value"}`),
+	})
+	if err != nil {
+		t.Fatalf("mergedAgentEnv: %v", err)
+	}
+	want := map[string]string{
+		"SOURCE_ONLY": "source",
+		"MANUAL_ONLY": "manual",
+		"SHARED":      "manual-value",
+	}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("merged env: got %#v, want %#v", got, want)
+	}
+}
+
+func TestMergedAgentEnvFailsClosedWithoutSecretService(t *testing.T) {
+	h := &Handler{}
+	if _, err := h.mergedAgentEnv(db.Agent{CustomEnvEncrypted: []byte("sealed")}); err == nil {
+		t.Fatal("expected encrypted env without secret service to fail closed")
 	}
 }
 

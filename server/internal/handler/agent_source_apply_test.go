@@ -85,3 +85,32 @@ func TestSourceManagedSkillCreateInputUsesApplyingUser(t *testing.T) {
 		t.Fatalf("localized skill descriptions not preserved: %+v", input)
 	}
 }
+
+func TestEnvValuesFromRoleSourceFilesParsesExactEnvBody(t *testing.T) {
+	role := map[string]any{
+		"source_files": []any{
+			map[string]any{"path": "secrets.env", "content": "OUT_OF_SCOPE=wrong"},
+			map[string]any{"path": "env/.env", "content": "TOKEN='secret value'\nEMPTY=\n"},
+		},
+	}
+	got, err := envValuesFromRoleSourceFiles(role)
+	if err != nil {
+		t.Fatalf("envValuesFromRoleSourceFiles: %v", err)
+	}
+	if got["TOKEN"] != "secret value" || got["EMPTY"] != "" {
+		t.Fatalf("unexpected parsed values: %#v", got)
+	}
+	if _, loaded := got["OUT_OF_SCOPE"]; loaded {
+		t.Fatal("parsed a non-canonical dotenv source file")
+	}
+}
+
+func TestEnvValuesFromRoleSourceFilesReturnsEmptyWhenAbsent(t *testing.T) {
+	got, err := envValuesFromRoleSourceFiles(map[string]any{})
+	if err != nil {
+		t.Fatalf("envValuesFromRoleSourceFiles: %v", err)
+	}
+	if len(got) != 0 {
+		t.Fatalf("expected empty env values, got %#v", got)
+	}
+}

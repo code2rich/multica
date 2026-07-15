@@ -14,12 +14,13 @@ import (
 )
 
 // agentSourceCmd is the CLI surface for the AgentWaker directory integration:
-//   multica agent-source add --type agentwaker-directory --daemon-id <rt> --path /abs/path
-//   multica agent-source scan <source-id> [--wait] [--output json]
-//   multica agent-source plan <source-id> [--snapshot <id>] [--output json]
-//   multica agent-source apply <source-id> --snapshot <id> [--env-file <path>] [--wait]
-//   multica agent-source status <source-id>
-//   multica agent-source rollback <source-id> --snapshot <id>
+//
+//	multica agent-source add --type agentwaker-directory --daemon-id <rt> --path /abs/path
+//	multica agent-source scan <source-id> [--wait] [--output json]
+//	multica agent-source plan <source-id> [--snapshot <id>] [--output json]
+//	multica agent-source apply <source-id> --snapshot <id> [--env-file <path>] [--wait]
+//	multica agent-source status <source-id>
+//	multica agent-source rollback <source-id> --snapshot <id>
 //
 // Every command reads/writes through the authenticated Multica API. Env values
 // supplied to `apply` travel in the explicit authenticated apply payload (the
@@ -115,7 +116,7 @@ func runAgentSourceAdd(cmd *cobra.Command, _ []string) error {
 	body := map[string]any{
 		"daemon_runtime_id": daemonID,
 		"local_path":        path,
-		"sync_mode":          syncMode,
+		"sync_mode":         syncMode,
 	}
 	var created map[string]any
 	if err := client.PostJSON(ctx, "/api/agent-sources", body, &created); err != nil {
@@ -219,8 +220,9 @@ func runAgentSourceApply(cmd *cobra.Command, args []string) error {
 		"snapshot_id":    snapshot,
 		"env_merge_mode": mergeMode,
 	}
-	// Env values are read from a local JSON file and sent only in the explicit
-	// authenticated apply payload. They are never printed.
+	// Env values are normally derived server-side from the scoped env/.env
+	// source body. An explicit JSON payload overrides those values and is never
+	// printed.
 	if envFile != "" {
 		raw, rerr := os.ReadFile(envFile)
 		if rerr != nil {

@@ -46,7 +46,7 @@ Multica already has useful pieces, but they currently form a browser-only, role-
 ### Existing strengths
 
 - `packages/views/agents/lib/agent-import.ts` reads one selected role directory.
-- It imports `agent-detail.en.md`, `agent-detail.zh.md`, the safe text files linked by the localized detail page, `agent-persona.html`, `PROFILE.yaml`, role skills, environment data, and `mcp/mcp.json`. Linked source files are view-only presentation data; path traversal, binaries, symlinks, and the real `env/.env` are excluded.
+- It imports `agent-detail.en.md`, `agent-detail.zh.md`, the text files linked by the localized detail page, the exact role-scoped `env/.env` body, `agent-persona.html`, `PROFILE.yaml`, role skills, environment data, and `mcp/mcp.json`. Source files are view-only presentation data; path traversal, binaries, symlinks, and unrelated dotenv files are excluded.
 - `packages/views/agents/components/create-agent-dialog.tsx` and `overwrite-agent-dialog.tsx` create or overwrite skills and bind them through `agent_skill`.
 - Skills already support a primary `SKILL.md`, supporting files, provenance in `skill.config`, full-file replacement, and bundle hashing.
 - The daemon/server protocol already supports queued local-skill listing and import work through heartbeat requests and async results.
@@ -60,7 +60,7 @@ Multica already has useful pieces, but they currently form a browser-only, role-
 4. Same-name matching is used as identity. Renames can create duplicates or overwrite unrelated workspace skills.
 5. Shared `capabilities/`, `CAPABILITY.yaml`, registry entries, role `capabilities.yaml`, profiles, and version constraints are not understood.
 6. No source snapshot, digest, sync status, drift report, dependency lock, or rollback record exists.
-7. The current browser parser can read `env/.env`, but it has no directory-source provenance, preview/apply separation, or source-sync policy. The new flow must intentionally upload these values through a secret-bearing channel while excluding them from snapshots, diagnostics, logs, diffs, and ordinary API responses.
+7. The current browser parser can read `env/.env`, but it has no directory-source provenance, preview/apply separation, or source-sync policy. The new flow packages the exact body for the detail source viewer and parses it during explicit apply for encrypted storage; unrelated dotenv files remain excluded.
 8. `setAgentSkills` is replace-all. A directory sync needs explicit ownership so it removes only bindings managed by that source and does not silently detach user-managed skills.
 9. Binary assets are skipped by the current text-only skill storage. Capability packages need an explicit artifact policy rather than silent loss.
 
@@ -220,7 +220,7 @@ Effective permissions are the intersection of system policy, capability support,
 - configured boolean;
 - secret boolean where known.
 
-The scan/preview result contains key names, configured booleans, and a keyed or otherwise non-reversible value digest for change detection. It never contains plaintext values. The daemon retains the parsed values only long enough to service the explicit apply request, or re-reads the same snapshot after verifying its directory hash has not changed.
+The structured environment preview contains key names, configured booleans, and a keyed or otherwise non-reversible value digest for change detection. Separately, the explicitly requested `source_files` package contains the exact role-scoped `env/.env` body for the detail viewer. Parsed values are sent to the apply endpoint and encrypted at rest before storage.
 
 The current `agent.custom_env` column is plaintext JSONB at rest; the dedicated env API protects read access and auditing but does not provide database encryption. AgentWaker directory sync is intended to become centralized secret management, so synchronized values must be encrypted at rest using the existing application-layer `secretbox` infrastructure, with key identifiers and authenticated encryption. Task preparation decrypts only for the owning agent execution. Reusing plaintext `custom_env` as the final or interim synchronized-value store is not an acceptable completion path.
 
@@ -230,7 +230,7 @@ Merge policy must be configurable per source and visible in the apply plan:
 - `merge-preserve`: `.env` adds or updates keys but does not remove existing values.
 - an empty value in `.env` is a real configured empty value; a missing key has different semantics.
 
-Every environment mutation records keys and value-change digests in the audit log, never plaintext. Ordinary agent APIs, realtime events, snapshots, plans, and UI previews expose only masked values and configured status. Plaintext reveal remains owner/admin-only and audited according to the existing dedicated env endpoint contract.
+Every environment mutation records keys and value-change digests in the audit log, never plaintext. List APIs, realtime events, plans, diagnostics, and structured environment previews expose only metadata. The agent detail source-files response is the narrow exception: it returns the exact `env/.env` body. Environment-management reveal remains owner/admin-only and audited.
 
 ## Daemon Protocol
 
@@ -272,7 +272,7 @@ Suggested result envelope:
 }
 ```
 
-The scan result above is always sanitized. Apply uses a separate secret-bearing daemon result or encrypted envelope bound to `source_id`, `snapshot_id`, target workspace, target agent, and a short expiry. The server must reject replay, snapshot-hash mismatch, wrong daemon, wrong workspace, and values for undeclared keys unless policy explicitly permits them.
+The structured environment declarations and diagnostics are sanitized; the requested source-file package may contain the exact `env/.env` body. Apply also sends parsed `env_values`, bound to the selected source and snapshot, and the server seals them before database storage.
 
 The server must authenticate that the reporting daemon owns the configured runtime and workspace. Apply size, count, UTF-8, path, and hash limits on both daemon and server boundaries.
 
@@ -391,7 +391,7 @@ The daemon scan is read-only and must not write the lock into the configured sou
 ## Security
 
 - Read only each recognized role's exact `{role}/env/.env`; never recursively treat unrelated `.env` files as role configuration.
-- Upload `.env` values only during an explicit authenticated apply operation. Scan, preview, plan, logs, errors, analytics, events, snapshots, and normal API responses remain value-free.
+- During scan, package only the exact role-scoped `.env` body in `source_files`; keep it out of diagnostics, logs, analytics, events, list APIs, and structured environment previews. During explicit authenticated apply, send parsed values and encrypt them at rest.
 - Use TLS for daemon/server transport and bind secret apply payloads to source, snapshot, workspace, daemon, target role, nonce, and expiry. Prefer application-layer envelope encryption in addition to transport protection.
 - Encrypt centrally managed values at rest with the existing `secretbox` infrastructure before calling the system a secure centralized configuration store; the current `custom_env` JSONB storage is plaintext.
 - Reject symlink escapes and paths outside the canonical configured root.
@@ -516,7 +516,7 @@ The milestones establish build order and testable integration boundaries. The fe
 ## Acceptance Criteria
 
 1. Configuring the AgentWaker repository root through one daemon discovers all 12 current roles and both initial shared capabilities.
-2. The daemon reads each recognized role's `env/.env`; scan and preview transmit only key names, configured state, and safe change digests, while explicit apply securely uploads the values without exposing them in snapshots, logs, events, or ordinary APIs.
+2. The scanner reads each recognized role's `env/.env`, packages its exact body for the detail source viewer, and emits sanitized structured declarations; explicit apply uploads parsed values for encrypted storage and runtime injection.
 3. First scan performs no workspace mutation.
 4. Applying a snapshot creates or updates all selected objects in one transaction.
 5. Reapplying an unchanged snapshot produces no writes and preserves IDs.
@@ -574,8 +574,8 @@ Allow a workspace administrator to configure one daemon-owned absolute AgentWake
 Non-negotiable architecture:
 1. Filesystem scanning runs in the selected daemon. The browser and remote server must not read the configured path directly.
 2. Reuse the existing daemon heartbeat pending-request/result pattern used by runtime-local skills.
-3. The first scan is read-only and creates an immutable sanitized snapshot. Apply is a separate explicit action.
-4. Read each recognized role's exact `env/.env` because it is the centralized configuration source. Keep plaintext values out of scan previews, snapshots, logs, diffs, events, analytics, and ordinary APIs. Upload values only through an explicit authenticated apply path and never replace them with `.env.example` placeholders.
+3. The first scan is read-only and creates an immutable scoped snapshot. Apply is a separate explicit action.
+4. Read each recognized role's exact `env/.env` because it is both a requested source document and the centralized configuration source. Package its body only in scoped source files, upload parsed values through explicit authenticated apply, encrypt them at rest, and inject them into the owning agent runtime.
 5. Never execute imported scripts during scan or apply.
 6. Use stable source IDs, not names, for role/skill/capability identity.
 7. Apply all database changes in one transaction. Do not orchestrate N API calls from React.
@@ -599,7 +599,7 @@ Milestone 1 completion means:
 - source configuration CRUD exists;
 - daemon scan request/result exists;
 - the Go scanner recognizes current AgentWaker capabilities and roles;
-- server stores immutable sanitized snapshots;
+- server stores immutable scoped snapshots;
 - UI can configure, scan, and preview diagnostics and counts;
 - no agent, skill, capability, MCP, or env mutation happens yet;
 - narrow tests, make test, pnpm typecheck, and relevant pnpm tests pass.
@@ -611,7 +611,7 @@ At handoff, report:
 - migrations and protocol changes;
 - exact tests run and results;
 - remaining phases and risks;
-- proof that `.env` values reach the target agent configuration during apply but cannot enter scan results, snapshots, logs, events, or ordinary API responses.
+- proof that only the exact role-scoped `.env` body enters source files, parsed values reach the target agent's encrypted configuration and runtime, and unrelated dotenv files never enter results, logs, events, or APIs.
 ```
 
 ## Explicit Non-Goals

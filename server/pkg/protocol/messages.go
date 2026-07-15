@@ -188,8 +188,8 @@ type DaemonHeartbeatAckPayload struct {
 	// PendingAgentWakerScan carries a request for the daemon to perform a
 	// read-only AgentWaker directory scan. The daemon validates the absolute
 	// path with the same rules used for runtime-local directories, walks the
-	// tree, and returns a sanitized manifest (env key names + digests only,
-	// never plaintext values). Old daemons that don't know this field ignore it.
+	// tree, and returns scoped role source files plus sanitized structured env
+	// declarations. Old daemons that don't know this field ignore it.
 	PendingAgentWakerScan *DaemonHeartbeatPendingAgentWakerScan `json:"pending_agentwaker_scan,omitempty"`
 }
 

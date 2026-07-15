@@ -2,6 +2,7 @@ package handler
 
 import (
 	"encoding/json"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"sort"
@@ -109,7 +110,13 @@ func (h *Handler) GetAgentEnv(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	customEnv := unmarshalCustomEnv(agent)
+	customEnv, err := h.mergedAgentEnv(agent)
+	if err != nil {
+		slog.Error("decrypt synchronized agent env failed",
+			append(logger.RequestAttrs(r), "error", err, "agent_id", uuidToString(agent.ID))...)
+		writeError(w, http.StatusInternalServerError, "failed to load agent env")
+		return
+	}
 
 	revealedKeys := sortedKeys(customEnv)
 	details, _ := json.Marshal(map[string]any{
@@ -166,7 +173,13 @@ func (h *Handler) UpdateAgentEnv(w http.ResponseWriter, r *http.Request) {
 		req.CustomEnv = map[string]string{}
 	}
 
-	existing := unmarshalCustomEnv(agent)
+	existing, err := h.mergedAgentEnv(agent)
+	if err != nil {
+		slog.Error("decrypt synchronized agent env failed",
+			append(logger.RequestAttrs(r), "error", err, "agent_id", uuidToString(agent.ID))...)
+		writeError(w, http.StatusInternalServerError, "failed to load agent env")
+		return
+	}
 	merged, audit := mergeAgentEnv(existing, req.CustomEnv)
 
 	envBytes, err := json.Marshal(merged)
@@ -244,6 +257,29 @@ func (h *Handler) UpdateAgentEnv(w http.ResponseWriter, r *http.Request) {
 		AgentID:   uuidToString(updated.ID),
 		CustomEnv: merged,
 	})
+}
+
+// mergedAgentEnv returns the values that belong in an agent process. Values
+// synchronized from AgentWaker are decrypted first; explicitly managed
+// custom_env values then override matching keys for backward compatibility.
+func (h *Handler) mergedAgentEnv(agent db.Agent) (map[string]string, error) {
+	merged := map[string]string{}
+	if len(agent.CustomEnvEncrypted) > 0 {
+		if h.EnvSecret == nil {
+			return nil, fmt.Errorf("agent %s has encrypted env but MULTICA_AGENT_ENV_SECRET_KEY is unavailable", uuidToString(agent.ID))
+		}
+		synced, err := h.EnvSecret.OpenEnv(agent.CustomEnvEncrypted)
+		if err != nil {
+			return nil, fmt.Errorf("open synchronized env: %w", err)
+		}
+		for key, value := range synced {
+			merged[key] = value
+		}
+	}
+	for key, value := range unmarshalCustomEnv(agent) {
+		merged[key] = value
+	}
+	return merged, nil
 }
 
 // envAudit summarises the diff between an agent's existing env and the

@@ -26,10 +26,10 @@ func (d *Daemon) agentWakerEnvDigestKey() []byte {
 	return d.cfg.AgentWakerEnvDigestKey
 }
 
-// ScanResult is the sanitized output of one directory scan, ready to be reported
-// to the server. It never carries plaintext env values — only key names,
-// configured booleans, and value digests. DirectoryHash is the canonical digest
-// of the sanitized manifest.
+// ScanResult is the scoped output of one directory scan, ready to be reported
+// to the server. Structured env declarations contain metadata and digests;
+// source_files may contain exact env/.env content by product contract.
+// DirectoryHash is the canonical digest of the manifest.
 type ScanResult struct {
 	DirectoryHash  string                     `json:"directory_hash"`
 	SchemaVersions map[string]string          `json:"schema_versions"`
@@ -375,14 +375,38 @@ func scanRole(root, roleDir string, envDigestKey []byte) (map[string]any, []agen
 var markdownLinkRE = regexp.MustCompile(`\[[^\]]*\]\(([^)\s]+)(?:\s+[^)]*)?\)`)
 
 // collectLinkedRoleSourceFiles packages text files explicitly referenced by
-// the localized role document. This makes its source index navigable in the
-// product without uploading the role directory wholesale. The real env/.env,
-// binary files, symlinks, absolute paths, and traversal are always rejected.
+// the localized role document. It also includes the role's exact env/.env so
+// Multica can show the requested source body without scanning unrelated env
+// files. Binary files, symlinks, absolute paths, and traversal are rejected.
 func collectLinkedRoleSourceFiles(root, roleDir, markdown string) ([]map[string]any, []agentwakerScanDiagnostic) {
 	files := []map[string]any{}
 	diags := []agentwakerScanDiagnostic{}
 	seen := map[string]bool{}
 	totalSize := 0
+
+	appendFile := func(relPath string) {
+		if seen[relPath] {
+			return
+		}
+		seen[relPath] = true
+		if binaryExtensions[strings.ToLower(filepath.Ext(relPath))] {
+			diags = append(diags, agentwakerScanDiagnostic{Severity: "warning", Code: "source_file_rejected", Message: "binary source-file link rejected", Path: filepath.Join(filepath.Base(roleDir), relPath)})
+			return
+		}
+
+		fullPath := filepath.Join(roleDir, filepath.FromSlash(relPath))
+		info, err := os.Lstat(fullPath)
+		if err != nil || !info.Mode().IsRegular() || info.Mode()&os.ModeSymlink != 0 {
+			return
+		}
+		content, err := readTextFile(fullPath, maxSkillFileSize)
+		if err != nil || len(files) >= maxSkillFileCount || totalSize+len(content) > maxSkillTotalSize {
+			diags = append(diags, agentwakerScanDiagnostic{Severity: "warning", Code: "source_file_skipped", Message: "source file unreadable or exceeds package limits", Path: rel(root, fullPath)})
+			return
+		}
+		totalSize += len(content)
+		files = append(files, map[string]any{"path": relPath, "content": content})
+	}
 
 	for _, match := range markdownLinkRE.FindAllStringSubmatch(markdown, -1) {
 		if len(match) < 2 {
@@ -400,28 +424,13 @@ func collectLinkedRoleSourceFiles(root, roleDir, markdown string) ([]map[string]
 			diags = append(diags, agentwakerScanDiagnostic{Severity: "warning", Code: "source_file_rejected", Message: "unsafe source-file link rejected", Path: filepath.Join(filepath.Base(roleDir), rawPath)})
 			continue
 		}
-		if relPath == "env/.env" || seen[relPath] {
-			continue
-		}
-		seen[relPath] = true
-		if binaryExtensions[strings.ToLower(filepath.Ext(relPath))] {
-			diags = append(diags, agentwakerScanDiagnostic{Severity: "warning", Code: "source_file_rejected", Message: "binary source-file link rejected", Path: filepath.Join(filepath.Base(roleDir), relPath)})
-			continue
-		}
-
-		fullPath := filepath.Join(roleDir, filepath.FromSlash(relPath))
-		info, err := os.Lstat(fullPath)
-		if err != nil || !info.Mode().IsRegular() || info.Mode()&os.ModeSymlink != 0 {
-			continue
-		}
-		content, err := readTextFile(fullPath, maxSkillFileSize)
-		if err != nil || len(files) >= maxSkillFileCount || totalSize+len(content) > maxSkillTotalSize {
-			diags = append(diags, agentwakerScanDiagnostic{Severity: "warning", Code: "source_file_skipped", Message: "source file unreadable or exceeds package limits", Path: rel(root, fullPath)})
-			continue
-		}
-		totalSize += len(content)
-		files = append(files, map[string]any{"path": relPath, "content": content})
+		appendFile(relPath)
 	}
+
+	// env/.env is the only unlinked file included automatically. Exact-path
+	// scoping plus Lstat above prevents traversing or following another secret
+	// file through a symlink.
+	appendFile("env/.env")
 
 	sort.Slice(files, func(i, j int) bool { return files[i]["path"].(string) < files[j]["path"].(string) })
 	return files, diags
