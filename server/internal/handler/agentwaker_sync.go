@@ -94,4 +94,3 @@ func (h *Handler) pollScheduledAgentSources(ctx context.Context) {
 		slog.Info("agentwaker sync: scheduled scan enqueued", "source_id", sourceID, "runtime_id", runtimeID)
 	}
 }
-

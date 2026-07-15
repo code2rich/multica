@@ -26,6 +26,7 @@ function workspaceScoped(slug: string) {
     autopilots: () => `${ws}/autopilots`,
     autopilotDetail: (id: string) => `${ws}/autopilots/${encode(id)}`,
     agents: () => `${ws}/agents`,
+    newAgent: () => `${ws}/agents/new`,
     agentDetail: (id: string) => `${ws}/agents/${encode(id)}`,
     agentRuns: (id: string) => `${ws}/agents/${encode(id)}/runs`,
     memberDetail: (id: string) => `${ws}/members/${encode(id)}`,
@@ -36,6 +37,8 @@ function workspaceScoped(slug: string) {
     myIssues: () => `${ws}/my-issues`,
     runtimes: () => `${ws}/runtimes`,
     runtimeDetail: (id: string) => `${ws}/runtimes/${encode(id)}`,
+    runtimeSettings: (machineId: string, runtimeId: string) =>
+      `${ws}/runtimes/${encode(machineId)}/runtime/${encode(runtimeId)}`,
     runs: () => `${ws}/runs`,
     skills: () => `${ws}/skills`,
     skillDetail: (id: string) => `${ws}/skills/${encode(id)}`,

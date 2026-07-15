@@ -55,19 +55,19 @@ func (s AgentWakerScanStatus) Terminal() bool {
 // digests only — verified value-free by the report handler). DirectoryHash is
 // the canonical manifest digest.
 type AgentWakerScanRequest struct {
-	ID            string               `json:"id"`
-	SourceID      string               `json:"source_id"`
-	RuntimeID     string               `json:"runtime_id"`
-	AbsPath       string               `json:"-"`
-	Status        AgentWakerScanStatus `json:"status"`
-	DirectoryHash string               `json:"directory_hash,omitempty"`
-	Manifest      json.RawMessage      `json:"manifest,omitempty"`
-	Diagnostics   []ScanDiagnostic     `json:"diagnostics,omitempty"`
-	ScannerVersion string              `json:"scanner_version,omitempty"`
-	Error         string               `json:"error,omitempty"`
-	CreatedAt     time.Time            `json:"created_at"`
-	UpdatedAt     time.Time            `json:"updated_at"`
-	RunStartedAt  *time.Time           `json:"-"`
+	ID             string               `json:"id"`
+	SourceID       string               `json:"source_id"`
+	RuntimeID      string               `json:"runtime_id"`
+	AbsPath        string               `json:"-"`
+	Status         AgentWakerScanStatus `json:"status"`
+	DirectoryHash  string               `json:"directory_hash,omitempty"`
+	Manifest       json.RawMessage      `json:"manifest,omitempty"`
+	Diagnostics    []ScanDiagnostic     `json:"diagnostics,omitempty"`
+	ScannerVersion string               `json:"scanner_version,omitempty"`
+	Error          string               `json:"error,omitempty"`
+	CreatedAt      time.Time            `json:"created_at"`
+	UpdatedAt      time.Time            `json:"updated_at"`
+	RunStartedAt   *time.Time           `json:"-"`
 }
 
 // ScanDiagnostic is one validation error or warning produced by the scanner.
@@ -142,13 +142,13 @@ func (s *InMemoryAgentWakerScanStore) Create(_ context.Context, runtimeID, sourc
 	}
 
 	req := &AgentWakerScanRequest{
-		ID:         randomID(),
-		SourceID:   sourceID,
-		RuntimeID:  runtimeID,
-		AbsPath:    absPath,
-		Status:     AgentWakerScanPending,
-		CreatedAt:  time.Now(),
-		UpdatedAt:  time.Now(),
+		ID:        randomID(),
+		SourceID:  sourceID,
+		RuntimeID: runtimeID,
+		AbsPath:   absPath,
+		Status:    AgentWakerScanPending,
+		CreatedAt: time.Now(),
+		UpdatedAt: time.Now(),
 	}
 	s.requests[req.ID] = req
 	return req, nil
@@ -244,32 +244,32 @@ type UpdateAgentSourceRequest struct {
 // returned only to workspace members who can already configure the source;
 // ordinary member-facing events redact it. No env values appear here.
 type AgentSourceResponse struct {
-	ID                string     `json:"id"`
-	WorkspaceID       string     `json:"workspace_id"`
-	Kind              string     `json:"kind"`
-	DaemonRuntimeID   string     `json:"daemon_runtime_id"`
-	LocalPath         string     `json:"local_path"`
-	SyncMode          string     `json:"sync_mode"`
-	Status            string     `json:"status"`
-	LastSnapshotHash  string     `json:"last_snapshot_hash,omitempty"`
-	LastScannedAt     *time.Time `json:"last_scanned_at,omitempty"`
-	LastAppliedAt     *time.Time `json:"last_applied_at,omitempty"`
-	CreatedAt         time.Time  `json:"created_at"`
-	UpdatedAt         time.Time  `json:"updated_at"`
+	ID               string     `json:"id"`
+	WorkspaceID      string     `json:"workspace_id"`
+	Kind             string     `json:"kind"`
+	DaemonRuntimeID  string     `json:"daemon_runtime_id"`
+	LocalPath        string     `json:"local_path"`
+	SyncMode         string     `json:"sync_mode"`
+	Status           string     `json:"status"`
+	LastSnapshotHash string     `json:"last_snapshot_hash,omitempty"`
+	LastScannedAt    *time.Time `json:"last_scanned_at,omitempty"`
+	LastAppliedAt    *time.Time `json:"last_applied_at,omitempty"`
+	CreatedAt        time.Time  `json:"created_at"`
+	UpdatedAt        time.Time  `json:"updated_at"`
 }
 
 type AgentSourceSnapshotResponse struct {
-	ID             string          `json:"id"`
-	SourceID       string          `json:"source_id"`
-	DirectoryHash  string          `json:"directory_hash"`
-	SchemaVersions map[string]any  `json:"schema_versions"`
-	Manifest       json.RawMessage `json:"manifest"`
-	Status         string          `json:"status"`
+	ID             string           `json:"id"`
+	SourceID       string           `json:"source_id"`
+	DirectoryHash  string           `json:"directory_hash"`
+	SchemaVersions map[string]any   `json:"schema_versions"`
+	Manifest       json.RawMessage  `json:"manifest"`
+	Status         string           `json:"status"`
 	Diagnostics    []ScanDiagnostic `json:"diagnostics"`
-	LockYAML       string          `json:"lock_yaml,omitempty"`
-	ScannerVersion string          `json:"scanner_version,omitempty"`
-	CreatedAt      time.Time       `json:"created_at"`
-	AppliedAt      *time.Time      `json:"applied_at,omitempty"`
+	LockYAML       string           `json:"lock_yaml,omitempty"`
+	ScannerVersion string           `json:"scanner_version,omitempty"`
+	CreatedAt      time.Time        `json:"created_at"`
+	AppliedAt      *time.Time       `json:"applied_at,omitempty"`
 }
 
 // --- handlers: source CRUD ---
@@ -563,12 +563,12 @@ func (h *Handler) ReportAgentWakerScanResult(w http.ResponseWriter, r *http.Requ
 	}
 
 	var body struct {
-		Status          string          `json:"status"`
-		DirectoryHash   string          `json:"directory_hash"`
-		Manifest        json.RawMessage `json:"manifest"`
-		Diagnostics     []ScanDiagnostic `json:"diagnostics"`
-		ScannerVersion  string          `json:"scanner_version"`
-		Error           string          `json:"error"`
+		Status         string           `json:"status"`
+		DirectoryHash  string           `json:"directory_hash"`
+		Manifest       json.RawMessage  `json:"manifest"`
+		Diagnostics    []ScanDiagnostic `json:"diagnostics"`
+		ScannerVersion string           `json:"scanner_version"`
+		Error          string           `json:"error"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid request body")
@@ -642,7 +642,7 @@ func (h *Handler) persistAgentSourceSnapshot(w http.ResponseWriter, r *http.Requ
 		return
 	}
 	schemaVersions := map[string]any{
-		"profile":   agentwaker.ProfileSchemaVersion,
+		"profile":    agentwaker.ProfileSchemaVersion,
 		"capability": agentwaker.CapabilitySchemaVersion,
 	}
 	schemaJSON, _ := json.Marshal(schemaVersions)

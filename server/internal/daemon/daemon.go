@@ -2146,11 +2146,19 @@ func (d *Daemon) handleLocalSkillList(ctx context.Context, rt Runtime, requestID
 		})
 		return
 	}
+	mcpServers, mcpSupported, err := listRuntimeLocalMcpServers(rt.Provider)
+	if err != nil {
+		d.logger.Warn("runtime local MCP discovery failed", "runtime_id", rt.ID, "provider", rt.Provider, "error", err)
+		mcpServers = []runtimeLocalMcpServerSummary{}
+		mcpSupported = false
+	}
 
 	d.reportLocalSkillListResult(ctx, rt, requestID, map[string]any{
-		"status":    "completed",
-		"skills":    skills,
-		"supported": supported,
+		"status":        "completed",
+		"skills":        skills,
+		"supported":     supported,
+		"mcp_servers":   mcpServers,
+		"mcp_supported": mcpSupported,
 	})
 }
 
@@ -2229,18 +2237,18 @@ func (d *Daemon) handleAgentWakerScan(ctx context.Context, rt Runtime, pending P
 	if err != nil {
 		d.logger.Warn("agentwaker scan failed", "runtime_id", rt.ID, "request_id", pending.ID, "error", err)
 		d.reportAgentWakerScanResult(ctx, rt, pending.ID, map[string]any{
-			"status":     "failed",
-			"error":      err.Error(),
-			"source_id":  pending.SourceID,
+			"status":    "failed",
+			"error":     err.Error(),
+			"source_id": pending.SourceID,
 		})
 		return
 	}
 	payload := map[string]any{
-		"status":           "completed",
-		"directory_hash":   result.DirectoryHash,
-		"manifest":         result.Manifest,
-		"scanner_version":  result.ScannerVersion,
-		"source_id":        pending.SourceID,
+		"status":          "completed",
+		"directory_hash":  result.DirectoryHash,
+		"manifest":        result.Manifest,
+		"scanner_version": result.ScannerVersion,
+		"source_id":       pending.SourceID,
 	}
 	if len(result.Diagnostics) > 0 {
 		// Diagnostics are value-free (severity/code/message/path); safe to send.
@@ -3639,9 +3647,19 @@ func (d *Daemon) runTask(ctx context.Context, task Task, provider string, slot i
 	// Squad-leader tasks also skip reuse so a pre-fix leader session recorded
 	// against the user's local_directory cannot be re-entered without a lock.
 	var agentMcpConfig json.RawMessage
+	var effectiveMcpConfig json.RawMessage
 	var cursorMcpAuthSource string
 	if task.Agent != nil {
 		agentMcpConfig = task.Agent.McpConfig
+		effectiveMcpConfig = agentMcpConfig
+		if merged, mergeErr := mergeRuntimeAndAgentMcpConfig(provider, agentMcpConfig); mergeErr != nil {
+			taskLog.Warn("mcp_config: runtime merge failed; using agent configuration only",
+				"provider", provider,
+				"error", mergeErr,
+			)
+		} else {
+			effectiveMcpConfig = merged
+		}
 		if provider == "cursor" {
 			cursorMcpAuthSource = strings.TrimSpace(task.Agent.CustomEnv[execenv.CursorMcpAuthSourceEnv])
 		}
@@ -3662,7 +3680,7 @@ func (d *Daemon) runTask(ctx context.Context, task Task, provider string, slot i
 			Provider:            provider,
 			CodexVersion:        codexVersion,
 			OpenclawBin:         openclawBin,
-			McpConfig:           agentMcpConfig,
+			McpConfig:           effectiveMcpConfig,
 			CursorMcpAuthSource: cursorMcpAuthSource,
 			OpenclawGateway:     openclawGateway,
 			Task:                taskCtx,
@@ -3678,7 +3696,7 @@ func (d *Daemon) runTask(ctx context.Context, task Task, provider string, slot i
 			Provider:            provider,
 			CodexVersion:        codexVersion,
 			OpenclawBin:         openclawBin,
-			McpConfig:           agentMcpConfig,
+			McpConfig:           effectiveMcpConfig,
 			CursorMcpAuthSource: cursorMcpAuthSource,
 			OpenclawGateway:     openclawGateway,
 			Task:                taskCtx,
@@ -3890,7 +3908,7 @@ func (d *Daemon) runTask(ctx context.Context, task Task, provider string, slot i
 	var mcpConfig json.RawMessage
 	if task.Agent != nil {
 		customArgs = task.Agent.CustomArgs
-		mcpConfig = task.Agent.McpConfig
+		mcpConfig = effectiveMcpConfig
 	}
 	// Two-tier model resolution: an explicit agent.model wins,
 	// then the daemon-wide MULTICA_<PROVIDER>_MODEL env var. If

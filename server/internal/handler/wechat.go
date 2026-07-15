@@ -197,8 +197,8 @@ func (h *Handler) GetWechatInstallStatus(w http.ResponseWriter, r *http.Request)
 		return
 	}
 	resp := WechatInstallStatusResponse{
-		Status:      string(state.Status),
-		ErrorReason: state.ErrorReason,
+		Status:       string(state.Status),
+		ErrorReason:  state.ErrorReason,
 		ErrorMessage: state.ErrorMessage,
 	}
 	// Publish the realtime created event on first observation of success so other

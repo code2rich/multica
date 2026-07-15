@@ -66,6 +66,9 @@ type SkillSummaryResponse struct {
 	CreatedBy     *string `json:"created_by"`
 	CreatedAt     string  `json:"created_at"`
 	UpdatedAt     string  `json:"updated_at"`
+	// Enabled is only populated for agent-scoped skill responses. Workspace
+	// skill lists describe the skill itself, so they omit assignment state.
+	Enabled *bool `json:"enabled,omitempty"`
 }
 
 // AgentSkillSummary is the still-narrower shape used for skills embedded in
@@ -78,6 +81,7 @@ type AgentSkillSummary struct {
 	Name          string `json:"name"`
 	Description   string `json:"description"`
 	DescriptionZH string `json:"description_zh"`
+	Enabled       bool   `json:"enabled"`
 }
 
 type SkillFileResponse struct {
@@ -2153,6 +2157,7 @@ func (h *Handler) ListAgentSkills(w http.ResponseWriter, r *http.Request) {
 			s.ID, s.WorkspaceID, s.Name, s.Description, s.DescriptionZh, s.Config,
 			s.CreatedBy, s.CreatedAt, s.UpdatedAt,
 		)
+		resp[i].Enabled = &s.Enabled
 	}
 	writeJSON(w, http.StatusOK, resp)
 }
@@ -2280,6 +2285,45 @@ func (h *Handler) validateAgentSkillIDsInWorkspace(w http.ResponseWriter, r *htt
 	return true
 }
 
+func (h *Handler) SetAgentSkillEnabled(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+	agent, ok := h.loadAgentForUser(w, r, id)
+	if !ok {
+		return
+	}
+	if !h.canManageAgent(w, r, agent) {
+		return
+	}
+
+	skillID, ok := parseUUIDOrBadRequest(w, chi.URLParam(r, "skillId"), "skill_id")
+	if !ok {
+		return
+	}
+	var req struct {
+		Enabled *bool `json:"enabled"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.Enabled == nil {
+		writeError(w, http.StatusBadRequest, "enabled is required")
+		return
+	}
+
+	rows, err := h.Queries.SetAgentSkillEnabled(r.Context(), db.SetAgentSkillEnabledParams{
+		AgentID: agent.ID,
+		SkillID: skillID,
+		Enabled: *req.Enabled,
+	})
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to update agent skill")
+		return
+	}
+	if rows == 0 {
+		writeError(w, http.StatusNotFound, "agent skill not found")
+		return
+	}
+
+	h.writeUpdatedAgentSkills(w, r, agent)
+}
+
 func (h *Handler) writeUpdatedAgentSkills(w http.ResponseWriter, r *http.Request, agent db.Agent) {
 	skills, err := h.Queries.ListAgentSkillSummaries(r.Context(), agent.ID)
 	if err != nil {
@@ -2293,6 +2337,7 @@ func (h *Handler) writeUpdatedAgentSkills(w http.ResponseWriter, r *http.Request
 			s.ID, s.WorkspaceID, s.Name, s.Description, s.DescriptionZh, s.Config,
 			s.CreatedBy, s.CreatedAt, s.UpdatedAt,
 		)
+		resp[i].Enabled = &s.Enabled
 	}
 	actorType, actorID := h.resolveActor(r, requestUserID(r), uuidToString(agent.WorkspaceID))
 	h.publish(protocol.EventAgentStatus, uuidToString(agent.WorkspaceID), actorType, actorID, map[string]any{"agent_id": uuidToString(agent.ID), "skills": resp})
