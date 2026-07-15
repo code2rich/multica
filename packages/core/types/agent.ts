@@ -304,6 +304,8 @@ export interface Agent {
   instructions: string;
   /** Localized presentation copy. Runtime execution always uses `instructions`. */
   instructions_zh?: string;
+  /** Safe text files referenced by the imported AgentWaker presentation. */
+  source_files?: AgentSourceFile[];
   avatar_url: string | null;
   runtime_mode: AgentRuntimeMode;
   runtime_config: Record<string, unknown>;
@@ -404,6 +406,11 @@ export interface Agent {
   updated_at: string;
   archived_at: string | null;
   archived_by: string | null;
+}
+
+export interface AgentSourceFile {
+  path: string;
+  content: string;
 }
 
 /**

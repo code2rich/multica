@@ -16,7 +16,10 @@ func TestSourceManagedAgentCreateParamsPopulateRequiredJSONFields(t *testing.T) 
 		"instructions_content":    "# Full instructions",
 		"instructions_content_zh": "# 中文展示指令",
 		"persona_content":         "<section>Persona</section>",
-		"mcp":                     map[string]any{"has_servers": false},
+		"source_files": []any{
+			map[string]any{"path": "agent-soul/PROFILE.yaml", "content": "id: creator"},
+		},
+		"mcp": map[string]any{"has_servers": false},
 	})
 
 	if string(params.RuntimeConfig) != "{}" {
@@ -51,6 +54,9 @@ func TestSourceManagedAgentCreateParamsPopulateRequiredJSONFields(t *testing.T) 
 	}
 	if !params.ProfileHtml.Valid || params.ProfileHtml.String != "<section>Persona</section>" {
 		t.Fatalf("persona HTML not populated: %+v", params.ProfileHtml)
+	}
+	if string(params.SourceFiles) != `[{"content":"id: creator","path":"agent-soul/PROFILE.yaml"}]` {
+		t.Fatalf("source files not populated: %s", params.SourceFiles)
 	}
 }
 

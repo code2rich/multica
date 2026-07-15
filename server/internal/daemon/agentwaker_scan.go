@@ -17,7 +17,7 @@ import (
 
 // ScannerVersion is the daemon-side scanner version reported with each result.
 // Bump when the scan algorithm or hashing changes so the server can reconcile.
-const ScannerVersion = "2"
+const ScannerVersion = "3"
 
 // agentWakerEnvDigestKey returns the HMAC key the scanner uses to compute env
 // value digests. When no key is configured, digests are omitted and previews
@@ -293,6 +293,8 @@ func scanRole(root, roleDir string, envDigestKey []byte) (map[string]any, []agen
 	if content, rerr := readTextFile(filepath.Join(roleDir, "agent-detail.zh.md"), maxInstructionsSize); rerr == nil {
 		instructionsContentZH = content
 	}
+	sourceFiles, sourceFileDiags := collectLinkedRoleSourceFiles(root, roleDir, instructionsContentZH)
+	diags = append(diags, sourceFileDiags...)
 
 	// Persona HTML (agent-persona.html).
 	personaHash := ""
@@ -358,6 +360,7 @@ func scanRole(root, roleDir string, envDigestKey []byte) (map[string]any, []agen
 		"description_zh":          profile.Generation.CardMissionZH,
 		"instructions_content":    instructionsContent,
 		"instructions_content_zh": instructionsContentZH,
+		"source_files":            sourceFiles,
 		"instructions_hash":       instructionsHash,
 		"persona_content":         personaContent,
 		"persona_hash":            personaHash,
@@ -367,6 +370,61 @@ func scanRole(root, roleDir string, envDigestKey []byte) (map[string]any, []agen
 		"mcp":                     mcpSummary,
 	}
 	return entry, diags, nil
+}
+
+var markdownLinkRE = regexp.MustCompile(`\[[^\]]*\]\(([^)\s]+)(?:\s+[^)]*)?\)`)
+
+// collectLinkedRoleSourceFiles packages text files explicitly referenced by
+// the localized role document. This makes its source index navigable in the
+// product without uploading the role directory wholesale. The real env/.env,
+// binary files, symlinks, absolute paths, and traversal are always rejected.
+func collectLinkedRoleSourceFiles(root, roleDir, markdown string) ([]map[string]any, []agentwakerScanDiagnostic) {
+	files := []map[string]any{}
+	diags := []agentwakerScanDiagnostic{}
+	seen := map[string]bool{}
+	totalSize := 0
+
+	for _, match := range markdownLinkRE.FindAllStringSubmatch(markdown, -1) {
+		if len(match) < 2 {
+			continue
+		}
+		rawPath := strings.TrimSpace(match[1])
+		if rawPath == "" || strings.HasPrefix(rawPath, "#") || strings.Contains(rawPath, "://") {
+			continue
+		}
+		if cut := strings.IndexAny(rawPath, "?#"); cut >= 0 {
+			rawPath = rawPath[:cut]
+		}
+		relPath := filepath.ToSlash(filepath.Clean(filepath.FromSlash(rawPath)))
+		if relPath == "." || filepath.IsAbs(rawPath) || relPath == ".." || strings.HasPrefix(relPath, "../") {
+			diags = append(diags, agentwakerScanDiagnostic{Severity: "warning", Code: "source_file_rejected", Message: "unsafe source-file link rejected", Path: filepath.Join(filepath.Base(roleDir), rawPath)})
+			continue
+		}
+		if relPath == "env/.env" || seen[relPath] {
+			continue
+		}
+		seen[relPath] = true
+		if binaryExtensions[strings.ToLower(filepath.Ext(relPath))] {
+			diags = append(diags, agentwakerScanDiagnostic{Severity: "warning", Code: "source_file_rejected", Message: "binary source-file link rejected", Path: filepath.Join(filepath.Base(roleDir), relPath)})
+			continue
+		}
+
+		fullPath := filepath.Join(roleDir, filepath.FromSlash(relPath))
+		info, err := os.Lstat(fullPath)
+		if err != nil || !info.Mode().IsRegular() || info.Mode()&os.ModeSymlink != 0 {
+			continue
+		}
+		content, err := readTextFile(fullPath, maxSkillFileSize)
+		if err != nil || len(files) >= maxSkillFileCount || totalSize+len(content) > maxSkillTotalSize {
+			diags = append(diags, agentwakerScanDiagnostic{Severity: "warning", Code: "source_file_skipped", Message: "source file unreadable or exceeds package limits", Path: rel(root, fullPath)})
+			continue
+		}
+		totalSize += len(content)
+		files = append(files, map[string]any{"path": relPath, "content": content})
+	}
+
+	sort.Slice(files, func(i, j int) bool { return files[i]["path"].(string) < files[j]["path"].(string) })
+	return files, diags
 }
 
 // scanRoleSkills walks the declared skills directory and hashes each specialist

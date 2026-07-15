@@ -51,6 +51,7 @@ type Agent struct {
 	ProfileHtml        pgtype.Text `json:"profile_html"`
 	CustomEnvEncrypted []byte      `json:"custom_env_encrypted"`
 	InstructionsZh     string      `json:"instructions_zh"`
+	SourceFiles        []byte      `json:"source_files"`
 }
 
 type AgentCapabilityBinding struct {

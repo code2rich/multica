@@ -156,6 +156,22 @@ func TestScanDirectory_DiscoversAllContracts(t *testing.T) {
 	if description, _ := research["description_zh"].(string); description != "收集平台与受众信号，形成可验证的趋势判断与视觉资产。" {
 		t.Errorf("research-operator Chinese description mismatch: %q", description)
 	}
+	sourceFiles := research["source_files"].([]map[string]any)
+	if len(sourceFiles) != 4 {
+		t.Fatalf("research-operator want 4 linked source files, got %d: %+v", len(sourceFiles), sourceFiles)
+	}
+	sourceByPath := map[string]string{}
+	for _, sourceFile := range sourceFiles {
+		sourceByPath[sourceFile["path"].(string)] = sourceFile["content"].(string)
+	}
+	for _, expected := range []string{"agent-soul/PROFILE.yaml", "research-operator-skills/SKILL.md", "env/.env.example", "workdir/README.md"} {
+		if sourceByPath[expected] == "" {
+			t.Errorf("linked source file %s was not packaged", expected)
+		}
+	}
+	if _, leaked := sourceByPath["env/.env"]; leaked {
+		t.Fatal("real env/.env must never be packaged as a source file")
+	}
 	if content, _ := research["persona_content"].(string); content == "" {
 		t.Error("research-operator missing agent-persona.html content")
 	}

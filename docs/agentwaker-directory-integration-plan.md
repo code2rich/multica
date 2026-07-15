@@ -46,7 +46,7 @@ Multica already has useful pieces, but they currently form a browser-only, role-
 ### Existing strengths
 
 - `packages/views/agents/lib/agent-import.ts` reads one selected role directory.
-- It imports `agent-detail.en.md`, `agent-persona.html`, `PROFILE.yaml`, role skills, environment data, and `mcp/mcp.json`.
+- It imports `agent-detail.en.md`, `agent-detail.zh.md`, the safe text files linked by the localized detail page, `agent-persona.html`, `PROFILE.yaml`, role skills, environment data, and `mcp/mcp.json`. Linked source files are view-only presentation data; path traversal, binaries, symlinks, and the real `env/.env` are excluded.
 - `packages/views/agents/components/create-agent-dialog.tsx` and `overwrite-agent-dialog.tsx` create or overwrite skills and bind them through `agent_skill`.
 - Skills already support a primary `SKILL.md`, supporting files, provenance in `skill.config`, full-file replacement, and bundle hashing.
 - The daemon/server protocol already supports queued local-skill listing and import work through heartbeat requests and async results.

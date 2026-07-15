@@ -21,14 +21,16 @@ INSERT INTO agent (
     workspace_id, name, description, avatar_url, runtime_mode,
     runtime_config, runtime_id, visibility, max_concurrent_tasks, owner_id,
     instructions, custom_env, custom_args, mcp_config, model, thinking_level,
-    composio_toolkit_allowlist, permission_mode, profile_html, instructions_zh
+    composio_toolkit_allowlist, permission_mode, profile_html, instructions_zh,
+    source_files
 ) VALUES (
     $1, $2, $3, $4, $5,
     $6, $7, $8, $9, $10,
     $11, $12, $13, $14, $15, $16,
     sqlc.narg('composio_toolkit_allowlist')::text[],
     COALESCE(sqlc.narg('permission_mode'), 'private'),
-    sqlc.narg('profile_html'), COALESCE(sqlc.narg('instructions_zh'), '')
+    sqlc.narg('profile_html'), COALESCE(sqlc.narg('instructions_zh'), ''),
+    COALESCE(sqlc.narg('source_files')::jsonb, '[]'::jsonb)
 )
 RETURNING *;
 
@@ -52,6 +54,7 @@ UPDATE agent SET
     max_concurrent_tasks = COALESCE(sqlc.narg('max_concurrent_tasks'), max_concurrent_tasks),
     instructions = COALESCE(sqlc.narg('instructions'), instructions),
     instructions_zh = COALESCE(sqlc.narg('instructions_zh'), instructions_zh),
+    source_files = COALESCE(sqlc.narg('source_files'), source_files),
     custom_env = COALESCE(sqlc.narg('custom_env'), custom_env),
     custom_args = COALESCE(sqlc.narg('custom_args'), custom_args),
     mcp_config = COALESCE(sqlc.narg('mcp_config'), mcp_config),

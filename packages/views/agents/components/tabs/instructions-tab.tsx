@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { Loader2, Save } from "lucide-react";
+import { useCallback, useEffect, useState } from "react";
+import { ArrowLeft, Loader2, Save } from "lucide-react";
 import type { Agent } from "@multica/core/types";
 import { Button } from "@multica/ui/components/ui/button";
 import { ContentEditor } from "../../../editor/content-editor";
@@ -11,6 +11,7 @@ import {
   LocalizedContentToggle,
   type ContentLanguage,
 } from "../../../i18n/localized-content-toggle";
+import { findAgentSourceFile } from "../../agent-source-files";
 
 export function InstructionsTab({
   agent,
@@ -27,6 +28,7 @@ export function InstructionsTab({
     hasChinese && i18n.language.startsWith("zh") ? "zh" : "en",
   );
   const [value, setValue] = useState(agent.instructions ?? "");
+  const [activeSourcePath, setActiveSourcePath] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const isDirty = value !== (agent.instructions ?? "");
 
@@ -38,7 +40,25 @@ export function InstructionsTab({
         ? "zh"
         : "en",
     );
+    setActiveSourcePath(null);
   }, [agent.id, agent.instructions, agent.instructions_zh, i18n.language]);
+
+  const activeSourceFile = agent.source_files?.find(
+    (file) => file.path === activeSourcePath,
+  );
+  const handleSourceLink = useCallback(
+    (href: string) => {
+      const result = findAgentSourceFile(
+        agent.source_files,
+        activeSourcePath ?? "",
+        href,
+      );
+      if (!result) return false;
+      setActiveSourcePath(result.path);
+      return true;
+    },
+    [activeSourcePath, agent.source_files],
+  );
 
   // Report dirty state up so the parent can guard tab switches.
   useEffect(() => {
@@ -76,7 +96,10 @@ export function InstructionsTab({
         </div>
         <LocalizedContentToggle
           value={language}
-          onChange={setLanguage}
+          onChange={(nextLanguage) => {
+            setLanguage(nextLanguage);
+            setActiveSourcePath(null);
+          }}
           hasChinese={hasChinese}
           ariaLabel={t(($) => $.tab_body.instructions.language_toggle)}
         />
@@ -105,10 +128,48 @@ export function InstructionsTab({
           // box. Combined with the wrapper's overflow-y-auto, long content
           // grows past the wrapper height and scrolls within it.
           className="min-h-full"
-        /> : <ReadonlyContent
-          content={agent.instructions_zh ?? ""}
-          className="min-h-full"
-        />}
+        /> : activeSourcePath ? (
+          <div className="min-h-full">
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="mb-3 -ml-2 max-w-full"
+              onClick={() => setActiveSourcePath(null)}
+            >
+              <ArrowLeft className="h-3.5 w-3.5" />
+              <span className="truncate">
+                {t(($) => $.tab_body.instructions.back_to_overview)}
+              </span>
+            </Button>
+            <div className="mb-3 break-all font-mono text-xs text-muted-foreground">
+              {activeSourcePath}
+            </div>
+            {activeSourceFile ? (
+              /\.mdx?$/i.test(activeSourceFile.path) ? (
+                <ReadonlyContent
+                  content={activeSourceFile.content}
+                  className="min-h-full"
+                  onLinkClick={handleSourceLink}
+                />
+              ) : (
+                <pre className="overflow-x-auto whitespace-pre-wrap break-words rounded-md bg-muted/40 p-3 font-mono text-xs">
+                  {activeSourceFile.content}
+                </pre>
+              )
+            ) : (
+              <p className="text-sm text-muted-foreground">
+                {t(($) => $.tab_body.instructions.source_file_unavailable)}
+              </p>
+            )}
+          </div>
+        ) : (
+          <ReadonlyContent
+            content={agent.instructions_zh ?? ""}
+            className="min-h-full"
+            onLinkClick={handleSourceLink}
+          />
+        )}
       </div>
 
       {language === "en" && <div className="flex items-center justify-end gap-3">

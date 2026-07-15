@@ -333,6 +333,7 @@ func applyRoles(ctx context.Context, qtx *db.Queries, h *Handler, input ApplySna
 			Description:    pgtype.Text{String: truncate(descriptionOf(role), 255), Valid: true},
 			Instructions:   pgtype.Text{String: instructionsOf(role), Valid: true},
 			InstructionsZh: pgtype.Text{String: instructionsZHOf(role), Valid: true},
+			SourceFiles:    sourceFilesOf(role),
 			ProfileHtml:    pgtype.Text{String: personaOf(role), Valid: personaOf(role) != ""},
 			McpConfig:      mcpConfigOf(role, agentID),
 		}); err != nil {
@@ -393,6 +394,7 @@ func sourceManagedAgentCreateParams(workspaceID, runtimeID, ownerID pgtype.UUID,
 		MaxConcurrentTasks: 6,
 		Instructions:       instructionsOf(role),
 		InstructionsZh:     instructionsZHOf(role),
+		SourceFiles:        sourceFilesOf(role),
 		ProfileHtml:        pgtype.Text{String: personaOf(role), Valid: personaOf(role) != ""},
 		CustomEnv:          []byte("{}"),
 		CustomArgs:         []byte("[]"),
@@ -731,6 +733,18 @@ func instructionsZHOf(role map[string]any) string {
 func personaOf(role map[string]any) string {
 	content, _ := role["persona_content"].(string)
 	return content
+}
+
+func sourceFilesOf(role map[string]any) []byte {
+	sourceFiles, ok := role["source_files"]
+	if !ok || sourceFiles == nil {
+		return []byte("[]")
+	}
+	body, err := json.Marshal(sourceFiles)
+	if err != nil {
+		return []byte("[]")
+	}
+	return body
 }
 
 func roleImportHash(role map[string]any) string {

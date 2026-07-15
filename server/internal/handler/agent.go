@@ -34,18 +34,22 @@ import (
 const maxAgentDescriptionLength = 255
 
 type AgentResponse struct {
-	ID             string          `json:"id"`
-	WorkspaceID    string          `json:"workspace_id"`
-	RuntimeID      string          `json:"runtime_id"`
-	Name           string          `json:"name"`
-	Description    string          `json:"description"`
-	Instructions   string          `json:"instructions"`
-	InstructionsZH string          `json:"instructions_zh"`
-	AvatarURL      *string         `json:"avatar_url"`
-	RuntimeMode    string          `json:"runtime_mode"`
-	RuntimeConfig  any             `json:"runtime_config"`
-	CustomArgs     []string        `json:"custom_args"`
-	McpConfig      json.RawMessage `json:"mcp_config"`
+	ID             string `json:"id"`
+	WorkspaceID    string `json:"workspace_id"`
+	RuntimeID      string `json:"runtime_id"`
+	Name           string `json:"name"`
+	Description    string `json:"description"`
+	Instructions   string `json:"instructions"`
+	InstructionsZH string `json:"instructions_zh"`
+	// SourceFiles are safe text files explicitly referenced by the imported
+	// AgentWaker presentation document. They are populated only on the detail
+	// endpoint so list and WebSocket payloads stay small.
+	SourceFiles   []AgentSourceFile `json:"source_files,omitempty"`
+	AvatarURL     *string           `json:"avatar_url"`
+	RuntimeMode   string            `json:"runtime_mode"`
+	RuntimeConfig any               `json:"runtime_config"`
+	CustomArgs    []string          `json:"custom_args"`
+	McpConfig     json.RawMessage   `json:"mcp_config"`
 	// custom_env is intentionally NOT serialized on agent resources. The
 	// agent_list/get/create/update/archive/restore responses and WS events
 	// only expose coarse metadata (has_custom_env, custom_env_key_count) so
@@ -96,6 +100,11 @@ type AgentResponse struct {
 	UpdatedAt                        string              `json:"updated_at"`
 	ArchivedAt                       *string             `json:"archived_at"`
 	ArchivedBy                       *string             `json:"archived_by"`
+}
+
+type AgentSourceFile struct {
+	Path    string `json:"path"`
+	Content string `json:"content"`
 }
 
 // runtimeConfigGatewayTokenMask is the placeholder the API substitutes for
@@ -734,6 +743,11 @@ func (h *Handler) GetAgent(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	resp := agentToResponse(agent)
+	if len(agent.SourceFiles) > 0 {
+		if err := json.Unmarshal(agent.SourceFiles, &resp.SourceFiles); err != nil {
+			slog.Warn("failed to unmarshal agent source_files", "agent_id", uuidToString(agent.ID), "error", err)
+		}
+	}
 	if !h.enrichAgentResponseWithTargetsHTTP(w, r, &resp, agent.ID) {
 		return
 	}

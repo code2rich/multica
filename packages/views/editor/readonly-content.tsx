@@ -247,9 +247,11 @@ function ReadonlyCodeBlock({ children }: { children: ReactNode }) {
 function ReadonlyLink({
   href,
   children,
+  onLinkClick,
 }: {
   href?: string;
   children?: React.ReactNode;
+  onLinkClick?: (href: string) => boolean;
 }) {
   const slug = useWorkspaceSlug();
 
@@ -292,6 +294,7 @@ function ReadonlyLink({
       href={href}
       onClick={(e) => {
         e.preventDefault();
+        if (href && onLinkClick?.(href)) return;
         if (href) openLink(href, slug);
       }}
     >
@@ -300,10 +303,10 @@ function ReadonlyLink({
   );
 }
 
-function buildComponents(): Partial<Components> {
+function buildComponents(onLinkClick?: (href: string) => boolean): Partial<Components> {
   return {
     // Links — route mention:// to mention components, others show preview card
-    a: ReadonlyLink,
+    a: (props) => <ReadonlyLink {...props} onLinkClick={onLinkClick} />,
 
     // Images — unified through <Attachment>. The resolver context provided
     // by AttachmentDownloadProvider (mounted in ReadonlyContent below) turns
@@ -438,6 +441,8 @@ interface ReadonlyContentProps {
    * timeline entry); a fresh array on every parent render busts the memo.
    */
   attachments?: Attachment[];
+  /** Return true to handle a regular Markdown link inside the current surface. */
+  onLinkClick?: (href: string) => boolean;
 }
 
 // Memoized so a long timeline of comments (Inbox + IssueDetail) does not
@@ -449,6 +454,7 @@ export const ReadonlyContent = memo(function ReadonlyContent({
   content,
   className,
   attachments,
+  onLinkClick,
 }: ReadonlyContentProps) {
   const processed = useMemo(
     () =>
@@ -462,7 +468,7 @@ export const ReadonlyContent = memo(function ReadonlyContent({
 
   // Components map is now static — all attachment-aware logic lives in
   // <Attachment>, which reads the surrounding AttachmentDownloadProvider.
-  const components = useMemo(() => buildComponents(), []);
+  const components = useMemo(() => buildComponents(onLinkClick), [onLinkClick]);
 
   // Memoize the whole react-markdown subtree on its only real inputs
   // (`processed` + `components`). Unrelated parent re-renders (e.g. a sibling
