@@ -528,6 +528,7 @@
     "no_sources": "No AgentWaker sources configured yet.",
     "scan": "Scan",
     "scanned_at": "Last scanned",
+    "applied_at": "Last applied",
     "scan_started": "Scan started…",
     "scan_complete": "Scan complete.",
     "scan_failed": "Scan failed.",

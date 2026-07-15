@@ -1,7 +1,15 @@
 "use client";
 
 import { useState } from "react";
-import { FolderTree, Plus, RefreshCw, Trash2, AlertTriangle, CheckCircle2 } from "lucide-react";
+import {
+  AlertTriangle,
+  CheckCircle2,
+  FolderTree,
+  Loader2,
+  Plus,
+  RefreshCw,
+  Trash2,
+} from "lucide-react";
 import { toast } from "sonner";
 
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -32,6 +40,11 @@ import type { AgentSource } from "@multica/core/types";
 
 import { useT } from "../../i18n";
 
+type ApplyFeedback = {
+  status: "applying" | "success" | "error";
+  message: string;
+};
+
 /**
  * AgentWakerTab is the workspace-level configuration surface for AgentWaker
  * directory integration (M1): configure a daemon-owned absolute root, trigger a
@@ -59,6 +72,9 @@ export function AgentWakerTab() {
   const [scanningSourceIds, setScanningSourceIds] = useState<Set<string>>(
     () => new Set(),
   );
+  const [applyFeedbackBySource, setApplyFeedbackBySource] = useState<
+    Record<string, ApplyFeedback>
+  >({});
 
   const onlineRuntimes = runtimes.filter((r) => r.status === "online");
 
@@ -81,6 +97,11 @@ export function AgentWakerTab() {
   };
 
   const handleScan = async (source: AgentSource) => {
+    setApplyFeedbackBySource((current) => {
+      const next = { ...current };
+      delete next[source.id];
+      return next;
+    });
     setScanningSourceIds((current) => new Set(current).add(source.id));
     try {
       const initiated = await initiateScan.mutateAsync(source.id);
@@ -126,14 +147,38 @@ export function AgentWakerTab() {
   };
 
   const handleApply = async (source: AgentSource, snapshotId: string) => {
+    setApplyFeedbackBySource((current) => ({
+      ...current,
+      [source.id]: {
+        status: "applying",
+        message: t(($) => $.agentwaker.status_applying),
+      },
+    }));
     try {
       await applySource.mutateAsync({
         sourceId: source.id,
         snapshotId,
       });
-      toast.success(t(($) => $.agentwaker.apply_success));
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: agentSourceKeys.list(wsId) }),
+        queryClient.invalidateQueries({
+          queryKey: agentSourceKeys.snapshots(wsId, source.id),
+        }),
+      ]);
+      const message = t(($) => $.agentwaker.apply_success);
+      setApplyFeedbackBySource((current) => ({
+        ...current,
+        [source.id]: { status: "success", message },
+      }));
+      toast.success(message);
     } catch (err) {
-      toast.error(humanizeError(err) ?? t(($) => $.agentwaker.apply_failed));
+      const message =
+        humanizeError(err) ?? t(($) => $.agentwaker.apply_failed);
+      setApplyFeedbackBySource((current) => ({
+        ...current,
+        [source.id]: { status: "error", message },
+      }));
+      toast.error(message);
     }
   };
 
@@ -223,6 +268,7 @@ export function AgentWakerTab() {
                 applySource.isPending &&
                 applySource.variables?.sourceId === source.id
               }
+              applyFeedback={applyFeedbackBySource[source.id]}
             />
           ))}
         </div>
@@ -239,6 +285,7 @@ function SourceRow({
   onDelete,
   scanning,
   applying,
+  applyFeedback,
 }: {
   source: AgentSource;
   wsId: string;
@@ -247,6 +294,7 @@ function SourceRow({
   onDelete: () => void;
   scanning: boolean;
   applying: boolean;
+  applyFeedback?: ApplyFeedback;
 }) {
   const { t } = useT("settings");
   const { data: snapshots = [] } = useAgentSourceSnapshots(wsId, source.id);
@@ -270,6 +318,12 @@ function SourceRow({
                   {new Date(source.last_scanned_at).toLocaleString()}
                 </span>
               )}
+              {source.last_applied_at && (
+                <span className="text-xs text-muted-foreground">
+                  {t(($) => $.agentwaker.applied_at)}{" "}
+                  {new Date(source.last_applied_at).toLocaleString()}
+                </span>
+              )}
             </div>
           </div>
           <div className="flex items-center gap-2 shrink-0">
@@ -278,10 +332,17 @@ function SourceRow({
                 variant="default"
                 size="sm"
                 onClick={() => onApply(latestPreview.id)}
-                disabled={applying || scanning}
+                disabled={applying || scanning || applyFeedback?.status === "applying"}
+                aria-busy={applying || applyFeedback?.status === "applying"}
               >
-                <CheckCircle2 className="h-4 w-4" />
-                {t(($) => $.agentwaker.apply)}
+                {applying || applyFeedback?.status === "applying" ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <CheckCircle2 className="h-4 w-4" />
+                )}
+                {applying || applyFeedback?.status === "applying"
+                  ? t(($) => $.agentwaker.status_applying)
+                  : t(($) => $.agentwaker.apply)}
               </Button>
             )}
             <Button variant="outline" size="sm" onClick={onScan} disabled={scanning || applying}>
@@ -298,6 +359,25 @@ function SourceRow({
           <div className="flex items-start gap-2 text-sm text-destructive">
             <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
             <span>{t(($) => $.agentwaker.scan_failed_hint)}</span>
+          </div>
+        )}
+
+        {applyFeedback?.status !== "applying" && applyFeedback && (
+          <div
+            role={applyFeedback.status === "error" ? "alert" : "status"}
+            aria-live="polite"
+            className={
+              applyFeedback.status === "success"
+                ? "flex items-center gap-2 rounded-md border border-success/25 bg-success/10 px-3 py-2 text-sm text-success"
+                : "flex items-start gap-2 rounded-md border border-destructive/25 bg-destructive/10 px-3 py-2 text-sm text-destructive"
+            }
+          >
+            {applyFeedback.status === "success" ? (
+              <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />
+            ) : (
+              <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+            )}
+            <span>{applyFeedback.message}</span>
           </div>
         )}
 

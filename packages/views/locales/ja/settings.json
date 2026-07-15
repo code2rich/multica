@@ -528,6 +528,7 @@
     "no_sources": "AgentWaker ソースはまだ設定されていません。",
     "scan": "スキャン",
     "scanned_at": "最終スキャン",
+    "applied_at": "最終適用",
     "scan_started": "スキャンを開始しました…",
     "scan_complete": "スキャンが完了しました。",
     "scan_failed": "スキャンに失敗しました。",

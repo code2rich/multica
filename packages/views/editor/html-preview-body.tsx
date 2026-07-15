@@ -42,6 +42,8 @@ interface HtmlPreviewBodyProps {
   /** Override iframe styling (border / radius). Tailwind-merge resolves
    *  conflicts so callers can pass "rounded-none border-0" for full-screen. */
   iframeClassName?: string;
+  /** Let inline preview documents report and control their rendered height. */
+  autoResize?: boolean;
   /** Sizing for loading / error placeholders. Defaults to className. */
   placeholderClassName?: string;
   /** Optional data-testid on the error placeholder — preserved for
@@ -54,6 +56,7 @@ export function HtmlPreviewBody({
   title,
   className,
   iframeClassName,
+  autoResize,
   placeholderClassName,
   errorTestId,
 }: HtmlPreviewBodyProps) {
@@ -64,6 +67,7 @@ export function HtmlPreviewBody({
         title={title}
         heightClassName={className}
         className={iframeClassName}
+        autoResize={autoResize}
       />
     );
   }

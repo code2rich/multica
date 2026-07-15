@@ -47,6 +47,10 @@ import { Checkbox } from "@multica/ui/components/ui/checkbox";
 import { Input } from "@multica/ui/components/ui/input";
 import { Textarea } from "@multica/ui/components/ui/textarea";
 import { cn } from "@multica/ui/lib/utils";
+import {
+  buildAgentIconUrl,
+  defaultAgentIconKey,
+} from "@multica/ui/lib/agent-icon-url";
 import { AvatarUploadControl } from "../../common/avatar-upload-control";
 import { ChatInput } from "../../chat/components/chat-input";
 import {
@@ -499,6 +503,9 @@ export function AgentCreationStudio() {
     setCreateError(null);
     try {
       const invocationTargets = buildInvocationTargets(draft);
+      const avatarUrl =
+        draft.avatarUrl ??
+        buildAgentIconUrl(defaultAgentIconKey(draft.name.trim()));
       let agent: Agent;
       if (sourceTemplate) {
         const response = await api.createAgentFromTemplate({
@@ -506,7 +513,7 @@ export function AgentCreationStudio() {
           name: draft.name.trim(),
           description: draft.description.trim(),
           instructions: draft.instructions.trim(),
-          avatar_url: draft.avatarUrl ?? undefined,
+          avatar_url: avatarUrl,
           runtime_id: selectedRuntime.id,
           model: draft.model.trim() || undefined,
           permission_mode:
@@ -520,7 +527,7 @@ export function AgentCreationStudio() {
           name: draft.name.trim(),
           description: draft.description.trim(),
           instructions: draft.instructions.trim() || undefined,
-          avatar_url: draft.avatarUrl ?? undefined,
+          avatar_url: avatarUrl,
           runtime_id: selectedRuntime.id,
           model: draft.model.trim() || undefined,
           permission_mode:
@@ -945,6 +952,9 @@ function ConfigurationPanel({
                 name={draft.name}
                 size={compact ? 52 : 56}
                 onUploaded={(url) => set("avatarUrl", url)}
+                onIconPick={(key) =>
+                  set("avatarUrl", buildAgentIconUrl(key))
+                }
                 onClear={() => set("avatarUrl", null)}
               />
             </div>

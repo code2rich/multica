@@ -528,6 +528,7 @@
     "no_sources": "尚未配置 AgentWaker 来源。",
     "scan": "扫描",
     "scanned_at": "上次扫描",
+    "applied_at": "上次应用",
     "scan_started": "扫描已开始…",
     "scan_complete": "扫描完成。",
     "scan_failed": "扫描失败。",

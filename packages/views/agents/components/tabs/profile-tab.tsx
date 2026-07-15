@@ -173,8 +173,9 @@ export function ProfileTab({
           <HtmlPreviewBody
             source={{ kind: "inline", html: text }}
             title={t(($) => $.tab_body.profile.preview_aria)}
-            className="min-h-[400px] flex-1 rounded-md border"
+            className="rounded-md border"
             iframeClassName="rounded-md"
+            autoResize
           />
         ) : (
           <div className="flex flex-1 items-center justify-center rounded-md border border-dashed text-sm text-muted-foreground">
@@ -187,7 +188,7 @@ export function ProfileTab({
           onChange={(e) => setText(e.target.value)}
           placeholder={t(($) => $.tab_body.profile.placeholder)}
           spellCheck={false}
-          className="min-h-[400px] flex-1 font-mono text-xs"
+          className="min-h-[70dvh] flex-1 font-mono text-xs"
         />
       )}
 

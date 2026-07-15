@@ -378,7 +378,7 @@ export function AgentOverviewPane({
         )}
 
         {effectiveView === "profile" && (
-          <div className="mx-auto w-full max-w-5xl p-4 sm:p-6">
+          <div className="mx-auto w-full max-w-[1440px] p-4 sm:p-6">
             <ProfileTab
               agent={agent}
               onSave={(updates) => onUpdate(agent.id, updates)}

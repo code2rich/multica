@@ -10,6 +10,7 @@ import { AGENT_DESCRIPTION_MAX_LENGTH } from "@multica/core/agents";
 import { isImeComposing } from "@multica/core/utils";
 import { Input } from "@multica/ui/components/ui/input";
 import { Textarea } from "@multica/ui/components/ui/textarea";
+import { buildAgentIconUrl } from "@multica/ui/lib/agent-icon-url";
 import { AvatarUploadControl } from "../../common/avatar-upload-control";
 import {
   SettingsCard,
@@ -135,6 +136,9 @@ export function AgentDetailInspector({
                 size={56}
                 disabled={!canEdit}
                 onUploaded={(url) => update({ avatar_url: url })}
+                onIconPick={(key) =>
+                  update({ avatar_url: buildAgentIconUrl(key) })
+                }
               />
             </div>
           </SettingsRow>

@@ -528,6 +528,7 @@
     "no_sources": "아직 구성된 AgentWaker 소스가 없습니다.",
     "scan": "스캔",
     "scanned_at": "마지막 스캔",
+    "applied_at": "마지막 적용",
     "scan_started": "스캔을 시작했습니다…",
     "scan_complete": "스캔이 완료되었습니다.",
     "scan_failed": "스캔에 실패했습니다.",
