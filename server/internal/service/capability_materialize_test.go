@@ -78,6 +78,35 @@ func TestBuildCapabilityBindingNote(t *testing.T) {
 	})
 }
 
+// TestCapabilityAccumDeduplicatesJoinedRows covers the query shape used by
+// LoadBoundSharedCapabilities: each binding is repeated for every capability
+// file, and each file is repeated for every binding. The runtime bundle must
+// contain one copy of each or providers that refuse overwrites cannot start.
+func TestCapabilityAccumDeduplicatesJoinedRows(t *testing.T) {
+	t.Parallel()
+
+	var accum capAccum
+	for _, bindingID := range []string{"binding-1", "binding-2"} {
+		for _, file := range []AgentSkillFileData{
+			{Path: "SKILL.zh.md", Content: "Chinese skill"},
+			{Path: "schemas/request.json", Content: `{"type":"object"}`},
+		} {
+			accum.addFile(file.Path, file.Content)
+			accum.addBinding(bindingID, capBindingInfo{profile: bindingID})
+		}
+	}
+
+	if len(accum.files) != 2 {
+		t.Fatalf("files = %d, want one copy of each of 2 files", len(accum.files))
+	}
+	if len(accum.bindings) != 2 {
+		t.Fatalf("bindings = %d, want one copy of each of 2 bindings", len(accum.bindings))
+	}
+	if accum.files[0].Path != "SKILL.zh.md" || accum.files[1].Path != "schemas/request.json" {
+		t.Fatalf("unexpected files: %#v", accum.files)
+	}
+}
+
 // TestExtractModeAndFallback verifies the JSONB helpers that parse permissions
 // and fallback fields from agent_capability_binding.
 func TestExtractModeAndFallback(t *testing.T) {

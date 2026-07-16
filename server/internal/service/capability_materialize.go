@@ -19,7 +19,9 @@ type capAccum struct {
 	description string
 	entrypoint  string
 	files       []AgentSkillFileData
+	filePaths   map[string]struct{}
 	bindings    []capBindingInfo
+	bindingIDs  map[string]struct{}
 }
 
 // capBindingInfo is the subset of a binding row used to render the binding note.
@@ -29,6 +31,33 @@ type capBindingInfo struct {
 	required    bool
 	mode        string
 	fallback    string
+}
+
+// addFile records one supporting file per path. The materialization query
+// returns one row per binding and version file, so a capability used by more
+// than one role skill repeats every file once per binding.
+func (a *capAccum) addFile(path, content string) {
+	if a.filePaths == nil {
+		a.filePaths = make(map[string]struct{})
+	}
+	if _, exists := a.filePaths[path]; exists {
+		return
+	}
+	a.files = append(a.files, AgentSkillFileData{Path: path, Content: content})
+	a.filePaths[path] = struct{}{}
+}
+
+// addBinding records one binding despite the same binding appearing once for
+// every file in the joined capability-version result.
+func (a *capAccum) addBinding(id string, binding capBindingInfo) {
+	if a.bindingIDs == nil {
+		a.bindingIDs = make(map[string]struct{})
+	}
+	if _, exists := a.bindingIDs[id]; exists {
+		return
+	}
+	a.bindings = append(a.bindings, binding)
+	a.bindingIDs[id] = struct{}{}
 }
 
 // LoadBoundSharedCapabilities materializes the shared capabilities bound to an
@@ -59,6 +88,8 @@ func (s *TaskService) LoadBoundSharedCapabilities(ctx context.Context, agentID p
 				id:          "capability:" + r.SourceKey,
 				name:        r.Name + " (shared capability)",
 				description: r.Description,
+				filePaths:   make(map[string]struct{}),
+				bindingIDs:  make(map[string]struct{}),
 			}
 			byCap[capID] = accum
 			order = append(order, capID)
@@ -68,20 +99,18 @@ func (s *TaskService) LoadBoundSharedCapabilities(ctx context.Context, agentID p
 			if r.IsEntrypoint.Valid && r.IsEntrypoint.Bool {
 				accum.entrypoint = r.FileBody.String
 			} else {
-				accum.files = append(accum.files, AgentSkillFileData{
-					Path:    r.FilePath.String,
-					Content: r.FileBody.String,
-				})
+				accum.addFile(r.FilePath.String, r.FileBody.String)
 			}
 		}
 		// Record the binding for the binding-note generator.
 		if r.BindingID.Valid {
-			accum.bindings = append(accum.bindings, capBindingInfo{
-				profile:      r.Profile,
-				requirement:  r.VersionRequirement,
-				required:     r.Required,
-				mode:         extractMode(r.Permissions),
-				fallback:     extractBehavior(r.Fallback),
+			bindingID := util.UUIDToString(r.BindingID)
+			accum.addBinding(bindingID, capBindingInfo{
+				profile:     r.Profile,
+				requirement: r.VersionRequirement,
+				required:    r.Required,
+				mode:        extractMode(r.Permissions),
+				fallback:    extractBehavior(r.Fallback),
 			})
 		}
 	}
