@@ -118,6 +118,67 @@ func TestNewMigrationPrefixesStartAfterLegacyRange(t *testing.T) {
 	}
 }
 
+func TestLegacyMigrationDependencyOrder(t *testing.T) {
+	upFiles := []string{
+		"166_agent_source_role_skill.up.sql",
+		"166_project_dates.up.sql",
+		"167_agent_capability_binding.up.sql",
+		"167_resource_label_namespace_index.up.sql",
+		"168_agent_skill_origin_env.up.sql",
+		"168_resource_label_type_index.up.sql",
+		"169_agent_label_lookup_index.up.sql",
+		"170_skill_label_lookup_index.up.sql",
+		"171_agent_source_files.up.sql",
+		"171_drop_legacy_label_namespace_index.up.sql",
+		"172_agent_skill_enabled.up.sql",
+		"172_agent_system_identity_index.up.sql",
+		"173_remove_resource_label_foreign_keys.up.sql",
+		"173_resource_labels.up.sql",
+		"174_agent_builder.up.sql",
+		"174_legacy_label_index_rollback_prep.up.sql",
+	}
+	sortMigrationFiles(upFiles, "up")
+
+	assertMigrationBefore(t, upFiles, "173_resource_labels", "167_resource_label_namespace_index")
+	assertMigrationBefore(t, upFiles, "173_resource_labels", "168_resource_label_type_index")
+	assertMigrationBefore(t, upFiles, "173_resource_labels", "169_agent_label_lookup_index")
+	assertMigrationBefore(t, upFiles, "173_resource_labels", "170_skill_label_lookup_index")
+	assertMigrationBefore(t, upFiles, "174_agent_builder", "172_agent_system_identity_index")
+
+	downFiles := make([]string, len(upFiles))
+	for i, file := range upFiles {
+		downFiles[i] = strings.Replace(file, ".up.sql", ".down.sql", 1)
+	}
+	sortMigrationFiles(downFiles, "down")
+
+	assertMigrationBefore(t, downFiles, "167_resource_label_namespace_index", "173_resource_labels")
+	assertMigrationBefore(t, downFiles, "168_resource_label_type_index", "173_resource_labels")
+	assertMigrationBefore(t, downFiles, "169_agent_label_lookup_index", "173_resource_labels")
+	assertMigrationBefore(t, downFiles, "170_skill_label_lookup_index", "173_resource_labels")
+	assertMigrationBefore(t, downFiles, "172_agent_system_identity_index", "174_agent_builder")
+}
+
+func assertMigrationBefore(t *testing.T, files []string, first, second string) {
+	t.Helper()
+
+	firstIndex := -1
+	secondIndex := -1
+	for i, file := range files {
+		switch ExtractVersion(file) {
+		case first:
+			firstIndex = i
+		case second:
+			secondIndex = i
+		}
+	}
+	if firstIndex < 0 || secondIndex < 0 {
+		t.Fatalf("migration order assertion missing files: %s=%d %s=%d", first, firstIndex, second, secondIndex)
+	}
+	if firstIndex >= secondIndex {
+		t.Errorf("migration %s must run before %s; order=%v", first, second, files)
+	}
+}
+
 func migrationStemsByPrefix(t *testing.T) map[string][]string {
 	t.Helper()
 
