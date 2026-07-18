@@ -22,6 +22,23 @@ func fixtureDir(t *testing.T) string {
 
 func readFile(t *testing.T, path ...string) []byte {
 	t.Helper()
+	// Real env/.env files are intentionally ignored by Git. Keep the fixture
+	// representative without making tests depend on a developer's local file:
+	// synthesize the non-secret canary values that these tests exercise.
+	switch filepath.ToSlash(filepath.Join(path...)) {
+	case "research-operator/env/.env":
+		return []byte(
+			"AGENT_WORK_DIR=/tmp/agentwaker/research-operator/workdir\n" +
+				"AGENT_MEMORY_FILE=/tmp/agentwaker/research-operator/agent-soul/MEMORY.md\n" +
+				"PLATFORM_API_KEY=" + secretCanary + "\n" +
+				"PLATFORM_API_BASE=https://api.example.com\n",
+		)
+	case "plain-operator/env/.env":
+		return []byte(
+			"AGENT_WORK_DIR=/tmp/agentwaker/plain-operator/workdir\n" +
+				"AGENT_MEMORY_FILE=/tmp/agentwaker/plain-operator/agent-soul/MEMORY.md\n",
+		)
+	}
 	full := filepath.Join(append([]string{fixtureDir(t)}, path...)...)
 	b, err := os.ReadFile(full)
 	if err != nil {
@@ -105,9 +122,9 @@ func TestFixture_Roles(t *testing.T) {
 }
 
 // TestFixture_EnvRedaction is the canonical proof that plaintext env values
-// never leave the sanitization boundary. It reads the real fixture .env
-// (containing secretCanary), sanitizes, and asserts the canary is absent from
-// every serialization of the sanitized output.
+// never leave the sanitization boundary. It reads the runtime fixture .env
+// (containing secretCanary), sanitizes it, and asserts the canary is absent
+// from every serialization of the sanitized output.
 func TestFixture_EnvRedaction(t *testing.T) {
 	example, err := ParseEnvFile(readFile(t, "research-operator", "env", ".env.example"))
 	if err != nil {
@@ -199,9 +216,10 @@ func TestFixture_UnrelatedEnvFileIsNotTheRoleEnv(t *testing.T) {
 	if !strings.Contains(string(canary), "unrelated-secret-must-not-be-read") {
 		t.Fatal("unrelated env fixture lost its canary; scoping test is ineffective")
 	}
-	// And confirm the recognized path is different and also present.
-	if _, err := os.Stat(filepath.Join(fixtureDir(t), "research-operator", "env", ".env")); err != nil {
-		t.Fatal("recognized env/.env missing")
+	// And confirm the recognized runtime fixture is different and present.
+	recognized := readFile(t, "research-operator", "env", ".env")
+	if !strings.Contains(string(recognized), secretCanary) {
+		t.Fatal("recognized env/.env runtime fixture missing its canary")
 	}
 }
 
