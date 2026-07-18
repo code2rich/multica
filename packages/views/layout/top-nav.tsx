@@ -53,7 +53,6 @@ import { inboxKeys, deduplicateInboxItems, inboxUnreadSummaryOptions, hasOtherWo
 import { chatSessionsOptions } from "@multica/core/chat/queries";
 import { api } from "@multica/core/api";
 import { useConfigStore } from "@multica/core/config";
-import { useMyRuntimesNeedUpdate } from "@multica/core/runtimes/hooks";
 import { useModalStore } from "@multica/core/modals";
 import { openCreateIssueWithPreference } from "@multica/core/issues/stores/create-mode-store";
 import { useSearchStore } from "../search/search-store";
@@ -319,7 +318,6 @@ function UserMenu({ p }: { p: ReturnType<typeof useWorkspacePaths> }) {
   const { t } = useT("layout");
   const user = useAuthStore((s) => s.user);
   const logout = useLogout();
-  const hasRuntimeUpdates = useMyRuntimesNeedUpdate(useCurrentWorkspace()?.id);
 
   return (
     <DropdownMenu>
@@ -378,7 +376,6 @@ function UserMenu({ p }: { p: ReturnType<typeof useWorkspacePaths> }) {
           >
             <Monitor className="size-4" />
             {t(($) => $.nav.runtimes)}
-            {hasRuntimeUpdates && <span className="ml-auto size-1.5 rounded-full bg-destructive" />}
           </DropdownMenuItem>
           <DropdownMenuItem
             render={

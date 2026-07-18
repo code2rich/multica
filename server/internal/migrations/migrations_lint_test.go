@@ -45,6 +45,17 @@ var legacyDuplicateMigrationStems = map[string][]string{
 	"124": {"124_autopilot_run_planned_at", "124_channel_generalization", "124_task_prepare_lease"},
 	"127": {"127_issue_pull_request_reference_only", "127_task_squad_id", "127_user_composio_connection"},
 	"128": {"128_agent_task_queue_runtime_mcp_overlay", "128_autopilot_collaborator", "128_comment_routing_escalation"},
+	"164": {"164_agent_source_snapshot", "164_attachment_task_id"},
+	"165": {"165_attachment_task_id_index", "165_shared_capability"},
+	"166": {"166_agent_source_role_skill", "166_project_dates"},
+	"167": {"167_agent_capability_binding", "167_resource_label_namespace_index"},
+	"168": {"168_agent_skill_origin_env", "168_resource_label_type_index"},
+	"169": {"169_agent_label_lookup_index", "169_shared_capability_file"},
+	"170": {"170_agent_skill_localized_display", "170_skill_label_lookup_index"},
+	"171": {"171_agent_source_files", "171_drop_legacy_label_namespace_index"},
+	"172": {"172_agent_skill_enabled", "172_agent_system_identity_index"},
+	"173": {"173_remove_resource_label_foreign_keys", "173_resource_labels"},
+	"174": {"174_agent_builder", "174_legacy_label_index_rollback_prep"},
 }
 
 var migrationPrefixPattern = regexp.MustCompile(`^(\d+)_`)

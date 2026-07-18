@@ -59,7 +59,6 @@ function ActorAvatar({
         "rounded-full"
       )}
       style={{ width: px, height: px, fontSize: px * 0.45 }}
-      title={name}
     >
       {avatarUrl && isAgentIconUrl(avatarUrl) ? (
         // Built-in icon reference: render the matching SVG. An unknown key

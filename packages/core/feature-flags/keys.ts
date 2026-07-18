@@ -6,3 +6,5 @@ export const COMPOSIO_MCP_APPS_FLAG = "composio_mcp_apps";
  * capability injection (M3), and continuous resync (M4). Ships dark.
  */
 export const AGENTWAKER_DIRECTORY_SYNC_FLAG = "agentwaker_directory_sync";
+export const AGENT_BUILDER_FLAG = "agents_agent_builder";
+export const RESOURCE_LABELS_FLAG = "settings_resource_labels";

@@ -8,8 +8,16 @@ import (
 
 // AgentEntry describes a single available agent CLI.
 type AgentEntry struct {
-	Path  string // path to CLI binary
-	Model string // model override (optional)
+	Path string // path to CLI binary (pinned at startup; symlink-resolved to a concrete, possibly versioned, path)
+	// Command is the bare command name or MULTICA_*_PATH value that Path was
+	// resolved from at startup. It is kept so the daemon can re-resolve Path
+	// if the pinned executable later vanishes — e.g. a version manager
+	// (Homebrew Cask, nvm/fnm) does an in-place upgrade that deletes the old
+	// versioned directory Path points into. Empty for synthesized entries
+	// (custom runtime profiles) that carry an absolute path directly. See
+	// Daemon.resolveAgentEntry and MUL-4486.
+	Command string
+	Model   string // model override (optional)
 }
 
 // Runtime represents a registered daemon runtime.
@@ -92,6 +100,8 @@ type Task struct {
 	AutopilotSource          string                 `json:"autopilot_source,omitempty"`            // manual, schedule, webhook, or api
 	AutopilotTriggerPayload  json.RawMessage        `json:"autopilot_trigger_payload,omitempty"`   // optional trigger payload for webhook/api runs
 	QuickCreatePrompt        string                 `json:"quick_create_prompt,omitempty"`         // user's natural-language input for quick-create tasks
+	QuickCreatePriority      string                 `json:"quick_create_priority,omitempty"`       // explicit priority selected in quick-create
+	QuickCreateDueDate       string                 `json:"quick_create_due_date,omitempty"`       // explicit calendar due date selected in quick-create
 	QuickCreateAttachmentIDs []string               `json:"quick_create_attachment_ids,omitempty"` // attachments uploaded in the quick-create prompt and bound by issue create
 	HandoffNote              string                 `json:"handoff_note,omitempty"`                // assignment handoff instruction; rendered into the opening prompt + issue_context.md
 

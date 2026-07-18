@@ -64,3 +64,4 @@ data/
 
 # generated docs
 /docs/architecture-overview.md
+.gstack/

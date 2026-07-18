@@ -17,7 +17,12 @@ export type {
 export { FeatureFlagService } from "./service";
 export { StaticProvider } from "./static-provider";
 export { ChainProvider } from "./chain-provider";
-export { COMPOSIO_MCP_APPS_FLAG, AGENTWAKER_DIRECTORY_SYNC_FLAG } from "./keys";
+export {
+  AGENT_BUILDER_FLAG,
+  AGENTWAKER_DIRECTORY_SYNC_FLAG,
+  COMPOSIO_MCP_APPS_FLAG,
+  RESOURCE_LABELS_FLAG,
+} from "./keys";
 export {
   FeatureFlagsProvider,
   useFeatureFlagService,

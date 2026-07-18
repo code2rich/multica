@@ -15,7 +15,6 @@ import { useAuthStore } from "@multica/core/auth";
 import { useWorkspaceId } from "@multica/core/hooks";
 import { agentTaskSnapshotOptions } from "@multica/core/agents";
 import { runtimeListOptions, runtimeKeys } from "@multica/core/runtimes/queries";
-import { useUpdatableRuntimeIds } from "@multica/core/runtimes/hooks";
 import { useWSEvent } from "@multica/core/realtime";
 import { agentListOptions } from "@multica/core/workspace/queries";
 import { memberListOptions } from "@multica/core/workspace/queries";
@@ -34,6 +33,7 @@ import { ConnectRemoteDialog } from "./connect-remote-dialog";
 import { CloudRuntimeDialog } from "./cloud-runtime-dialog";
 import { RuntimeProfilesDialog } from "./runtime-profiles-dialog";
 import { RenameMachineDialog } from "./rename-machine-dialog";
+import { MachineCliSection } from "./machine-cli-section";
 import { ProviderLogo } from "./provider-logo";
 import { RuntimeList, buildWorkloadIndex } from "./runtime-list";
 import {
@@ -124,7 +124,6 @@ export function RuntimesPage({
   }, [qc, wsId]);
   useWSEvent("daemon:register", handleDaemonEvent);
 
-  const updatableIds = useUpdatableRuntimeIds(wsId);
   const now = useNowTick();
 
   useEffect(() => {
@@ -250,8 +249,9 @@ export function RuntimesPage({
           />
           <MachineDetail
             machine={selectedMachine}
-            updatableIds={updatableIds}
             now={now}
+            currentUserId={currentUserId}
+            canManageAnyRuntime={canManageProfiles}
             canRename={!!renameTarget}
             onRename={() => setRenameOpen(true)}
           />
@@ -287,8 +287,9 @@ export function RuntimesPage({
             <ResizablePanel id="detail" minSize="45%">
               <MachineDetail
                 machine={selectedMachine}
-                updatableIds={updatableIds}
                 now={now}
+                currentUserId={currentUserId}
+                canManageAnyRuntime={canManageProfiles}
                 canRename={!!renameTarget}
                 onRename={() => setRenameOpen(true)}
               />
@@ -650,14 +651,16 @@ function ProviderIconStack({ providers }: { providers: string[] }) {
 
 function MachineDetail({
   machine,
-  updatableIds,
   now,
+  currentUserId,
+  canManageAnyRuntime,
   canRename,
   onRename,
 }: {
   machine: RuntimeMachine | null;
-  updatableIds: Set<string>;
   now: number;
+  currentUserId: string | undefined;
+  canManageAnyRuntime: boolean;
   canRename?: boolean;
   onRename?: () => void;
 }) {
@@ -756,13 +759,19 @@ function MachineDetail({
                 </React.Fragment>
               ))}
             </div>
+            <div className="mt-3">
+              <MachineCliSection
+                machine={machine}
+                currentUserId={currentUserId}
+                canManageAnyRuntime={canManageAnyRuntime}
+              />
+            </div>
           </div>
         </div>
       </div>
 
       <RuntimeList
         runtimes={machine.runtimes}
-        updatableIds={updatableIds}
         now={now}
       />
     </main>

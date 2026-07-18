@@ -359,7 +359,7 @@ describe("CreateAgentDialog access picker (MUL-4010, feature-flag gated)", () =>
 
     // New copy replaces the old one.
     expect(screen.getByText("Only you can run this agent")).toBeInTheDocument();
-    expect(screen.getByText("Entire workspace")).toBeInTheDocument();
+    expect(screen.getByText("Everyone in this workspace")).toBeInTheDocument();
     expect(screen.getByText("Specific people")).toBeInTheDocument();
 
     fireEvent.change(screen.getByPlaceholderText("e.g. Deep Research Agent"), {
@@ -398,7 +398,7 @@ describe("CreateAgentDialog access picker (MUL-4010, feature-flag gated)", () =>
     expect(payload.invocation_targets).toEqual([]);
   });
 
-  it("does not create when specific-people scope has no member", async () => {
+  it("collapses an empty public target set to private", async () => {
     configStore.getState().setFeatureFlags({ [COMPOSIO_MCP_APPS_FLAG]: true });
     const mine = makeRuntime({ id: "rt-mine", name: "My Runtime", owner_id: ME });
     const { onCreate } = renderDialog([mine]);
@@ -406,11 +406,16 @@ describe("CreateAgentDialog access picker (MUL-4010, feature-flag gated)", () =>
     fireEvent.change(screen.getByPlaceholderText("e.g. Deep Research Agent"), {
       target: { value: "Empty Public Agent" },
     });
-    fireEvent.click(screen.getByRole("radio", { name: /^Specific people/i }));
+    fireEvent.click(
+      screen.getByRole("checkbox", { name: /Everyone in this workspace/i }),
+    );
     fireEvent.click(screen.getByText("Create"));
     await new Promise((r) => setTimeout(r, 0));
 
-    expect(onCreate).not.toHaveBeenCalled();
+    const payload = onCreate.mock.calls[0]?.[0];
+    expect(payload).toBeDefined();
+    expect(payload.permission_mode).toBe("private");
+    expect(payload.invocation_targets).toEqual([]);
   });
 
   it("includes ticked members in the invocation_targets payload", async () => {
@@ -421,7 +426,9 @@ describe("CreateAgentDialog access picker (MUL-4010, feature-flag gated)", () =>
     fireEvent.change(screen.getByPlaceholderText("e.g. Deep Research Agent"), {
       target: { value: "Shared Agent" },
     });
-    fireEvent.click(screen.getByRole("radio", { name: /^Specific people/i }));
+    fireEvent.click(
+      screen.getByRole("checkbox", { name: /Everyone in this workspace/i }),
+    );
     fireEvent.click(screen.getByRole("checkbox", { name: /^Other/ }));
     fireEvent.click(screen.getByText("Create"));
     await new Promise((r) => setTimeout(r, 0));
