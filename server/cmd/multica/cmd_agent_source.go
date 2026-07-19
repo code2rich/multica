@@ -159,7 +159,9 @@ func runAgentSourceScan(cmd *cobra.Command, args []string) error {
 		if status == "completed" || status == "failed" || status == "timeout" {
 			output, _ := cmd.Flags().GetString("output")
 			if output == "json" {
-				printJSON(req)
+				// The scan manifest may contain scoped source bodies needed by
+				// apply. Never print it from an ordinary CLI scan summary.
+				printJSON(agentSourceScanSummary(req))
 			} else {
 				fmt.Println("status:", status)
 				if h, ok := req["directory_hash"].(string); ok && h != "" {
@@ -176,6 +178,17 @@ func runAgentSourceScan(cmd *cobra.Command, args []string) error {
 		}
 		time.Sleep(2 * time.Second)
 	}
+}
+
+func agentSourceScanSummary(req map[string]any) map[string]any {
+	summary := make(map[string]any, len(req))
+	for key, value := range req {
+		if key == "manifest" {
+			continue
+		}
+		summary[key] = value
+	}
+	return summary
 }
 
 func runAgentSourcePlan(cmd *cobra.Command, args []string) error {
