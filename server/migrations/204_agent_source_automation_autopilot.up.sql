@@ -1,0 +1,1 @@
+CREATE UNIQUE INDEX CONCURRENTLY uq_agent_source_automation_autopilot ON agent_source_automation (autopilot_id);

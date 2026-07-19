@@ -143,6 +143,18 @@ type AgentSource struct {
 	UpdatedAt         pgtype.Timestamptz `json:"updated_at"`
 }
 
+type AgentSourceAutomation struct {
+	SourceID           pgtype.UUID        `json:"source_id"`
+	SourceRoleID       string             `json:"source_role_id"`
+	SourceAutomationID string             `json:"source_automation_id"`
+	AutopilotID        pgtype.UUID        `json:"autopilot_id"`
+	TriggerID          pgtype.UUID        `json:"trigger_id"`
+	LastImportHash     string             `json:"last_import_hash"`
+	LastSnapshotID     pgtype.UUID        `json:"last_snapshot_id"`
+	CreatedAt          pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt          pgtype.Timestamptz `json:"updated_at"`
+}
+
 type AgentSourceRole struct {
 	SourceID       pgtype.UUID        `json:"source_id"`
 	SourceRoleID   string             `json:"source_role_id"`

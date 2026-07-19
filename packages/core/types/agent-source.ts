@@ -140,6 +140,30 @@ export interface SanitizedSkillSummary {
   file_count: number;
 }
 
+export interface SanitizedDailyAutomation {
+  id: string;
+  title: string;
+  prompt_path: string;
+  prompt_content: string;
+  execution_mode: "run_only" | "create_issue";
+  issue_title_template?: string;
+  schedule: {
+    kind: "schedule";
+    cron_expression: string;
+    timezone: string;
+    initial_enabled: false;
+    label?: string;
+  };
+  sync: {
+    content: "source-authoritative";
+    schedule: "source-authoritative";
+    activation: "workspace-preserve";
+    missing: "archive";
+  };
+  governance: { external_writes: "read-only" | "approval-required" };
+  content_hash: string;
+}
+
 export interface SanitizedRoleSummary {
   id: string;
   role_dir: string;
@@ -158,6 +182,7 @@ export interface SanitizedRoleSummary {
     server_count: number;
     unresolved_env?: string[];
   };
+  automations: SanitizedDailyAutomation[];
 }
 
 export interface SanitizedScanManifest {

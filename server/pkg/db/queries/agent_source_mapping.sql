@@ -9,6 +9,9 @@ ON CONFLICT (source_id, source_role_id) DO UPDATE SET
     updated_at = now()
 RETURNING *;
 
+-- name: LockAgentSourceForApply :exec
+SELECT pg_advisory_xact_lock(hashtextextended($1::text, 0));
+
 -- name: GetAgentSourceRole :one
 SELECT * FROM agent_source_role
 WHERE source_id = $1 AND source_role_id = $2;
@@ -55,3 +58,28 @@ WHERE agent_id = $1
   AND skill_id IN (
       SELECT skill_id FROM agent_source_skill WHERE source_id = $2
   );
+
+-- name: CreateAgentSourceAutomation :one
+INSERT INTO agent_source_automation (
+    source_id, source_role_id, source_automation_id, autopilot_id, trigger_id,
+    last_import_hash, last_snapshot_id
+) VALUES ($1, $2, $3, $4, $5, $6, sqlc.narg('last_snapshot_id'))
+RETURNING *;
+
+-- name: GetAgentSourceAutomation :one
+SELECT * FROM agent_source_automation
+WHERE source_id = $1 AND source_role_id = $2 AND source_automation_id = $3;
+
+-- name: ListAgentSourceAutomationsBySource :many
+SELECT * FROM agent_source_automation WHERE source_id = $1;
+
+-- name: UpdateAgentSourceAutomationImport :one
+UPDATE agent_source_automation SET
+    last_import_hash = $4,
+    last_snapshot_id = sqlc.narg('last_snapshot_id'),
+    updated_at = now()
+WHERE source_id = $1 AND source_role_id = $2 AND source_automation_id = $3
+RETURNING *;
+
+-- name: GetAgentSourceAutomationProvenance :one
+SELECT * FROM agent_source_automation WHERE autopilot_id = $1;

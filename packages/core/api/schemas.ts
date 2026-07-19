@@ -1180,6 +1180,12 @@ const AutopilotListItemSchema = z.object({
   can_write: z.boolean().optional(),
   // Narrower per-caller access-management capability (detail endpoint only).
   can_manage_access: z.boolean().optional(),
+  source_managed: z.boolean().optional(),
+  source_id: z.string().optional(),
+  source_role_id: z.string().optional(),
+  source_automation_id: z.string().optional(),
+  source_import_hash: z.string().optional(),
+  source_snapshot_id: z.string().optional(),
 }).loose();
 
 export const ListAutopilotsResponseSchema = z.object({

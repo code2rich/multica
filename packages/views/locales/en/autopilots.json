@@ -259,6 +259,7 @@
     "runbook_hint": "Read by the agent on every run",
     "description_placeholder": "# Goal\nWhat should the agent accomplish?\n\n# Context\nWho is this for? Any constraints?\n\n# Steps\n1. …\n2. …",
     "auto_run_hint": "Once saved, runs automatically until paused.",
+    "source_managed_warning": "This automation is managed by an AgentWaker source. Changes to its name, runbook, assignee, output mode, or schedule will be overwritten by the next source apply. Activation, project, subscribers, and access remain workspace-managed.",
     "cancel": "Cancel",
     "create": "Create autopilot",
     "save": "Save",

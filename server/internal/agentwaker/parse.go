@@ -11,6 +11,76 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+var promptFileRE = regexp.MustCompile(`^[a-z0-9][a-z0-9.-]*\.prompt\.md$`)
+
+// ParseDailyAutomationManifest parses and structurally validates one role's
+// daily automation contract. Filesystem, cron, timezone, and title-template
+// validation remain at the daemon boundary where their dependencies live.
+func ParseDailyAutomationManifest(data []byte, expectedRoleID string) (DailyAutomationManifest, error) {
+	var manifest DailyAutomationManifest
+	dec := yaml.NewDecoder(bytes.NewReader(data))
+	dec.KnownFields(true)
+	if err := dec.Decode(&manifest); err != nil {
+		return DailyAutomationManifest{}, fmt.Errorf("agentwaker: parse daily-tasks/manifest.yaml: %w", err)
+	}
+	if manifest.SchemaVersion != AutomationSchemaVersion {
+		return DailyAutomationManifest{}, fmt.Errorf("agentwaker: automation schema_version %q not supported (want %q)", manifest.SchemaVersion, AutomationSchemaVersion)
+	}
+	if manifest.RoleID != expectedRoleID {
+		return DailyAutomationManifest{}, fmt.Errorf("agentwaker: automation role_id %q does not match profile id %q", manifest.RoleID, expectedRoleID)
+	}
+	if len(manifest.Automations) == 0 || len(manifest.Automations) > 32 {
+		return DailyAutomationManifest{}, fmt.Errorf("agentwaker: role %q must declare 1..32 automations", expectedRoleID)
+	}
+	ids := make(map[string]bool, len(manifest.Automations))
+	prompts := make(map[string]bool, len(manifest.Automations))
+	for i, automation := range manifest.Automations {
+		prefix := fmt.Sprintf("agentwaker: automation[%d]", i)
+		if !isValidID(automation.ID) {
+			return DailyAutomationManifest{}, fmt.Errorf("%s id %q is not a valid kebab-case id", prefix, automation.ID)
+		}
+		if ids[automation.ID] {
+			return DailyAutomationManifest{}, fmt.Errorf("%s duplicate id %q", prefix, automation.ID)
+		}
+		ids[automation.ID] = true
+		if strings.TrimSpace(automation.Title) == "" {
+			return DailyAutomationManifest{}, fmt.Errorf("%s title is empty", prefix)
+		}
+		if !promptFileRE.MatchString(automation.PromptFile) {
+			return DailyAutomationManifest{}, fmt.Errorf("%s prompt_file %q is invalid", prefix, automation.PromptFile)
+		}
+		if prompts[automation.PromptFile] {
+			return DailyAutomationManifest{}, fmt.Errorf("%s duplicate prompt_file %q", prefix, automation.PromptFile)
+		}
+		prompts[automation.PromptFile] = true
+		switch automation.Execution.Mode {
+		case "run_only":
+			if automation.Execution.IssueTitleTemplate != "" {
+				return DailyAutomationManifest{}, fmt.Errorf("%s issue_title_template is forbidden for run_only", prefix)
+			}
+		case "create_issue":
+			if strings.TrimSpace(automation.Execution.IssueTitleTemplate) == "" {
+				return DailyAutomationManifest{}, fmt.Errorf("%s issue_title_template is required for create_issue", prefix)
+			}
+		default:
+			return DailyAutomationManifest{}, fmt.Errorf("%s execution mode %q is invalid", prefix, automation.Execution.Mode)
+		}
+		if automation.Schedule.Kind != "cron" || strings.TrimSpace(automation.Schedule.Expression) == "" || strings.TrimSpace(automation.Schedule.Timezone) == "" {
+			return DailyAutomationManifest{}, fmt.Errorf("%s schedule must declare cron expression and timezone", prefix)
+		}
+		if automation.Schedule.InitialEnabled {
+			return DailyAutomationManifest{}, fmt.Errorf("%s initial_enabled must be false", prefix)
+		}
+		if automation.Sync.Content != "source-authoritative" || automation.Sync.Schedule != "source-authoritative" || automation.Sync.Activation != "workspace-preserve" || automation.Sync.Missing != "archive" {
+			return DailyAutomationManifest{}, fmt.Errorf("%s sync policy is invalid", prefix)
+		}
+		if automation.Governance.ExternalWrites != "read-only" && automation.Governance.ExternalWrites != "approval-required" {
+			return DailyAutomationManifest{}, fmt.Errorf("%s governance.external_writes %q is invalid", prefix, automation.Governance.ExternalWrites)
+		}
+	}
+	return manifest, nil
+}
+
 // ParseRegistry parses capabilities/registry.yaml.
 func ParseRegistry(data []byte) (Registry, error) {
 	var r Registry
@@ -319,13 +389,13 @@ func MergeEnvDeclarations(example, real EnvFile) EnvFile {
 // --- validation helpers (mirror the JSON schemas in agentwaker/schemas/) ---
 
 var (
-	idPatternRE       = regexp.MustCompile(`^[a-z0-9]+(?:-[a-z0-9]+)*$`)
-	semverRE          = regexp.MustCompile(`^[0-9]+\.[0-9]+\.[0-9]+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$`)
-	versionReqRE      = regexp.MustCompile(`^(?:[~^]|>=?)?[0-9]+\.[0-9]+\.[0-9]+(?:-[0-9A-Za-z.-]+)?$`)
+	idPatternRE  = regexp.MustCompile(`^[a-z0-9]+(?:-[a-z0-9]+)*$`)
+	semverRE     = regexp.MustCompile(`^[0-9]+\.[0-9]+\.[0-9]+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$`)
+	versionReqRE = regexp.MustCompile(`^(?:[~^]|>=?)?[0-9]+\.[0-9]+\.[0-9]+(?:-[0-9A-Za-z.-]+)?$`)
 )
 
-func isValidID(s string) bool        { return idPatternRE.MatchString(s) }
-func isValidVersion(s string) bool   { return semverRE.MatchString(s) }
+func isValidID(s string) bool                 { return idPatternRE.MatchString(s) }
+func isValidVersion(s string) bool            { return semverRE.MatchString(s) }
 func isValidVersionRequirement(s string) bool { return versionReqRE.MatchString(s) }
 func isValidPermissionMode(s string) bool {
 	switch s {

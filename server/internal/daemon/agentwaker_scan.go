@@ -10,14 +10,17 @@ import (
 	"regexp"
 	"sort"
 	"strings"
+	"time"
+	"unicode/utf8"
 
 	"github.com/multica-ai/multica/server/internal/agentwaker"
+	"github.com/multica-ai/multica/server/internal/service"
 	"github.com/multica-ai/multica/server/internal/skill"
 )
 
 // ScannerVersion is the daemon-side scanner version reported with each result.
 // Bump when the scan algorithm or hashing changes so the server can reconcile.
-const ScannerVersion = "3"
+const ScannerVersion = "4"
 
 // agentWakerEnvDigestKey returns the HMAC key the scanner uses to compute env
 // value digests. When no key is configured, digests are omitted and previews
@@ -66,10 +69,12 @@ var binaryExtensions = map[string]bool{
 }
 
 const (
-	maxSkillFileSize    = 1 << 20 // 1 MiB per file (matches directory-import.ts)
-	maxSkillTotalSize   = 8 << 20 // 8 MiB aggregate
-	maxSkillFileCount   = 128
-	maxInstructionsSize = 1 << 20 // 1 MiB for agent-detail.en.md
+	maxSkillFileSize         = 1 << 20 // 1 MiB per file (matches directory-import.ts)
+	maxSkillTotalSize        = 8 << 20 // 8 MiB aggregate
+	maxSkillFileCount        = 128
+	maxInstructionsSize      = 1 << 20 // 1 MiB for agent-detail.en.md
+	maxAutomationPromptSize  = 1 << 20
+	maxAutomationPromptTotal = 4 << 20
 )
 
 // ScanDirectory performs a read-only scan of one configured AgentWaker root.
@@ -164,6 +169,7 @@ func ScanDirectory(ctx context.Context, absPath string, envDigestKey []byte) (*S
 			"profile":    agentwaker.ProfileSchemaVersion,
 			"capability": agentwaker.CapabilitySchemaVersion,
 			"registry":   agentwaker.RegistrySchemaVersion,
+			"automation": agentwaker.AutomationSchemaVersion,
 		},
 		Manifest:       manifest,
 		Diagnostics:    diags,
@@ -349,6 +355,12 @@ func scanRole(root, roleDir string, envDigestKey []byte) (map[string]any, []agen
 	mcpSummary, mcpDiags := scanRoleMCP(roleDir, envDecls)
 	diags = append(diags, mcpDiags...)
 
+	// Daily automations are source-managed Autopilot definitions. Invalid or
+	// missing contracts are error diagnostics so the daemon reports a failed
+	// scan and the server preserves the last-known-good applied snapshot.
+	automations, automationDiags := scanRoleAutomations(root, roleDir, profile.ID)
+	diags = append(diags, automationDiags...)
+
 	entry := map[string]any{
 		"id":                      profile.ID,
 		"role_dir":                roleName,
@@ -368,8 +380,99 @@ func scanRole(root, roleDir string, envDigestKey []byte) (map[string]any, []agen
 		"capability_bindings":     bindingsSummary,
 		"env":                     envDecls,
 		"mcp":                     mcpSummary,
+		"automations":             automations,
 	}
 	return entry, diags, nil
+}
+
+func scanRoleAutomations(root, roleDir, roleID string) ([]map[string]any, []agentwakerScanDiagnostic) {
+	dailyDir := filepath.Join(roleDir, "daily-tasks")
+	manifestPath := filepath.Join(dailyDir, "manifest.yaml")
+	diagnosticPath := rel(root, manifestPath)
+	manifestInfo, err := os.Lstat(manifestPath)
+	if err != nil {
+		return nil, []agentwakerScanDiagnostic{{Severity: "error", Code: "automation_manifest_missing", Message: "daily-tasks/manifest.yaml not found", Path: diagnosticPath}}
+	}
+	if manifestInfo.Mode()&os.ModeSymlink != 0 || !manifestInfo.Mode().IsRegular() {
+		return nil, []agentwakerScanDiagnostic{{Severity: "error", Code: "automation_manifest_invalid", Message: "automation manifest must be a regular non-symlink file", Path: diagnosticPath}}
+	}
+	manifestBytes, err := os.ReadFile(manifestPath)
+	if err != nil {
+		return nil, []agentwakerScanDiagnostic{{Severity: "error", Code: "automation_manifest_invalid", Message: err.Error(), Path: diagnosticPath}}
+	}
+	manifest, err := agentwaker.ParseDailyAutomationManifest(manifestBytes, roleID)
+	if err != nil {
+		return nil, []agentwakerScanDiagnostic{{Severity: "error", Code: "automation_manifest_invalid", Message: err.Error(), Path: diagnosticPath}}
+	}
+
+	entries := make([]map[string]any, 0, len(manifest.Automations))
+	diagnostics := []agentwakerScanDiagnostic{}
+	totalPromptBytes := 0
+	for _, automation := range manifest.Automations {
+		promptPath := filepath.Join(dailyDir, filepath.FromSlash(automation.PromptFile))
+		promptDiagnosticPath := rel(root, promptPath)
+		cleanPrompt := filepath.Clean(promptPath)
+		cleanDaily := filepath.Clean(dailyDir) + string(os.PathSeparator)
+		if filepath.IsAbs(automation.PromptFile) || !strings.HasPrefix(cleanPrompt, cleanDaily) {
+			diagnostics = append(diagnostics, agentwakerScanDiagnostic{Severity: "error", Code: "automation_prompt_rejected", Message: "prompt path escapes daily-tasks", Path: promptDiagnosticPath})
+			continue
+		}
+		info, err := os.Lstat(promptPath)
+		if err != nil {
+			diagnostics = append(diagnostics, agentwakerScanDiagnostic{Severity: "error", Code: "automation_prompt_missing", Message: "prompt file not found", Path: promptDiagnosticPath})
+			continue
+		}
+		if info.Mode()&os.ModeSymlink != 0 || !info.Mode().IsRegular() || info.Size() > maxAutomationPromptSize {
+			diagnostics = append(diagnostics, agentwakerScanDiagnostic{Severity: "error", Code: "automation_prompt_rejected", Message: "prompt must be a regular non-symlink file of at most 1 MiB", Path: promptDiagnosticPath})
+			continue
+		}
+		promptBytes, err := os.ReadFile(promptPath)
+		if err != nil || !utf8.Valid(promptBytes) {
+			diagnostics = append(diagnostics, agentwakerScanDiagnostic{Severity: "error", Code: "automation_prompt_rejected", Message: "prompt must be readable UTF-8 text", Path: promptDiagnosticPath})
+			continue
+		}
+		totalPromptBytes += len(promptBytes)
+		if totalPromptBytes > maxAutomationPromptTotal {
+			diagnostics = append(diagnostics, agentwakerScanDiagnostic{Severity: "error", Code: "automation_prompt_rejected", Message: "aggregate prompt content exceeds 4 MiB", Path: rel(root, dailyDir)})
+			continue
+		}
+		if _, err := service.NextOccurrenceAfterUTC(automation.Schedule.Expression, automation.Schedule.Timezone, time.Unix(0, 0)); err != nil {
+			code := "automation_cron_invalid"
+			if service.ValidateTimezone(automation.Schedule.Timezone) != nil {
+				code = "automation_timezone_invalid"
+			}
+			diagnostics = append(diagnostics, agentwakerScanDiagnostic{Severity: "error", Code: code, Message: err.Error(), Path: diagnosticPath})
+			continue
+		}
+		if automation.Execution.Mode == "create_issue" {
+			if err := service.ValidateIssueTitleTemplate(automation.Execution.IssueTitleTemplate); err != nil {
+				diagnostics = append(diagnostics, agentwakerScanDiagnostic{Severity: "error", Code: "automation_manifest_invalid", Message: err.Error(), Path: diagnosticPath})
+				continue
+			}
+		}
+		entry := map[string]any{
+			"id": automation.ID, "title": automation.Title,
+			"prompt_path":    filepath.ToSlash(filepath.Join("daily-tasks", automation.PromptFile)),
+			"prompt_content": string(promptBytes),
+			"execution_mode": automation.Execution.Mode,
+			"schedule": map[string]any{
+				"kind": "schedule", "cron_expression": automation.Schedule.Expression,
+				"timezone": automation.Schedule.Timezone, "initial_enabled": automation.Schedule.InitialEnabled,
+				"label": automation.Schedule.Label,
+			},
+			"sync": map[string]any{
+				"content": automation.Sync.Content, "schedule": automation.Sync.Schedule,
+				"activation": automation.Sync.Activation, "missing": automation.Sync.Missing,
+			},
+			"governance":   map[string]any{"external_writes": automation.Governance.ExternalWrites},
+			"content_hash": agentwaker.DailyAutomationContentHash(automation, string(promptBytes)),
+		}
+		if automation.Execution.IssueTitleTemplate != "" {
+			entry["issue_title_template"] = automation.Execution.IssueTitleTemplate
+		}
+		entries = append(entries, entry)
+	}
+	return entries, diagnostics
 }
 
 var markdownLinkRE = regexp.MustCompile(`\[[^\]]*\]\(([^)\s]+)(?:\s+[^)]*)?\)`)

@@ -247,6 +247,62 @@ func TestScanDirectory_DirectoryHashStable(t *testing.T) {
 	}
 }
 
+func TestScanDirectory_PromptOnlyChangeUpdatesHashes(t *testing.T) {
+	root := fixtureRoot(t)
+	before, err := ScanDirectory(t.Context(), root, nil)
+	if err != nil {
+		t.Fatalf("scan before: %v", err)
+	}
+	path := filepath.Join(root, "plain-operator", "daily-tasks", "daily-review.prompt.md")
+	if err := os.WriteFile(path, []byte("changed prompt bytes\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	after, err := ScanDirectory(t.Context(), root, nil)
+	if err != nil {
+		t.Fatalf("scan after: %v", err)
+	}
+	if before.DirectoryHash == after.DirectoryHash {
+		t.Fatal("prompt-only edit must change directory hash")
+	}
+	getHash := func(result *ScanResult) string {
+		for _, role := range result.Manifest["roles"].([]map[string]any) {
+			if role["id"] == "plain-operator" {
+				return role["automations"].([]map[string]any)[0]["content_hash"].(string)
+			}
+		}
+		return ""
+	}
+	if getHash(before) == getHash(after) {
+		t.Fatal("prompt-only edit must change automation hash")
+	}
+}
+
+func TestScanDirectory_CurrentAgentWakerAutomations(t *testing.T) {
+	root := os.Getenv("AGENTWAKER_TEST_ROOT")
+	if root == "" {
+		t.Skip("AGENTWAKER_TEST_ROOT not set")
+	}
+	result, err := ScanDirectory(t.Context(), root, nil)
+	if err != nil {
+		t.Fatalf("scan current AgentWaker: %v", err)
+	}
+	roles := result.Manifest["roles"].([]map[string]any)
+	if len(roles) != 14 {
+		t.Fatalf("want 14 current roles, got %d", len(roles))
+	}
+	for _, role := range roles {
+		automations, ok := role["automations"].([]map[string]any)
+		if !ok || len(automations) == 0 {
+			t.Fatalf("role %v missing normalized automations", role["id"])
+		}
+	}
+	for _, diagnostic := range result.Diagnostics {
+		if diagnostic.Severity == "error" {
+			t.Fatalf("current AgentWaker rejected: %+v", diagnostic)
+		}
+	}
+}
+
 // TestScanDirectory_RejectsBadPath confirms the scanner reuses the daemon path
 // validators: a forbidden root (home dir) is rejected.
 func TestScanDirectory_RejectsBadPath(t *testing.T) {

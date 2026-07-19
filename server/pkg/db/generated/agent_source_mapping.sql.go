@@ -11,6 +11,49 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const createAgentSourceAutomation = `-- name: CreateAgentSourceAutomation :one
+INSERT INTO agent_source_automation (
+    source_id, source_role_id, source_automation_id, autopilot_id, trigger_id,
+    last_import_hash, last_snapshot_id
+) VALUES ($1, $2, $3, $4, $5, $6, $7)
+RETURNING source_id, source_role_id, source_automation_id, autopilot_id, trigger_id, last_import_hash, last_snapshot_id, created_at, updated_at
+`
+
+type CreateAgentSourceAutomationParams struct {
+	SourceID           pgtype.UUID `json:"source_id"`
+	SourceRoleID       string      `json:"source_role_id"`
+	SourceAutomationID string      `json:"source_automation_id"`
+	AutopilotID        pgtype.UUID `json:"autopilot_id"`
+	TriggerID          pgtype.UUID `json:"trigger_id"`
+	LastImportHash     string      `json:"last_import_hash"`
+	LastSnapshotID     pgtype.UUID `json:"last_snapshot_id"`
+}
+
+func (q *Queries) CreateAgentSourceAutomation(ctx context.Context, arg CreateAgentSourceAutomationParams) (AgentSourceAutomation, error) {
+	row := q.db.QueryRow(ctx, createAgentSourceAutomation,
+		arg.SourceID,
+		arg.SourceRoleID,
+		arg.SourceAutomationID,
+		arg.AutopilotID,
+		arg.TriggerID,
+		arg.LastImportHash,
+		arg.LastSnapshotID,
+	)
+	var i AgentSourceAutomation
+	err := row.Scan(
+		&i.SourceID,
+		&i.SourceRoleID,
+		&i.SourceAutomationID,
+		&i.AutopilotID,
+		&i.TriggerID,
+		&i.LastImportHash,
+		&i.LastSnapshotID,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
 const deleteAgentSourceBindingsForAgent = `-- name: DeleteAgentSourceBindingsForAgent :exec
 DELETE FROM agent_skill
 WHERE agent_id = $1
@@ -31,6 +74,55 @@ type DeleteAgentSourceBindingsForAgentParams struct {
 func (q *Queries) DeleteAgentSourceBindingsForAgent(ctx context.Context, arg DeleteAgentSourceBindingsForAgentParams) error {
 	_, err := q.db.Exec(ctx, deleteAgentSourceBindingsForAgent, arg.AgentID, arg.SourceID)
 	return err
+}
+
+const getAgentSourceAutomation = `-- name: GetAgentSourceAutomation :one
+SELECT source_id, source_role_id, source_automation_id, autopilot_id, trigger_id, last_import_hash, last_snapshot_id, created_at, updated_at FROM agent_source_automation
+WHERE source_id = $1 AND source_role_id = $2 AND source_automation_id = $3
+`
+
+type GetAgentSourceAutomationParams struct {
+	SourceID           pgtype.UUID `json:"source_id"`
+	SourceRoleID       string      `json:"source_role_id"`
+	SourceAutomationID string      `json:"source_automation_id"`
+}
+
+func (q *Queries) GetAgentSourceAutomation(ctx context.Context, arg GetAgentSourceAutomationParams) (AgentSourceAutomation, error) {
+	row := q.db.QueryRow(ctx, getAgentSourceAutomation, arg.SourceID, arg.SourceRoleID, arg.SourceAutomationID)
+	var i AgentSourceAutomation
+	err := row.Scan(
+		&i.SourceID,
+		&i.SourceRoleID,
+		&i.SourceAutomationID,
+		&i.AutopilotID,
+		&i.TriggerID,
+		&i.LastImportHash,
+		&i.LastSnapshotID,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const getAgentSourceAutomationProvenance = `-- name: GetAgentSourceAutomationProvenance :one
+SELECT source_id, source_role_id, source_automation_id, autopilot_id, trigger_id, last_import_hash, last_snapshot_id, created_at, updated_at FROM agent_source_automation WHERE autopilot_id = $1
+`
+
+func (q *Queries) GetAgentSourceAutomationProvenance(ctx context.Context, autopilotID pgtype.UUID) (AgentSourceAutomation, error) {
+	row := q.db.QueryRow(ctx, getAgentSourceAutomationProvenance, autopilotID)
+	var i AgentSourceAutomation
+	err := row.Scan(
+		&i.SourceID,
+		&i.SourceRoleID,
+		&i.SourceAutomationID,
+		&i.AutopilotID,
+		&i.TriggerID,
+		&i.LastImportHash,
+		&i.LastSnapshotID,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
 }
 
 const getAgentSourceRole = `-- name: GetAgentSourceRole :one
@@ -82,6 +174,40 @@ func (q *Queries) GetAgentSourceSkill(ctx context.Context, arg GetAgentSourceSki
 		&i.UpdatedAt,
 	)
 	return i, err
+}
+
+const listAgentSourceAutomationsBySource = `-- name: ListAgentSourceAutomationsBySource :many
+SELECT source_id, source_role_id, source_automation_id, autopilot_id, trigger_id, last_import_hash, last_snapshot_id, created_at, updated_at FROM agent_source_automation WHERE source_id = $1
+`
+
+func (q *Queries) ListAgentSourceAutomationsBySource(ctx context.Context, sourceID pgtype.UUID) ([]AgentSourceAutomation, error) {
+	rows, err := q.db.Query(ctx, listAgentSourceAutomationsBySource, sourceID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []AgentSourceAutomation{}
+	for rows.Next() {
+		var i AgentSourceAutomation
+		if err := rows.Scan(
+			&i.SourceID,
+			&i.SourceRoleID,
+			&i.SourceAutomationID,
+			&i.AutopilotID,
+			&i.TriggerID,
+			&i.LastImportHash,
+			&i.LastSnapshotID,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const listAgentSourceRolesBySource = `-- name: ListAgentSourceRolesBySource :many
@@ -185,6 +311,55 @@ func (q *Queries) ListAgentSourceSkillsBySourceRole(ctx context.Context, arg Lis
 		return nil, err
 	}
 	return items, nil
+}
+
+const lockAgentSourceForApply = `-- name: LockAgentSourceForApply :exec
+SELECT pg_advisory_xact_lock(hashtextextended($1::text, 0))
+`
+
+func (q *Queries) LockAgentSourceForApply(ctx context.Context, dollar_1 string) error {
+	_, err := q.db.Exec(ctx, lockAgentSourceForApply, dollar_1)
+	return err
+}
+
+const updateAgentSourceAutomationImport = `-- name: UpdateAgentSourceAutomationImport :one
+UPDATE agent_source_automation SET
+    last_import_hash = $4,
+    last_snapshot_id = $5,
+    updated_at = now()
+WHERE source_id = $1 AND source_role_id = $2 AND source_automation_id = $3
+RETURNING source_id, source_role_id, source_automation_id, autopilot_id, trigger_id, last_import_hash, last_snapshot_id, created_at, updated_at
+`
+
+type UpdateAgentSourceAutomationImportParams struct {
+	SourceID           pgtype.UUID `json:"source_id"`
+	SourceRoleID       string      `json:"source_role_id"`
+	SourceAutomationID string      `json:"source_automation_id"`
+	LastImportHash     string      `json:"last_import_hash"`
+	LastSnapshotID     pgtype.UUID `json:"last_snapshot_id"`
+}
+
+func (q *Queries) UpdateAgentSourceAutomationImport(ctx context.Context, arg UpdateAgentSourceAutomationImportParams) (AgentSourceAutomation, error) {
+	row := q.db.QueryRow(ctx, updateAgentSourceAutomationImport,
+		arg.SourceID,
+		arg.SourceRoleID,
+		arg.SourceAutomationID,
+		arg.LastImportHash,
+		arg.LastSnapshotID,
+	)
+	var i AgentSourceAutomation
+	err := row.Scan(
+		&i.SourceID,
+		&i.SourceRoleID,
+		&i.SourceAutomationID,
+		&i.AutopilotID,
+		&i.TriggerID,
+		&i.LastImportHash,
+		&i.LastSnapshotID,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
 }
 
 const updateAgentSourceRoleHash = `-- name: UpdateAgentSourceRoleHash :exec

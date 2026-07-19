@@ -1,0 +1,22 @@
+schema_version: "1.0"
+role_id: research-operator
+automations:
+  - id: daily-research
+    title: Daily research
+    prompt_file: daily-research.prompt.md
+    execution:
+      mode: create_issue
+      issue_title_template: "Daily research {{date}}"
+    schedule:
+      kind: cron
+      expression: "30 8 * * *"
+      timezone: Asia/Shanghai
+      initial_enabled: false
+      label: Research review
+    sync:
+      content: source-authoritative
+      schedule: source-authoritative
+      activation: workspace-preserve
+      missing: archive
+    governance:
+      external_writes: approval-required

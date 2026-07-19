@@ -89,6 +89,31 @@ func CapabilityContentHash(manifest CapabilityManifest, entrypointContent string
 	return "sha256:" + hex.EncodeToString(h.Sum(nil))
 }
 
+// DailyAutomationContentHash covers every source-authoritative field plus the
+// exact prompt bytes. Workspace-owned activation is represented by the fixed
+// source contract, not by the mutable database value.
+func DailyAutomationContentHash(automation DailyAutomation, promptContent string) string {
+	h := sha256.New()
+	hashPart(h, "agentwaker-daily-automation-v1")
+	hashPart(h, automation.ID)
+	hashPart(h, automation.Title)
+	hashPart(h, automation.PromptFile)
+	hashPart(h, promptContent)
+	hashPart(h, automation.Execution.Mode)
+	hashPart(h, automation.Execution.IssueTitleTemplate)
+	hashPart(h, automation.Schedule.Kind)
+	hashPart(h, automation.Schedule.Expression)
+	hashPart(h, automation.Schedule.Timezone)
+	hashPart(h, fmt.Sprintf("%t", automation.Schedule.InitialEnabled))
+	hashPart(h, automation.Schedule.Label)
+	hashPart(h, automation.Sync.Content)
+	hashPart(h, automation.Sync.Schedule)
+	hashPart(h, automation.Sync.Activation)
+	hashPart(h, automation.Sync.Missing)
+	hashPart(h, automation.Governance.ExternalWrites)
+	return "sha256:" + hex.EncodeToString(h.Sum(nil))
+}
+
 // DirectoryHash is the canonical digest of a sanitized scan manifest. The
 // manifest passed in MUST already be value-free (env redacted); this function
 // is pure and unkeyed so the daemon and server independently compute the same

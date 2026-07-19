@@ -72,7 +72,16 @@ type AutopilotResponse struct {
 	// owners/admins, NOT by granted collaborators (who can write but cannot
 	// re-grant). Nil when built without a caller in context. See MUL-3807.
 	CanManageAccess *bool `json:"can_manage_access,omitempty"`
+
+	SourceManaged      bool    `json:"source_managed,omitempty"`
+	SourceID           *string `json:"source_id,omitempty"`
+	SourceRoleID       *string `json:"source_role_id,omitempty"`
+	SourceAutomationID *string `json:"source_automation_id,omitempty"`
+	SourceImportHash   *string `json:"source_import_hash,omitempty"`
+	SourceSnapshotID   *string `json:"source_snapshot_id,omitempty"`
 }
+
+func stringPtr(value string) *string { return &value }
 
 // AutopilotCollaboratorEntry is a member explicitly granted write access to an
 // autopilot, surfaced on the detail response and the collaborator endpoints.
@@ -475,6 +484,16 @@ func (h *Handler) GetAutopilot(w http.ResponseWriter, r *http.Request) {
 	}
 	resp.CanWrite = &canWrite
 	resp.CanManageAccess = &canManageAccess
+	if provenance, err := h.Queries.GetAgentSourceAutomationProvenance(r.Context(), autopilot.ID); err == nil {
+		resp.SourceManaged = true
+		resp.SourceID = stringPtr(uuidToString(provenance.SourceID))
+		resp.SourceRoleID = stringPtr(provenance.SourceRoleID)
+		resp.SourceAutomationID = stringPtr(provenance.SourceAutomationID)
+		resp.SourceImportHash = stringPtr(provenance.LastImportHash)
+		if provenance.LastSnapshotID.Valid {
+			resp.SourceSnapshotID = stringPtr(uuidToString(provenance.LastSnapshotID))
+		}
+	}
 
 	// Include triggers.
 	triggers, err := h.Queries.ListAutopilotTriggers(r.Context(), autopilot.ID)

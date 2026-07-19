@@ -1,0 +1,1 @@
+CREATE UNIQUE INDEX CONCURRENTLY uq_agent_source_automation_trigger ON agent_source_automation (trigger_id);

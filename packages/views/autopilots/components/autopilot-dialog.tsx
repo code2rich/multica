@@ -85,6 +85,7 @@ export interface AutopilotInitial {
   assignee_id: string;
   execution_mode: AutopilotExecutionMode;
   subscriber_user_ids?: string[];
+  source_managed?: boolean;
 }
 
 export type AutopilotDialogProps =
@@ -500,6 +501,13 @@ export function AutopilotDialog(props: AutopilotDialogProps) {
             </Tooltip>
           </div>
         </div>
+
+        {!isCreate && initial.source_managed && (
+          <div className="flex items-start gap-2 border-b bg-amber-500/10 px-5 py-2 text-xs text-foreground">
+            <Zap className="mt-0.5 size-3.5 shrink-0 text-amber-600 dark:text-amber-400" />
+            <span>{t(($) => $.dialog.source_managed_warning)}</span>
+          </div>
+        )}
 
         {createdWebhookTrigger ? (
           <WebhookCreatedPanel

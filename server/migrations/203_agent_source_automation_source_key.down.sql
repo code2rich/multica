@@ -1,0 +1,1 @@
+DROP INDEX CONCURRENTLY IF EXISTS uq_agent_source_automation_source_key;

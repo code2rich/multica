@@ -21,6 +21,7 @@ type AgentSourcePlan struct {
 	Bindings     []AgentSourceChange `json:"bindings"`
 	Env          AgentSourceEnvApply `json:"env"`
 	MCP          []AgentSourceChange `json:"mcp"`
+	Automations  []AgentSourceChange `json:"automations"`
 	// FromHash/ToHash identify the compared states. FromHash is empty when the
 	// source has no prior applied snapshot (first import).
 	FromHash string `json:"from_hash,omitempty"`
@@ -81,6 +82,11 @@ func (h *Handler) BuildPlan(ctx context.Context, sourceID, snapshotID pgtype.UUI
 		if skillKey != "" && capKey != "" {
 			existingBindings[skillKey+":"+capKey] = true
 		}
+	}
+	existingAutomations := map[string]db.AgentSourceAutomation{}
+	automationMappings, _ := h.Queries.ListAgentSourceAutomationsBySource(ctx, sourceID)
+	for _, mapping := range automationMappings {
+		existingAutomations[mapping.SourceRoleID+":"+mapping.SourceAutomationID] = mapping
 	}
 
 	// Capabilities. M4: check version compatibility for updated capabilities
@@ -248,7 +254,58 @@ func (h *Handler) BuildPlan(ctx context.Context, sourceID, snapshotID pgtype.UUI
 					})
 				}
 			}
+
+			if automationsRaw, ok := r["automations"].([]any); ok {
+				for _, automationRaw := range automationsRaw {
+					automation, ok := automationRaw.(map[string]any)
+					if !ok {
+						continue
+					}
+					automationID, _ := automation["id"].(string)
+					title, _ := automation["title"].(string)
+					executionMode, _ := automation["execution_mode"].(string)
+					contentHash, _ := automation["content_hash"].(string)
+					schedule, _ := automation["schedule"].(map[string]any)
+					cronExpression, _ := schedule["cron_expression"].(string)
+					timezone, _ := schedule["timezone"].(string)
+					initialEnabled, _ := schedule["initial_enabled"].(bool)
+					change := AgentSourceChange{Key: automationID, Name: title, RoleID: roleID, ExecutionMode: executionMode, CronExpression: cronExpression, Timezone: timezone}
+					mapping, exists := existingAutomations[roleID+":"+automationID]
+					if !exists {
+						change.Action = "create"
+						change.InitialEnabled = boolPtr(initialEnabled)
+					} else {
+						ap, apErr := h.Queries.GetAutopilot(ctx, mapping.AutopilotID)
+						trigger, triggerErr := h.Queries.GetAutopilotTrigger(ctx, mapping.TriggerID)
+						if apErr != nil || triggerErr != nil || trigger.AutopilotID != ap.ID || trigger.Kind != "schedule" {
+							change.Action = "blocked"
+							change.Reason = "mapped Autopilot or schedule trigger is invalid or missing"
+						} else {
+							prompt, _ := automation["prompt_content"].(string)
+							issueTitle, _ := automation["issue_title_template"].(string)
+							label, _ := schedule["label"].(string)
+							roleMapping, roleErr := h.Queries.GetAgentSourceRole(ctx, db.GetAgentSourceRoleParams{SourceID: sourceID, SourceRoleID: roleID})
+							if roleErr != nil {
+								change.Action = "blocked"
+								change.Reason = "role mapping is missing"
+							} else {
+								change.ChangedFields = automationChangedFields(ap, trigger, title, prompt, roleMapping.AgentID, executionMode, issueTitle, cronExpression, timezone, label)
+								if len(change.ChangedFields) == 0 && mapping.LastImportHash == contentHash {
+									change.Action = "unchanged"
+								} else {
+									change.Action = "update"
+								}
+							}
+						}
+					}
+					plan.Automations = append(plan.Automations, change)
+					delete(existingAutomations, roleID+":"+automationID)
+				}
+			}
 		}
+	}
+	for _, mapping := range existingAutomations {
+		plan.Automations = append(plan.Automations, AgentSourceChange{Key: mapping.SourceAutomationID, RoleID: mapping.SourceRoleID, Action: "archive-candidate", Reason: "automation removed from source; apply archives and disables it"})
 	}
 
 	// FromHash = the last applied snapshot's directory hash.

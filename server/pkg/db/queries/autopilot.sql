@@ -74,6 +74,20 @@ UPDATE autopilot
 SET status = 'archived', updated_at = now()
 WHERE id = $1;
 
+-- name: UpdateSourceManagedAutopilot :one
+-- Source sync owns only portable fields; status, project, and workspace-owned
+-- relationships remain untouched.
+UPDATE autopilot SET
+    title = $2,
+    description = $3,
+    assignee_type = $4,
+    assignee_id = $5,
+    execution_mode = $6,
+    issue_title_template = sqlc.narg('issue_title_template'),
+    updated_at = now()
+WHERE id = $1
+RETURNING *;
+
 -- name: UpdateAutopilotLastRunAt :exec
 UPDATE autopilot SET last_run_at = now(), updated_at = now()
 WHERE id = $1;
@@ -161,6 +175,21 @@ UPDATE autopilot_trigger SET
     updated_at = now()
 WHERE id = $1
 RETURNING *;
+
+-- name: UpdateSourceManagedAutopilotTrigger :one
+-- Source sync preserves enabled and all scheduler-internal history.
+UPDATE autopilot_trigger SET
+    cron_expression = $2,
+    timezone = $3,
+    next_run_at = sqlc.narg('next_run_at'),
+    label = sqlc.narg('label'),
+    updated_at = now()
+WHERE id = $1 AND autopilot_id = $4 AND kind = 'schedule'
+RETURNING *;
+
+-- name: ArchiveSourceManagedAutopilotTrigger :exec
+UPDATE autopilot_trigger SET enabled = FALSE, updated_at = now()
+WHERE id = $1 AND autopilot_id = $2 AND kind = 'schedule';
 
 -- name: DeleteAutopilotTrigger :exec
 DELETE FROM autopilot_trigger WHERE id = $1;

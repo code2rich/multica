@@ -644,6 +644,7 @@ func (h *Handler) persistAgentSourceSnapshot(w http.ResponseWriter, r *http.Requ
 	schemaVersions := map[string]any{
 		"profile":    agentwaker.ProfileSchemaVersion,
 		"capability": agentwaker.CapabilitySchemaVersion,
+		"automation": agentwaker.AutomationSchemaVersion,
 	}
 	schemaJSON, _ := json.Marshal(schemaVersions)
 	diagJSON, _ := json.Marshal(diagnostics)

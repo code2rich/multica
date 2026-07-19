@@ -1,0 +1,1 @@
+CREATE UNIQUE INDEX CONCURRENTLY uq_agent_source_automation_source_key ON agent_source_automation (source_id, source_role_id, source_automation_id);

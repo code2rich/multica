@@ -10,25 +10,67 @@ package agentwaker
 
 // SchemaVersion constants mirror the contract versions published by AgentWaker.
 const (
-	CapabilitySchemaVersion  = "1.0" // CAPABILITY.yaml, registry.yaml
-	RoleCapabilitiesVersion  = "1.0" // */capabilities.yaml
-	ProfileSchemaVersion     = "2.1" // agent-soul/PROFILE.yaml
-	RegistrySchemaVersion    = "1.0" // capabilities/registry.yaml
-	LockSchemaVersion        = "1.0" // multica-side lock representation
+	CapabilitySchemaVersion = "1.0" // CAPABILITY.yaml, registry.yaml
+	RoleCapabilitiesVersion = "1.0" // */capabilities.yaml
+	ProfileSchemaVersion    = "2.1" // agent-soul/PROFILE.yaml
+	RegistrySchemaVersion   = "1.0" // capabilities/registry.yaml
+	LockSchemaVersion       = "1.0" // multica-side lock representation
+	AutomationSchemaVersion = "1.0" // */daily-tasks/manifest.yaml
 )
+
+// DailyAutomationManifest mirrors */daily-tasks/manifest.yaml.
+type DailyAutomationManifest struct {
+	SchemaVersion string            `yaml:"schema_version" json:"schema_version"`
+	RoleID        string            `yaml:"role_id" json:"role_id"`
+	Automations   []DailyAutomation `yaml:"automations" json:"automations"`
+}
+
+type DailyAutomation struct {
+	ID         string                    `yaml:"id" json:"id"`
+	Title      string                    `yaml:"title" json:"title"`
+	PromptFile string                    `yaml:"prompt_file" json:"prompt_file"`
+	Execution  DailyAutomationExecution  `yaml:"execution" json:"execution"`
+	Schedule   DailyAutomationSchedule   `yaml:"schedule" json:"schedule"`
+	Sync       DailyAutomationSync       `yaml:"sync" json:"sync"`
+	Governance DailyAutomationGovernance `yaml:"governance" json:"governance"`
+}
+
+type DailyAutomationExecution struct {
+	Mode               string `yaml:"mode" json:"mode"`
+	IssueTitleTemplate string `yaml:"issue_title_template,omitempty" json:"issue_title_template,omitempty"`
+}
+
+type DailyAutomationSchedule struct {
+	Kind           string `yaml:"kind" json:"kind"`
+	Expression     string `yaml:"expression" json:"expression"`
+	Timezone       string `yaml:"timezone" json:"timezone"`
+	InitialEnabled bool   `yaml:"initial_enabled" json:"initial_enabled"`
+	Label          string `yaml:"label,omitempty" json:"label,omitempty"`
+}
+
+type DailyAutomationSync struct {
+	Content    string `yaml:"content" json:"content"`
+	Schedule   string `yaml:"schedule" json:"schedule"`
+	Activation string `yaml:"activation" json:"activation"`
+	Missing    string `yaml:"missing" json:"missing"`
+}
+
+type DailyAutomationGovernance struct {
+	ExternalWrites string `yaml:"external_writes" json:"external_writes"`
+}
 
 // Registry mirrors capabilities/registry.yaml. It is the directory-level index
 // of available shared capabilities and their current manifest version.
 type Registry struct {
-	SchemaVersion string             `yaml:"schema_version" json:"schema_version"`
+	SchemaVersion string               `yaml:"schema_version" json:"schema_version"`
 	Capabilities  []RegistryCapability `yaml:"capabilities" json:"capabilities"`
 }
 
 // RegistryCapability is one entry in the registry pointing at a capability
 // manifest file relative to the repository root.
 type RegistryCapability struct {
-	ID      string `yaml:"id" json:"id"`
-	Version string `yaml:"version" json:"version"`
+	ID       string `yaml:"id" json:"id"`
+	Version  string `yaml:"version" json:"version"`
 	Manifest string `yaml:"manifest" json:"manifest"` // relative path to CAPABILITY.yaml
 }
 
@@ -36,17 +78,17 @@ type RegistryCapability struct {
 // workspace is (source_id, capability_id); version and content hash are
 // separate, continuously-synchronized fields.
 type CapabilityManifest struct {
-	SchemaVersion string                 `yaml:"schema_version" json:"schema_version"`
-	ID            string                 `yaml:"id" json:"id"`
-	Name          string                 `yaml:"name" json:"name"`
-	Version       string                 `yaml:"version" json:"version"`
-	Description   string                 `yaml:"description" json:"description"`
-	Entrypoint    string                 `yaml:"entrypoint" json:"entrypoint"`
-	Profiles      []CapabilityProfile    `yaml:"profiles" json:"profiles"`
-	Adapters      []CapabilityAdapter    `yaml:"adapters" json:"adapters"`
-	Contracts     CapabilityContracts    `yaml:"contracts" json:"contracts"`
-	Requires      CapabilityRequires     `yaml:"requires,omitempty" json:"requires,omitempty"`
-	Permissions   CapabilityPermissions  `yaml:"permissions" json:"permissions"`
+	SchemaVersion string                `yaml:"schema_version" json:"schema_version"`
+	ID            string                `yaml:"id" json:"id"`
+	Name          string                `yaml:"name" json:"name"`
+	Version       string                `yaml:"version" json:"version"`
+	Description   string                `yaml:"description" json:"description"`
+	Entrypoint    string                `yaml:"entrypoint" json:"entrypoint"`
+	Profiles      []CapabilityProfile   `yaml:"profiles" json:"profiles"`
+	Adapters      []CapabilityAdapter   `yaml:"adapters" json:"adapters"`
+	Contracts     CapabilityContracts   `yaml:"contracts" json:"contracts"`
+	Requires      CapabilityRequires    `yaml:"requires,omitempty" json:"requires,omitempty"`
+	Permissions   CapabilityPermissions `yaml:"permissions" json:"permissions"`
 }
 
 // CapabilityProfile is a named, selectable mode of using a capability.
@@ -80,8 +122,8 @@ type CapabilityRequires struct {
 // are the intersection of this, the role declaration, and current user
 // approval; import rejects attempted expansion rather than silently clamping.
 type CapabilityPermissions struct {
-	DefaultMode           string `yaml:"default_mode" json:"default_mode"` // read-only | local-write | external-write
-	SupportsAccountActions bool  `yaml:"supports_account_actions" json:"supports_account_actions"`
+	DefaultMode            string `yaml:"default_mode" json:"default_mode"` // read-only | local-write | external-write
+	SupportsAccountActions bool   `yaml:"supports_account_actions" json:"supports_account_actions"`
 }
 
 // RoleCapabilities mirrors */capabilities.yaml — the role-side dependency
@@ -94,12 +136,12 @@ type RoleCapabilities struct {
 
 // RoleCapabilityBinding is one role → capability dependency.
 type RoleCapabilityBinding struct {
-	ID                string                       `yaml:"id" json:"id"`
-	Version           string                       `yaml:"version" json:"version"`           // e.g. "^1.0.0"
-	Required          bool                         `yaml:"required" json:"required"`
-	UsedBy            []RoleCapabilityUse          `yaml:"used_by" json:"used_by"`
-	Permissions       RoleCapabilityPermissions    `yaml:"permissions" json:"permissions"`
-	Fallback          RoleCapabilityFallback       `yaml:"fallback" json:"fallback"`
+	ID          string                    `yaml:"id" json:"id"`
+	Version     string                    `yaml:"version" json:"version"` // e.g. "^1.0.0"
+	Required    bool                      `yaml:"required" json:"required"`
+	UsedBy      []RoleCapabilityUse       `yaml:"used_by" json:"used_by"`
+	Permissions RoleCapabilityPermissions `yaml:"permissions" json:"permissions"`
+	Fallback    RoleCapabilityFallback    `yaml:"fallback" json:"fallback"`
 }
 
 // RoleCapabilityUse ties one role-owned skill to one capability profile.
@@ -124,15 +166,15 @@ type RoleCapabilityFallback struct {
 // The full profile is large; only identity, routing metadata, and the skill
 // directory declaration are needed to import a role.
 type ProfileV2 struct {
-	SchemaVersion string         `yaml:"schema_version" json:"schema_version"`
-	ID            string         `yaml:"id" json:"id"`
-	DisplayName   string         `yaml:"display_name" json:"display_name"`
-	RoleType      string         `yaml:"role_type" json:"role_type"`
-	Title         string         `yaml:"title" json:"title"`
-	Version       string         `yaml:"version" json:"version"`
-	Lifecycle     string         `yaml:"lifecycle" json:"lifecycle"`
-	Mission       string         `yaml:"mission" json:"mission"`
-	Skills        ProfileSkills  `yaml:"skills" json:"skills"`
+	SchemaVersion string            `yaml:"schema_version" json:"schema_version"`
+	ID            string            `yaml:"id" json:"id"`
+	DisplayName   string            `yaml:"display_name" json:"display_name"`
+	RoleType      string            `yaml:"role_type" json:"role_type"`
+	Title         string            `yaml:"title" json:"title"`
+	Version       string            `yaml:"version" json:"version"`
+	Lifecycle     string            `yaml:"lifecycle" json:"lifecycle"`
+	Mission       string            `yaml:"mission" json:"mission"`
+	Skills        ProfileSkills     `yaml:"skills" json:"skills"`
 	Generation    ProfileGeneration `yaml:"generation" json:"generation"`
 }
 
@@ -145,10 +187,10 @@ type ProfileGeneration struct {
 
 // ProfileSkills declares where the role's skill package lives.
 type ProfileSkills struct {
-	Directory       string `yaml:"directory" json:"directory"`
-	MetaEntrypoint  string `yaml:"meta_entrypoint" json:"meta_entrypoint"`
-	EnvExample      string `yaml:"env_example" json:"env_example"`
-	Items           []ProfileSkillItem `yaml:"items" json:"items"`
+	Directory      string             `yaml:"directory" json:"directory"`
+	MetaEntrypoint string             `yaml:"meta_entrypoint" json:"meta_entrypoint"`
+	EnvExample     string             `yaml:"env_example" json:"env_example"`
+	Items          []ProfileSkillItem `yaml:"items" json:"items"`
 }
 
 // ProfileSkillItem is one declared role-owned skill.

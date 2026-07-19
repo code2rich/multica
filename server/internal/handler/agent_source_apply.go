@@ -11,8 +11,10 @@ import (
 	"sort"
 	"time"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/multica-ai/multica/server/internal/agentwaker"
+	"github.com/multica-ai/multica/server/internal/service"
 	"github.com/multica-ai/multica/server/internal/util"
 	db "github.com/multica-ai/multica/server/pkg/db/generated"
 )
@@ -27,15 +29,22 @@ type AgentSourceApplySummary struct {
 	Bindings     []AgentSourceChange `json:"bindings"`
 	Env          AgentSourceEnvApply `json:"env"`
 	MCP          []AgentSourceChange `json:"mcp"`
+	Automations  []AgentSourceChange `json:"automations"`
 	Diagnostics  []ScanDiagnostic    `json:"diagnostics"`
 }
 
 // AgentSourceChange records one object's disposition during apply.
 type AgentSourceChange struct {
-	Key    string `json:"key"`            // source identity (capability id / role id / skill id)
-	Name   string `json:"name,omitempty"` // display name for the UI
-	Action string `json:"action"`         // create | update | unchanged | conflict | archive-candidate | blocked
-	Reason string `json:"reason,omitempty"`
+	Key            string   `json:"key"`            // source identity (capability id / role id / skill id)
+	Name           string   `json:"name,omitempty"` // display name for the UI
+	Action         string   `json:"action"`         // create | update | unchanged | conflict | archive-candidate | blocked
+	Reason         string   `json:"reason,omitempty"`
+	RoleID         string   `json:"role_id,omitempty"`
+	ExecutionMode  string   `json:"execution_mode,omitempty"`
+	CronExpression string   `json:"cron_expression,omitempty"`
+	Timezone       string   `json:"timezone,omitempty"`
+	InitialEnabled *bool    `json:"initial_enabled,omitempty"`
+	ChangedFields  []string `json:"changed_fields,omitempty"`
 }
 
 // AgentSourceEnvApply summarizes the env-value synchronization outcome. It
@@ -117,6 +126,9 @@ func (h *Handler) ApplySnapshot(ctx context.Context, input ApplySnapshotInput) (
 		}
 	}()
 	qtx := h.Queries.WithTx(tx)
+	if err := qtx.LockAgentSourceForApply(ctx, uuidToString(input.SourceID)); err != nil {
+		return nil, fmt.Errorf("apply: lock source: %w", err)
+	}
 
 	// Load the source's daemon runtime ID so we can assign it to newly created
 	// agents (the agent.runtime_id column is NOT NULL).
@@ -138,7 +150,13 @@ func (h *Handler) ApplySnapshot(ctx context.Context, input ApplySnapshotInput) (
 		return nil, err
 	}
 
-	// 3. On success: flip snapshot → applied, prior → superseded, stamp source.
+	// 3. Daily automations import into the existing Autopilot scheduler after
+	// role mappings are resolved. Source apply never enables a trigger.
+	if err := applyAutomations(ctx, qtx, input, manifest, &summary); err != nil {
+		return nil, err
+	}
+
+	// 4. On success: flip snapshot → applied, prior → superseded, stamp source.
 	if _, err := qtx.MarkAgentSourceSnapshotApplied(ctx, db.MarkAgentSourceSnapshotAppliedParams{
 		ID: input.SnapshotID, LockYaml: pgtype.Text{String: buildLockYAML(manifest), Valid: true},
 	}); err != nil {
@@ -167,6 +185,225 @@ func (h *Handler) ApplySnapshot(ctx context.Context, input ApplySnapshotInput) (
 		Summary:    summary,
 		SnapshotID: uuidToString(input.SnapshotID),
 	}, nil
+}
+
+func applyAutomations(ctx context.Context, qtx *db.Queries, input ApplySnapshotInput, manifest map[string]any, summary *AgentSourceApplySummary) error {
+	seen := map[string]bool{}
+	rolesRaw, _ := manifest["roles"].([]any)
+	for _, roleRaw := range rolesRaw {
+		role, ok := roleRaw.(map[string]any)
+		if !ok {
+			continue
+		}
+		roleID, _ := role["id"].(string)
+		roleMapping, err := qtx.GetAgentSourceRole(ctx, db.GetAgentSourceRoleParams{SourceID: input.SourceID, SourceRoleID: roleID})
+		if err != nil {
+			if errors.Is(err, pgx.ErrNoRows) {
+				return fmt.Errorf("apply automation: role mapping %s missing", roleID)
+			}
+			return fmt.Errorf("apply automation: load role mapping %s: %w", roleID, err)
+		}
+		automationsRaw, _ := role["automations"].([]any)
+		for _, automationRaw := range automationsRaw {
+			automation, ok := automationRaw.(map[string]any)
+			if !ok {
+				continue
+			}
+			automationID, _ := automation["id"].(string)
+			key := roleID + ":" + automationID
+			seen[key] = true
+			if err := applyAutomation(ctx, qtx, input, roleID, roleMapping.AgentID, automation, summary); err != nil {
+				return err
+			}
+		}
+	}
+
+	existing, err := qtx.ListAgentSourceAutomationsBySource(ctx, input.SourceID)
+	if err != nil {
+		return fmt.Errorf("apply automation: list mappings: %w", err)
+	}
+	for _, mapping := range existing {
+		if seen[mapping.SourceRoleID+":"+mapping.SourceAutomationID] {
+			continue
+		}
+		if err := qtx.ArchiveAutopilot(ctx, mapping.AutopilotID); err != nil {
+			return fmt.Errorf("archive removed automation %s:%s: %w", mapping.SourceRoleID, mapping.SourceAutomationID, err)
+		}
+		if err := qtx.ArchiveSourceManagedAutopilotTrigger(ctx, db.ArchiveSourceManagedAutopilotTriggerParams{ID: mapping.TriggerID, AutopilotID: mapping.AutopilotID}); err != nil {
+			return fmt.Errorf("disable removed automation %s:%s: %w", mapping.SourceRoleID, mapping.SourceAutomationID, err)
+		}
+		summary.Automations = append(summary.Automations, AgentSourceChange{
+			Key: mapping.SourceAutomationID, RoleID: mapping.SourceRoleID,
+			Action: "archive-candidate", Reason: "automation removed from source; archived and disabled",
+		})
+	}
+	return nil
+}
+
+func applyAutomation(ctx context.Context, qtx *db.Queries, input ApplySnapshotInput, roleID string, agentID pgtype.UUID, automation map[string]any, summary *AgentSourceApplySummary) error {
+	automationID, _ := automation["id"].(string)
+	title, _ := automation["title"].(string)
+	prompt, _ := automation["prompt_content"].(string)
+	executionMode, _ := automation["execution_mode"].(string)
+	issueTitle, _ := automation["issue_title_template"].(string)
+	contentHash, _ := automation["content_hash"].(string)
+	schedule, _ := automation["schedule"].(map[string]any)
+	cronExpression, _ := schedule["cron_expression"].(string)
+	timezone, _ := schedule["timezone"].(string)
+	label, _ := schedule["label"].(string)
+	initialEnabled, _ := schedule["initial_enabled"].(bool)
+	change := AgentSourceChange{
+		Key: automationID, Name: title, RoleID: roleID, ExecutionMode: executionMode,
+		CronExpression: cronExpression, Timezone: timezone,
+	}
+	mapping, err := qtx.GetAgentSourceAutomation(ctx, db.GetAgentSourceAutomationParams{
+		SourceID: input.SourceID, SourceRoleID: roleID, SourceAutomationID: automationID,
+	})
+	if errors.Is(err, pgx.ErrNoRows) {
+		change.InitialEnabled = boolPtr(initialEnabled)
+		nextRun, err := service.ComputeNextRun(cronExpression, timezone)
+		if err != nil {
+			return fmt.Errorf("create automation %s:%s next run: %w", roleID, automationID, err)
+		}
+		autopilot, err := qtx.CreateAutopilot(ctx, db.CreateAutopilotParams{
+			WorkspaceID: input.WorkspaceID, Title: title,
+			Description:  pgtype.Text{String: prompt, Valid: true},
+			AssigneeType: "agent", AssigneeID: agentID, Status: "active",
+			ExecutionMode: executionMode, IssueTitleTemplate: nullableText(issueTitle),
+			ProjectID: pgtype.UUID{}, CreatedByType: "member", CreatedByID: input.OwnerID,
+		})
+		if err != nil {
+			return fmt.Errorf("create automation %s:%s autopilot: %w", roleID, automationID, err)
+		}
+		trigger, err := qtx.CreateAutopilotTrigger(ctx, db.CreateAutopilotTriggerParams{
+			AutopilotID: autopilot.ID, Kind: "schedule", Enabled: initialEnabled,
+			CronExpression: pgtype.Text{String: cronExpression, Valid: true},
+			Timezone:       pgtype.Text{String: timezone, Valid: true},
+			NextRunAt:      pgtype.Timestamptz{Time: nextRun, Valid: true}, Label: nullableText(label),
+			PublishedByType: pgtype.Text{String: "member", Valid: true}, PublishedByID: input.OwnerID,
+		})
+		if err != nil {
+			return fmt.Errorf("create automation %s:%s trigger: %w", roleID, automationID, err)
+		}
+		if err := service.RecordAutopilotRuleVersion(ctx, qtx, autopilot, "member", input.OwnerID); err != nil {
+			return fmt.Errorf("create automation %s:%s version: %w", roleID, automationID, err)
+		}
+		if _, err := qtx.CreateAgentSourceAutomation(ctx, db.CreateAgentSourceAutomationParams{
+			SourceID: input.SourceID, SourceRoleID: roleID, SourceAutomationID: automationID,
+			AutopilotID: autopilot.ID, TriggerID: trigger.ID, LastImportHash: contentHash, LastSnapshotID: input.SnapshotID,
+		}); err != nil {
+			return fmt.Errorf("create automation %s:%s mapping: %w", roleID, automationID, err)
+		}
+		change.Action = "create"
+		summary.Automations = append(summary.Automations, change)
+		return nil
+	}
+	if err != nil {
+		return fmt.Errorf("load automation %s:%s mapping: %w", roleID, automationID, err)
+	}
+	autopilot, err := qtx.GetAutopilot(ctx, mapping.AutopilotID)
+	if err != nil {
+		return fmt.Errorf("mapped automation %s:%s autopilot missing: %w", roleID, automationID, err)
+	}
+	trigger, err := qtx.GetAutopilotTrigger(ctx, mapping.TriggerID)
+	if err != nil || trigger.AutopilotID != autopilot.ID || trigger.Kind != "schedule" {
+		return fmt.Errorf("mapped automation %s:%s schedule trigger invalid or missing", roleID, automationID)
+	}
+	changed := automationChangedFields(autopilot, trigger, title, prompt, agentID, executionMode, issueTitle, cronExpression, timezone, label)
+	change.ChangedFields = changed
+	if len(changed) == 0 && mapping.LastImportHash == contentHash {
+		change.Action = "unchanged"
+	} else {
+		substantive := containsAny(changed, "prompt", "assignee", "execution_mode", "issue_title_template", "cron_expression", "timezone")
+		nextRun := trigger.NextRunAt
+		if containsAny(changed, "cron_expression", "timezone") {
+			next, err := service.ComputeNextRun(cronExpression, timezone)
+			if err != nil {
+				return fmt.Errorf("update automation %s:%s next run: %w", roleID, automationID, err)
+			}
+			nextRun = pgtype.Timestamptz{Time: next, Valid: true}
+		}
+		updated, err := qtx.UpdateSourceManagedAutopilot(ctx, db.UpdateSourceManagedAutopilotParams{
+			ID: autopilot.ID, Title: title, Description: pgtype.Text{String: prompt, Valid: true},
+			AssigneeType: "agent", AssigneeID: agentID, ExecutionMode: executionMode,
+			IssueTitleTemplate: nullableText(issueTitle),
+		})
+		if err != nil {
+			return fmt.Errorf("update automation %s:%s autopilot: %w", roleID, automationID, err)
+		}
+		if _, err := qtx.UpdateSourceManagedAutopilotTrigger(ctx, db.UpdateSourceManagedAutopilotTriggerParams{
+			ID: trigger.ID, AutopilotID: autopilot.ID,
+			CronExpression: pgtype.Text{String: cronExpression, Valid: true},
+			Timezone:       pgtype.Text{String: timezone, Valid: true}, NextRunAt: nextRun, Label: nullableText(label),
+		}); err != nil {
+			return fmt.Errorf("update automation %s:%s trigger: %w", roleID, automationID, err)
+		}
+		if substantive {
+			if err := service.RecordAutopilotRuleVersion(ctx, qtx, updated, "member", input.OwnerID); err != nil {
+				return fmt.Errorf("publish automation %s:%s version: %w", roleID, automationID, err)
+			}
+			if err := qtx.SetAutopilotTriggerPublisher(ctx, db.SetAutopilotTriggerPublisherParams{ID: trigger.ID, PublishedByType: pgtype.Text{String: "member", Valid: true}, PublishedByID: input.OwnerID}); err != nil {
+				return fmt.Errorf("publish automation %s:%s trigger owner: %w", roleID, automationID, err)
+			}
+		}
+		change.Action = "update"
+	}
+	if _, err := qtx.UpdateAgentSourceAutomationImport(ctx, db.UpdateAgentSourceAutomationImportParams{
+		SourceID: input.SourceID, SourceRoleID: roleID, SourceAutomationID: automationID,
+		LastImportHash: contentHash, LastSnapshotID: input.SnapshotID,
+	}); err != nil {
+		return fmt.Errorf("update automation %s:%s mapping: %w", roleID, automationID, err)
+	}
+	summary.Automations = append(summary.Automations, change)
+	return nil
+}
+
+func automationChangedFields(ap db.Autopilot, trigger db.AutopilotTrigger, title, prompt string, agentID pgtype.UUID, executionMode, issueTitle, cronExpression, timezone, label string) []string {
+	changed := []string{}
+	if ap.Title != title {
+		changed = append(changed, "title")
+	}
+	if !ap.Description.Valid || ap.Description.String != prompt {
+		changed = append(changed, "prompt")
+	}
+	if ap.AssigneeType != "agent" || ap.AssigneeID != agentID {
+		changed = append(changed, "assignee")
+	}
+	if ap.ExecutionMode != executionMode {
+		changed = append(changed, "execution_mode")
+	}
+	if textValue(ap.IssueTitleTemplate) != issueTitle {
+		changed = append(changed, "issue_title_template")
+	}
+	if textValue(trigger.CronExpression) != cronExpression {
+		changed = append(changed, "cron_expression")
+	}
+	if textValue(trigger.Timezone) != timezone {
+		changed = append(changed, "timezone")
+	}
+	if textValue(trigger.Label) != label {
+		changed = append(changed, "label")
+	}
+	return changed
+}
+
+func nullableText(value string) pgtype.Text { return pgtype.Text{String: value, Valid: value != ""} }
+func textValue(value pgtype.Text) string {
+	if value.Valid {
+		return value.String
+	}
+	return ""
+}
+func boolPtr(value bool) *bool { return &value }
+func containsAny(values []string, candidates ...string) bool {
+	for _, value := range values {
+		for _, candidate := range candidates {
+			if value == candidate {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 // applyCapabilities resolves or creates each shared capability identity and
@@ -828,6 +1065,25 @@ func buildLockYAML(manifest map[string]any) string {
 		version, _ := c["version"].(string)
 		hash, _ := c["content_hash"].(string)
 		b = append(b, fmt.Sprintf("capabilities:\n  %s:\n    resolved: %s\n    digest: %s\n", id, version, hash)...)
+	}
+	rolesRaw, _ := manifest["roles"].([]any)
+	b = append(b, "automations:\n"...)
+	for _, roleRaw := range rolesRaw {
+		role, ok := roleRaw.(map[string]any)
+		if !ok {
+			continue
+		}
+		roleID, _ := role["id"].(string)
+		automations, _ := role["automations"].([]any)
+		for _, automationRaw := range automations {
+			automation, ok := automationRaw.(map[string]any)
+			if !ok {
+				continue
+			}
+			id, _ := automation["id"].(string)
+			hash, _ := automation["content_hash"].(string)
+			b = append(b, fmt.Sprintf("  %s/%s:\n    digest: %s\n", roleID, id, hash)...)
+		}
 	}
 	return string(b)
 }

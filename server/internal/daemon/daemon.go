@@ -2500,6 +2500,15 @@ func (d *Daemon) handleAgentWakerScan(ctx context.Context, rt Runtime, pending P
 		})
 		return
 	}
+	for _, diagnostic := range result.Diagnostics {
+		if diagnostic.Severity == "error" {
+			d.reportAgentWakerScanResult(ctx, rt, pending.ID, map[string]any{
+				"status": "failed", "error": "agentwaker automation contract validation failed",
+				"source_id": pending.SourceID, "diagnostics": result.Diagnostics,
+			})
+			return
+		}
+	}
 	payload := map[string]any{
 		"status":          "completed",
 		"directory_hash":  result.DirectoryHash,

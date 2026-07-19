@@ -92,6 +92,21 @@ func (q *Queries) ArchiveAutopilot(ctx context.Context, id pgtype.UUID) error {
 	return err
 }
 
+const archiveSourceManagedAutopilotTrigger = `-- name: ArchiveSourceManagedAutopilotTrigger :exec
+UPDATE autopilot_trigger SET enabled = FALSE, updated_at = now()
+WHERE id = $1 AND autopilot_id = $2 AND kind = 'schedule'
+`
+
+type ArchiveSourceManagedAutopilotTriggerParams struct {
+	ID          pgtype.UUID `json:"id"`
+	AutopilotID pgtype.UUID `json:"autopilot_id"`
+}
+
+func (q *Queries) ArchiveSourceManagedAutopilotTrigger(ctx context.Context, arg ArchiveSourceManagedAutopilotTriggerParams) error {
+	_, err := q.db.Exec(ctx, archiveSourceManagedAutopilotTrigger, arg.ID, arg.AutopilotID)
+	return err
+}
+
 const createAutopilot = `-- name: CreateAutopilot :one
 INSERT INTO autopilot (
     workspace_id, title, description, assignee_type, assignee_id,
@@ -1930,6 +1945,115 @@ func (q *Queries) UpdateAutopilotTrigger(ctx context.Context, arg UpdateAutopilo
 		arg.NextRunAt,
 		arg.Label,
 		arg.EventFilters,
+	)
+	var i AutopilotTrigger
+	err := row.Scan(
+		&i.ID,
+		&i.AutopilotID,
+		&i.Kind,
+		&i.Enabled,
+		&i.CronExpression,
+		&i.Timezone,
+		&i.NextRunAt,
+		&i.WebhookToken,
+		&i.Label,
+		&i.LastFiredAt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.Provider,
+		&i.SigningSecret,
+		&i.EventFilters,
+		&i.PublishedByType,
+		&i.PublishedByID,
+	)
+	return i, err
+}
+
+const updateSourceManagedAutopilot = `-- name: UpdateSourceManagedAutopilot :one
+UPDATE autopilot SET
+    title = $2,
+    description = $3,
+    assignee_type = $4,
+    assignee_id = $5,
+    execution_mode = $6,
+    issue_title_template = $7,
+    updated_at = now()
+WHERE id = $1
+RETURNING id, workspace_id, title, description, assignee_id, status, execution_mode, issue_title_template, created_by_type, created_by_id, last_run_at, created_at, updated_at, assignee_type, project_id
+`
+
+type UpdateSourceManagedAutopilotParams struct {
+	ID                 pgtype.UUID `json:"id"`
+	Title              string      `json:"title"`
+	Description        pgtype.Text `json:"description"`
+	AssigneeType       string      `json:"assignee_type"`
+	AssigneeID         pgtype.UUID `json:"assignee_id"`
+	ExecutionMode      string      `json:"execution_mode"`
+	IssueTitleTemplate pgtype.Text `json:"issue_title_template"`
+}
+
+// Source sync owns only portable fields; status, project, and workspace-owned
+// relationships remain untouched.
+func (q *Queries) UpdateSourceManagedAutopilot(ctx context.Context, arg UpdateSourceManagedAutopilotParams) (Autopilot, error) {
+	row := q.db.QueryRow(ctx, updateSourceManagedAutopilot,
+		arg.ID,
+		arg.Title,
+		arg.Description,
+		arg.AssigneeType,
+		arg.AssigneeID,
+		arg.ExecutionMode,
+		arg.IssueTitleTemplate,
+	)
+	var i Autopilot
+	err := row.Scan(
+		&i.ID,
+		&i.WorkspaceID,
+		&i.Title,
+		&i.Description,
+		&i.AssigneeID,
+		&i.Status,
+		&i.ExecutionMode,
+		&i.IssueTitleTemplate,
+		&i.CreatedByType,
+		&i.CreatedByID,
+		&i.LastRunAt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.AssigneeType,
+		&i.ProjectID,
+	)
+	return i, err
+}
+
+const updateSourceManagedAutopilotTrigger = `-- name: UpdateSourceManagedAutopilotTrigger :one
+UPDATE autopilot_trigger SET
+    cron_expression = $2,
+    timezone = $3,
+    next_run_at = $5,
+    label = $6,
+    updated_at = now()
+WHERE id = $1 AND autopilot_id = $4 AND kind = 'schedule'
+RETURNING id, autopilot_id, kind, enabled, cron_expression, timezone, next_run_at, webhook_token, label, last_fired_at, created_at, updated_at, provider, signing_secret, event_filters, published_by_type, published_by_id
+`
+
+type UpdateSourceManagedAutopilotTriggerParams struct {
+	ID             pgtype.UUID        `json:"id"`
+	CronExpression pgtype.Text        `json:"cron_expression"`
+	Timezone       pgtype.Text        `json:"timezone"`
+	AutopilotID    pgtype.UUID        `json:"autopilot_id"`
+	NextRunAt      pgtype.Timestamptz `json:"next_run_at"`
+	Label          pgtype.Text        `json:"label"`
+}
+
+// Source sync preserves enabled and all scheduler-internal history.
+func (q *Queries) UpdateSourceManagedAutopilotTrigger(ctx context.Context, arg UpdateSourceManagedAutopilotTriggerParams) (AutopilotTrigger, error) {
+	row := q.db.QueryRow(ctx, updateSourceManagedAutopilotTrigger,
+		arg.ID,
+		arg.CronExpression,
+		arg.Timezone,
+		arg.AutopilotID,
+		arg.NextRunAt,
+		arg.Label,
 	)
 	var i AutopilotTrigger
 	err := row.Scan(

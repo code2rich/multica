@@ -59,6 +59,14 @@ export interface Autopilot {
   // owners/admins, NOT by granted collaborators. Detail-endpoint-only; absent
   // on older servers (fall back to can_write).
   can_manage_access?: boolean;
+  // Detail-only AgentWaker provenance. Source-owned fields may be edited in
+  // the workspace, but the next source apply restores the source definition.
+  source_managed?: boolean;
+  source_id?: string;
+  source_role_id?: string;
+  source_automation_id?: string;
+  source_import_hash?: string;
+  source_snapshot_id?: string;
 }
 
 export interface WebhookEventFilter {
