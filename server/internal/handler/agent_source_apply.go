@@ -1022,9 +1022,16 @@ func roleImportHash(role map[string]any) string {
 func mcpConfigOf(role map[string]any, _ pgtype.UUID) []byte {
 	mcp, _ := role["mcp"].(map[string]any)
 	if mcp == nil {
-		return []byte("{}")
+		return []byte(`{"mcpServers":{}}`)
 	}
-	b, _ := json.Marshal(map[string]any{"mcpServers": mcp["mcpServers"]})
+	servers, ok := mcp["mcpServers"]
+	if !ok || servers == nil {
+		servers = map[string]any{}
+	}
+	b, err := json.Marshal(map[string]any{"mcpServers": servers})
+	if err != nil {
+		return []byte(`{"mcpServers":{}}`)
+	}
 	return b
 }
 

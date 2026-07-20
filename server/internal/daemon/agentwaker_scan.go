@@ -774,6 +774,10 @@ func scanRoleMCP(roleDir string, envDecls []map[string]any) (map[string]any, []a
 	}
 	summary["has_servers"] = true
 	summary["server_count"] = serverCount
+	// Keep the validated source definition for the authenticated apply path.
+	// Ordinary CLI scan output strips the manifest entirely, while apply needs
+	// the actual definitions rather than only the non-secret preview counts.
+	summary["mcpServers"] = raw
 	if len(unresolved) > 0 {
 		sort.Strings(unresolved)
 		uniq := uniqueStrings(unresolved)

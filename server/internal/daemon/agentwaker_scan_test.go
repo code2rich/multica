@@ -220,6 +220,14 @@ func TestScanDirectory_DiscoversAllContracts(t *testing.T) {
 			t.Fatalf("research-operator mcp server_count wrong: %+v", mcp)
 		}
 	}
+	servers, ok := mcp["mcpServers"].(map[string]any)
+	if !ok {
+		t.Fatalf("research-operator MCP definitions missing: %+v", mcp)
+	}
+	platformAPI, ok := servers["platform-api"].(map[string]any)
+	if !ok || platformAPI["command"] != "npx" {
+		t.Fatalf("research-operator MCP definition not preserved: %+v", servers)
+	}
 	// The MCP ${PLATFORM_API_KEY}/${PLATFORM_API_BASE} refs are declared, so no
 	// unresolved_env should be present.
 	if mcp["unresolved_env"] != nil {

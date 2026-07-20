@@ -60,6 +60,40 @@ func TestSourceManagedAgentCreateParamsPopulateRequiredJSONFields(t *testing.T) 
 	}
 }
 
+func TestMcpConfigOfPreservesScannedServerDefinitions(t *testing.T) {
+	got := mcpConfigOf(map[string]any{
+		"mcp": map[string]any{
+			"has_servers":  true,
+			"server_count": 1,
+			"mcpServers": map[string]any{
+				"excalidraw": map[string]any{
+					"type": "streamable-http",
+					"url":  "https://mcp.excalidraw.com/mcp",
+				},
+			},
+		},
+	}, pgtype.UUID{})
+
+	if string(got) != `{"mcpServers":{"excalidraw":{"type":"streamable-http","url":"https://mcp.excalidraw.com/mcp"}}}` {
+		t.Fatalf("MCP server definition not preserved: %s", got)
+	}
+}
+
+func TestMcpConfigOfNeverWritesNullServers(t *testing.T) {
+	for name, role := range map[string]map[string]any{
+		"missing mcp": nil,
+		"summary only": {
+			"mcp": map[string]any{"has_servers": false, "server_count": 0},
+		},
+	} {
+		t.Run(name, func(t *testing.T) {
+			if got := string(mcpConfigOf(role, pgtype.UUID{})); got != `{"mcpServers":{}}` {
+				t.Fatalf("mcpConfigOf() = %s, want empty server object", got)
+			}
+		})
+	}
+}
+
 func TestDescriptionFallsBackToMissionAndTruncatesUnicodeSafely(t *testing.T) {
 	if got := descriptionOf(map[string]any{"mission": "English fallback"}); got != "English fallback" {
 		t.Fatalf("mission fallback mismatch: %q", got)
