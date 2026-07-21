@@ -355,9 +355,10 @@ func scanRole(root, roleDir string, envDigestKey []byte) (map[string]any, []agen
 	mcpSummary, mcpDiags := scanRoleMCP(roleDir, envDecls)
 	diags = append(diags, mcpDiags...)
 
-	// Daily automations are source-managed Autopilot definitions. Invalid or
-	// missing contracts are error diagnostics so the daemon reports a failed
-	// scan and the server preserves the last-known-good applied snapshot.
+	// Daily automations are optional source-managed Autopilot definitions. A
+	// role without daily-tasks/manifest.yaml simply declares no automations;
+	// when a previously imported manifest disappears, apply archives its
+	// source-managed Autopilots. Present but invalid contracts remain errors.
 	automations, automationDiags := scanRoleAutomations(root, roleDir, profile.ID)
 	diags = append(diags, automationDiags...)
 
@@ -391,7 +392,10 @@ func scanRoleAutomations(root, roleDir, roleID string) ([]map[string]any, []agen
 	diagnosticPath := rel(root, manifestPath)
 	manifestInfo, err := os.Lstat(manifestPath)
 	if err != nil {
-		return nil, []agentwakerScanDiagnostic{{Severity: "error", Code: "automation_manifest_missing", Message: "daily-tasks/manifest.yaml not found", Path: diagnosticPath}}
+		if os.IsNotExist(err) {
+			return []map[string]any{}, nil
+		}
+		return nil, []agentwakerScanDiagnostic{{Severity: "error", Code: "automation_manifest_invalid", Message: err.Error(), Path: diagnosticPath}}
 	}
 	if manifestInfo.Mode()&os.ModeSymlink != 0 || !manifestInfo.Mode().IsRegular() {
 		return nil, []agentwakerScanDiagnostic{{Severity: "error", Code: "automation_manifest_invalid", Message: "automation manifest must be a regular non-symlink file", Path: diagnosticPath}}

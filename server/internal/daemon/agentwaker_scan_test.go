@@ -285,6 +285,38 @@ func TestScanDirectory_PromptOnlyChangeUpdatesHashes(t *testing.T) {
 	}
 }
 
+func TestScanDirectory_AllowsRoleWithoutDailyAutomationManifest(t *testing.T) {
+	root := fixtureRoot(t)
+	manifestPath := filepath.Join(root, "plain-operator", "daily-tasks", "manifest.yaml")
+	if err := os.Remove(manifestPath); err != nil {
+		t.Fatalf("remove optional automation manifest: %v", err)
+	}
+
+	result, err := ScanDirectory(t.Context(), root, nil)
+	if err != nil {
+		t.Fatalf("scan role without automation manifest: %v", err)
+	}
+	for _, diagnostic := range result.Diagnostics {
+		if diagnostic.Code == "automation_manifest_missing" {
+			t.Fatalf("missing optional automation manifest reported as diagnostic: %+v", diagnostic)
+		}
+	}
+	for _, role := range result.Manifest["roles"].([]map[string]any) {
+		if role["id"] != "plain-operator" {
+			continue
+		}
+		automations, ok := role["automations"].([]map[string]any)
+		if !ok {
+			t.Fatalf("automations has unexpected type %T", role["automations"])
+		}
+		if len(automations) != 0 {
+			t.Fatalf("want no automations, got %v", automations)
+		}
+		return
+	}
+	t.Fatal("plain-operator role not found")
+}
+
 func TestScanDirectory_CurrentAgentWakerAutomations(t *testing.T) {
 	root := os.Getenv("AGENTWAKER_TEST_ROOT")
 	if root == "" {
@@ -300,9 +332,10 @@ func TestScanDirectory_CurrentAgentWakerAutomations(t *testing.T) {
 	}
 	for _, role := range roles {
 		automations, ok := role["automations"].([]map[string]any)
-		if !ok || len(automations) == 0 {
-			t.Fatalf("role %v missing normalized automations", role["id"])
+		if !ok {
+			t.Fatalf("role %v has invalid normalized automations type %T", role["id"], role["automations"])
 		}
+		_ = automations
 	}
 	for _, diagnostic := range result.Diagnostics {
 		if diagnostic.Severity == "error" {
