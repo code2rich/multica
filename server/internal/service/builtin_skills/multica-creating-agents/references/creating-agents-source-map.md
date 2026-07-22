@@ -123,3 +123,12 @@ only.
 | `CreateAgentParams` | 739–756 | typed params: `RuntimeConfig []byte`, `Instructions string`, `CustomEnv []byte`, `CustomArgs []byte`, `Model pgtype.Text`, `ThinkingLevel pgtype.Text` |
 | `UpdateAgent` SET | 2552–2566 | COALESCE updates of `runtime_config, instructions, custom_env, custom_args, model, thinking_level` — note `custom_env` is COALESCE-guarded but the handler rejects it before this query runs |
 | `UpdateAgentCustomEnv` (called by the `UpdateAgentEnv` handler) | 2652 | `SET custom_env = $2` — the only write path for env values |
+
+## Daemon consumption
+
+- `server/internal/daemon/local_directory.go` treats non-blank
+  `custom_env.AGENT_WORK_DIR` as the agent's authoritative execution directory,
+  ahead of project `local_directory` and prior-session workdir selection.
+- `server/internal/daemon/daemon.go` validates and locks that external path,
+  passes it to `execenv.Prepare` as `LocalWorkDir`, and drops a prior session
+  when its cwd cannot be reused.

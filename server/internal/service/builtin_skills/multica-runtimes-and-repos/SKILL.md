@@ -30,7 +30,8 @@ The chain is:
 3. server wakes the runtime over daemon websocket when possible;
 4. daemon polls/claims the task;
 5. server returns task context, repos, project resources, prior session/workdir hints, and task token;
-6. daemon prepares a workdir and launches the provider CLI;
+6. daemon resolves the workdir (`AGENT_WORK_DIR` first when configured, then
+   project/session/default paths), prepares it, and launches the provider CLI;
 7. `multica repo checkout` talks to the local daemon, not directly to GitHub.
 
 ## CLI
@@ -48,6 +49,12 @@ multica repo checkout <url> --ref <branch-or-sha>
 `runtime update` and `runtime delete` are writes. Starting a runtime update is limited to its owner or a workspace owner/admin; the original initiator may keep polling that specific in-flight request if their admin role changes. `runtime delete` removes a runtime registration; if active agents are still bound, it refuses unless the user explicitly passes `--cascade`, which archives those agents and cancels their queued/running tasks before deleting the runtime. `repo checkout` creates a dedicated branch in the task working directory. Most runtimes use a linked worktree; Linux Codex uses task-local Git metadata so its `workspace-write` sandbox can stage and commit without making the shared `.repos` cache writable.
 
 `repo checkout` requires `MULTICA_DAEMON_PORT`; it is intended to run inside a daemon task. If absent, you are not in the normal agent checkout path. When a project `github_repo` resource has `resource_ref.ref`, `repo checkout <url>` uses that ref by default for the current task; an explicit `repo checkout <url> --ref <branch-or-sha>` overrides it.
+
+An agent custom env value named `AGENT_WORK_DIR` overrides Multica's prior
+session workdir and any project `local_directory` for that agent's tasks. It
+must be a safe, existing, readable, writable absolute directory. Because the
+cwd changed, a prior provider session tied to a different cwd is dropped rather
+than resumed incorrectly.
 
 ## Debugging an agent that did not run
 

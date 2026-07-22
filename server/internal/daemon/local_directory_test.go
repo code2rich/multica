@@ -138,6 +138,115 @@ func TestFindLocalDirectoryAssignment(t *testing.T) {
 	})
 }
 
+func TestEffectiveWorkDirAssignmentForTask(t *testing.T) {
+	const daemonID = "d-mine"
+	agentDir := t.TempDir()
+	projectDir := t.TempDir()
+	projectRef, err := json.Marshal(localDirectoryRef{LocalPath: projectDir, DaemonID: daemonID})
+	if err != nil {
+		t.Fatalf("marshal project ref: %v", err)
+	}
+	projectResources := []ProjectResourceData{
+		{ID: "r1", ResourceType: localDirectoryResourceType, ResourceRef: projectRef},
+	}
+
+	t.Run("agent env wins over project and session workdirs", func(t *testing.T) {
+		task := Task{
+			PriorWorkDir:     t.TempDir(),
+			ProjectResources: projectResources,
+			Agent: &AgentData{CustomEnv: map[string]string{
+				agentWorkDirEnv: "  " + agentDir + "  ",
+			}},
+		}
+		got, err := effectiveWorkDirAssignmentForTask(task, daemonID)
+		if err != nil {
+			t.Fatalf("resolve: %v", err)
+		}
+		if got == nil || got.AbsPath != filepath.Clean(agentDir) {
+			t.Fatalf("assignment = %+v, want agent path %q", got, agentDir)
+		}
+		if got.Source != agentWorkDirEnv {
+			t.Fatalf("source = %q, want %q", got.Source, agentWorkDirEnv)
+		}
+		if shouldReusePriorWorkdir(task, got, t.TempDir()) {
+			t.Fatal("prior session workdir should not override AGENT_WORK_DIR")
+		}
+	})
+
+	t.Run("agent env works without a project assignment", func(t *testing.T) {
+		got, err := effectiveWorkDirAssignmentForTask(Task{
+			Agent: &AgentData{CustomEnv: map[string]string{agentWorkDirEnv: agentDir}},
+		}, "")
+		if err != nil {
+			t.Fatalf("resolve: %v", err)
+		}
+		if got == nil || got.AbsPath != filepath.Clean(agentDir) {
+			t.Fatalf("assignment = %+v, want agent path %q", got, agentDir)
+		}
+	})
+
+	t.Run("blank agent env falls back to project assignment", func(t *testing.T) {
+		got, err := effectiveWorkDirAssignmentForTask(Task{
+			ProjectResources: projectResources,
+			Agent:            &AgentData{CustomEnv: map[string]string{agentWorkDirEnv: "  "}},
+		}, daemonID)
+		if err != nil {
+			t.Fatalf("resolve: %v", err)
+		}
+		if got == nil || got.AbsPath != filepath.Clean(projectDir) {
+			t.Fatalf("assignment = %+v, want project path %q", got, projectDir)
+		}
+		if got.Source != localDirectoryResourceType {
+			t.Fatalf("source = %q, want %q", got.Source, localDirectoryResourceType)
+		}
+	})
+
+	t.Run("relative agent env fails instead of falling back", func(t *testing.T) {
+		_, err := effectiveWorkDirAssignmentForTask(Task{
+			ProjectResources: projectResources,
+			Agent:            &AgentData{CustomEnv: map[string]string{agentWorkDirEnv: "relative/path"}},
+		}, daemonID)
+		if err == nil || !strings.Contains(err.Error(), agentWorkDirEnv) {
+			t.Fatalf("error = %v, want %s validation failure", err, agentWorkDirEnv)
+		}
+	})
+}
+
+func TestAcquireLocalDirectoryLockUsesAgentWorkDirWithoutProject(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	realDir, err := filepath.EvalSymlinks(dir)
+	if err != nil {
+		t.Fatalf("resolve workdir: %v", err)
+	}
+	d := &Daemon{
+		cfg:            Config{},
+		localPathLocks: NewLocalPathLocker(),
+		logger:         slog.Default(),
+	}
+	task := Task{
+		ID: "agent-workdir-task",
+		Agent: &AgentData{CustomEnv: map[string]string{
+			agentWorkDirEnv: dir,
+		}},
+	}
+
+	release, abort := d.acquireLocalDirectoryLockIfNeeded(context.Background(), task, slog.Default())
+	if abort {
+		t.Fatal("agent workdir lock acquisition aborted")
+	}
+	if release == nil {
+		t.Fatal("agent workdir lock acquisition returned nil release")
+	}
+	if got := d.localPathLocks.Holder(realDir); got != task.ID {
+		t.Fatalf("holder = %q, want %q", got, task.ID)
+	}
+	release()
+	if got := d.localPathLocks.Holder(realDir); got != "" {
+		t.Fatalf("holder after release = %q, want empty", got)
+	}
+}
+
 func TestAcquireLocalDirectoryLockSkipsSquadLeaderTasks(t *testing.T) {
 	t.Parallel()
 

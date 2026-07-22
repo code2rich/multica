@@ -19,6 +19,11 @@ import (
 // constant — keep in sync if the type string is ever renamed.
 const localDirectoryResourceType = "local_directory"
 
+// agentWorkDirEnv is the agent-level working-directory override. When it is
+// present in custom_env, it wins over both a prior session workdir and a
+// project local_directory resource.
+const agentWorkDirEnv = "AGENT_WORK_DIR"
+
 // localDirectoryRef mirrors the server-side ref shape for local_directory
 // project resources. Defined locally so the daemon does not have to import
 // the server handler package.
@@ -38,6 +43,33 @@ type localDirectoryAssignment struct {
 	Ref      localDirectoryRef
 	AbsPath  string // user-provided path, cleaned but not symlink-resolved
 	RealPath string // canonical key for the path mutex
+	Source   string // agentWorkDirEnv or localDirectoryResourceType
+}
+
+// effectiveWorkDirAssignmentForTask resolves the external directory that a
+// task should execute inside. An agent-level AGENT_WORK_DIR is authoritative:
+// it deliberately overrides the session/project path selected by Multica.
+// Blank values are treated as unset so clearing the env restores the normal
+// Multica workdir selection.
+func effectiveWorkDirAssignmentForTask(task Task, daemonID string) (*localDirectoryAssignment, error) {
+	if task.Agent != nil {
+		if raw, ok := task.Agent.CustomEnv[agentWorkDirEnv]; ok && strings.TrimSpace(raw) != "" {
+			absPath, err := normalizeLocalPath(raw)
+			if err != nil {
+				return nil, fmt.Errorf("%s: %w", agentWorkDirEnv, err)
+			}
+			realPath, err := resolveRealPath(absPath)
+			if err != nil {
+				return nil, fmt.Errorf("%s: %w", agentWorkDirEnv, err)
+			}
+			return &localDirectoryAssignment{
+				AbsPath:  absPath,
+				RealPath: realPath,
+				Source:   agentWorkDirEnv,
+			}, nil
+		}
+	}
+	return localDirectoryAssignmentForTask(task, daemonID)
 }
 
 // localDirectoryAssignmentForTask returns the local_directory assignment a task
@@ -107,6 +139,7 @@ func findLocalDirectoryAssignment(resources []ProjectResourceData, daemonID stri
 			Ref:      ref,
 			AbsPath:  absPath,
 			RealPath: realPath,
+			Source:   localDirectoryResourceType,
 		}
 	}
 	return match, nil

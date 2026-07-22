@@ -9,5 +9,6 @@
 - `server/internal/daemon/health.go` resolves the checkout ref: request `ref` wins; otherwise it asks `server/internal/daemon/daemon.go` for the current task's project repo default ref. It forwards the validated isolated-checkout mode into `repocache.WorktreeParams`.
 - `server/internal/daemon/daemon.go` injects `MULTICA_REPO_CHECKOUT_MODE=isolated` only for Linux Codex tasks. `server/internal/daemon/repocache/cache.go` implements that mode as a same-filesystem local clone with task-local Git metadata and the real repository as `origin`; other runtimes keep the linked-worktree path.
 - `server/cmd/server/router.go` registers daemon APIs under `/api/daemon`, including workspace repos and task claim.
-- `server/internal/daemon/daemon.go` claims tasks, prepares workdirs, launches provider CLIs, and reports completion.
+- `server/internal/daemon/local_directory.go` resolves external workdirs: non-blank agent `AGENT_WORK_DIR` wins over project `local_directory`; both paths are normalized, validated, and keyed for the shared path lock.
+- `server/internal/daemon/daemon.go` claims tasks, locks and prepares the resolved workdir, drops incompatible per-cwd session reuse, launches provider CLIs, and reports completion.
 - `server/internal/daemon/execenv/runtime_config.go` injects task/project/repo context into agent workdirs.

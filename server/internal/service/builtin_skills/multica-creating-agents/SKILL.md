@@ -128,6 +128,14 @@ reads it from a file (suggested mode 0600). The third channel,
 `--custom-env <json>`, puts the value on the command line where shell history
 and `ps` can see it — avoid it for real secrets.
 
+`AGENT_WORK_DIR` has execution semantics beyond ordinary env injection. When it
+is set to a non-blank absolute directory, the daemon uses that directory as the
+provider CLI's working directory. It takes precedence over both the prior
+session workdir and a project `local_directory` resource. The daemon validates
+the directory and serializes concurrent tasks that target the same resolved
+path; an invalid or unsafe path fails the task instead of falling back. Remove
+the key (or set it blank) to restore Multica's normal workdir selection.
+
 Read-side facts (these are the wrong assumptions to avoid):
 
 - Agent resources never expose plaintext `custom_env`. `agent

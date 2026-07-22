@@ -338,6 +338,7 @@ func TestCreatingAgentsSkillCoversAgentCreationContracts(t *testing.T) {
 		"multica agent create --name <name> --runtime-id <runtime-id>",
 		"`model` is a first-class persisted column",
 		"custom_env",
+		"`AGENT_WORK_DIR`",
 		"--custom-env-stdin",
 		"--custom-env-file",
 		"multica agent skills add <agent-id> --skill-ids <skill-id> --output json",
@@ -468,6 +469,7 @@ func TestRuntimesAndReposSkillCoversClaimAndCheckoutChain(t *testing.T) {
 		"resource_ref.ref",
 		"github_repo",
 		"local_directory",
+		"`AGENT_WORK_DIR`",
 		"Runtime and repo commands affect active agent execution",
 		"references/runtimes-and-repos-source-map.md",
 	}

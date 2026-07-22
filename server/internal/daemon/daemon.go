@@ -3161,8 +3161,9 @@ func (d *Daemon) handleTask(ctx context.Context, task Task, slot int) {
 		"reuse_workdir", task.PriorWorkDir != "",
 	)
 
-	// If the task targets a project_resource of type local_directory that
-	// is pinned to this daemon, acquire the path mutex before runner.run
+	// If the task targets an external workdir (agent AGENT_WORK_DIR first,
+	// otherwise a local_directory pinned to this daemon), acquire the path
+	// mutex before runner.run
 	// so the server-side state machine is dispatched →
 	// waiting_local_directory → running rather than backwards-transitioning
 	// from running into the wait state. The release is deferred so a panic
@@ -3290,13 +3291,13 @@ func (d *Daemon) handleTask(ctx context.Context, task Task, slot int) {
 	// crash leaves the directory as an orphan (cleaned up by GCOrphanTTL).
 	if result.EnvRoot != "" {
 		if meta, ok := gcMetaForTask(task); ok {
-			// A local_directory project_resource matched this daemon
+			// An external workdir (AGENT_WORK_DIR or local_directory)
 			// means the agent ran in the user's own tree. Stamp the
 			// meta so the GC loop never tries to RemoveAll envRoot's
 			// sibling workdir (which is the user's path) or the envRoot
 			// itself (we want output/ and logs/ to linger for forensic
 			// access).
-			if assignment, _ := localDirectoryAssignmentForTask(task, d.cfg.DaemonID); assignment != nil {
+			if assignment, _ := effectiveWorkDirAssignmentForTask(task, d.cfg.DaemonID); assignment != nil {
 				meta.LocalDirectory = true
 			}
 			if err := execenv.WriteGCMeta(result.EnvRoot, meta, taskLog); err != nil {
@@ -3306,10 +3307,10 @@ func (d *Daemon) handleTask(ctx context.Context, task Task, slot int) {
 	}
 }
 
-// acquireLocalDirectoryLockIfNeeded inspects the task's project resources for
-// a local_directory pinned to this daemon, validates the path, and takes the
-// path mutex. Returns a release callback (nil when no local_directory
-// resource applies) and abort=true when the caller must bail without
+// acquireLocalDirectoryLockIfNeeded resolves the task's effective external
+// workdir (agent AGENT_WORK_DIR first, then a project local_directory),
+// validates it, and takes the path mutex. Returns a release callback (nil when
+// no external workdir applies) and abort=true when the caller must bail without
 // starting the task (the helper has already reported the failure to the
 // server).
 //
@@ -3324,12 +3325,13 @@ func (d *Daemon) handleTask(ctx context.Context, task Task, slot int) {
 //  4. The blocking wait is cancelled (daemon shutdown, server-side cancel)
 //     — fail the task with the ctx error.
 func (d *Daemon) acquireLocalDirectoryLockIfNeeded(ctx context.Context, task Task, taskLog *slog.Logger) (release func(), abort bool) {
-	if len(task.ProjectResources) == 0 || d.cfg.DaemonID == "" {
+	if (task.Agent == nil || strings.TrimSpace(task.Agent.CustomEnv[agentWorkDirEnv]) == "") &&
+		(len(task.ProjectResources) == 0 || d.cfg.DaemonID == "") {
 		return nil, false
 	}
-	assignment, err := localDirectoryAssignmentForTask(task, d.cfg.DaemonID)
+	assignment, err := effectiveWorkDirAssignmentForTask(task, d.cfg.DaemonID)
 	if err != nil {
-		taskLog.Error("local_directory: resolve resource failed", "error", err)
+		taskLog.Error("workdir override: resolve failed", "error", err)
 		if failErr := d.client.FailTask(ctx, task.ID, err.Error(), "", "", "local_directory_error"); failErr != nil {
 			taskLog.Error("fail task after local_directory resolve error", "error", failErr)
 		}
@@ -3338,9 +3340,12 @@ func (d *Daemon) acquireLocalDirectoryLockIfNeeded(ctx context.Context, task Tas
 	if assignment == nil {
 		return nil, false
 	}
-	taskLog = taskLog.With("local_directory", assignment.AbsPath)
+	taskLog = taskLog.With("workdir_source", assignment.Source, "workdir", assignment.AbsPath)
 	if err := validateLocalPath(assignment.AbsPath); err != nil {
-		taskLog.Error("local_directory: path validation failed", "error", err)
+		if assignment.Source == agentWorkDirEnv {
+			err = fmt.Errorf("%s: %w", agentWorkDirEnv, err)
+		}
+		taskLog.Error("workdir override: path validation failed", "error", err)
 		if failErr := d.client.FailTask(ctx, task.ID, err.Error(), "", "", "local_directory_error"); failErr != nil {
 			taskLog.Error("fail task after local_directory validation error", "error", failErr)
 		}
@@ -3373,11 +3378,11 @@ func (d *Daemon) acquireLocalDirectoryLockIfNeeded(ctx context.Context, task Tas
 	}()
 
 	onWait := func(holder string) {
-		reason := fmt.Sprintf("local_directory %s", assignment.AbsPath)
+		reason := fmt.Sprintf("%s %s", assignment.Source, assignment.AbsPath)
 		if holder != "" {
 			reason = fmt.Sprintf("%s (held by task %s)", reason, shortID(holder))
 		}
-		taskLog.Info("local_directory: waiting on path mutex", "holder", shortID(holder))
+		taskLog.Info("workdir override: waiting on path mutex", "holder", shortID(holder))
 		if waitErr := d.client.MarkTaskWaitingLocalDirectory(ctx, task.ID, reason); waitErr != nil {
 			// Non-fatal: even if the server-side flag fails to update,
 			// we still want to block on the lock and proceed when free.
@@ -3413,12 +3418,12 @@ func (d *Daemon) acquireLocalDirectoryLockIfNeeded(ctx context.Context, task Tas
 		if cancelledByPoll != nil {
 			select {
 			case <-cancelledByPoll:
-				taskLog.Info("local_directory: wait aborted by server-side terminal state")
+				taskLog.Info("workdir override: wait aborted by server-side terminal state")
 				return nil, true
 			default:
 			}
 		}
-		taskLog.Error("local_directory: lock acquire failed", "error", err)
+		taskLog.Error("workdir override: lock acquire failed", "error", err)
 		failureReason := "local_directory_error"
 		if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
 			failureReason = "cancelled"
@@ -3428,7 +3433,7 @@ func (d *Daemon) acquireLocalDirectoryLockIfNeeded(ctx context.Context, task Tas
 		}
 		return nil, true
 	}
-	taskLog.Info("local_directory: lock acquired")
+	taskLog.Info("workdir override: lock acquired")
 	return release, false
 }
 
@@ -4012,11 +4017,11 @@ func (d *Daemon) runTask(ctx context.Context, task Task, provider string, slot i
 	if provider == "openclaw" {
 		openclawBin = entry.Path
 	}
-	// Resolve any local_directory assignment again here so runTask can plumb
-	// LocalWorkDir into execenv. handleTask already validated + locked the
-	// path for worker tasks; leader tasks intentionally skip the assignment.
-	localAssignment, _ := localDirectoryAssignmentForTask(task, d.cfg.DaemonID)
-	// Reuse intentionally skipped for local_directory tasks: the prior
+	// Resolve the effective external workdir again here so runTask can plumb
+	// LocalWorkDir into execenv. handleTask already validated + locked it.
+	// AGENT_WORK_DIR wins over the project/session path.
+	localAssignment, _ := effectiveWorkDirAssignmentForTask(task, d.cfg.DaemonID)
+	// Reuse intentionally skipped for external-workdir tasks: the prior
 	// WorkDir is the user's own path (always present) but the reuse path
 	// loses the envRoot association the GC loop needs, and re-running
 	// Prepare against a stable user path is cheap (no clone, no copy).
